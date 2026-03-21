@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>設計師工作台 - AKB 多元化音樂發廊</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="../auth.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
+*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
+.serif{font-family:'Noto Serif TC',serif;}
+.gold{color:#C9A84C;}
+.bg-gold{background:#C9A84C;}
+.bg-gold-grad{background:linear-gradient(135deg,#C9A84C,#E8D5A3);}
+.text-gold{color:#C9A84C;}
+.bg-dark{background:#0F0F0F;}
+.bg-card{background:#1C1C1C;}
+.text-muted{color:#888;}
+.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;}
+.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:10px 24px;}
+.btn-gold:hover{opacity:.85;transform:translateY(-1px);}
+.btn-ghost{background:transparent;color:#888;border:1px solid #333;padding:8px 16px;}
+.btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
+.btn-danger{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.fade{animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:12px;}
+.badge-confirmed{background:rgba(34,197,94,.15);color:#86EFAC;border:1px solid rgba(34,197,94,.3);}
+.badge-pending{background:rgba(234,179,8,.15);color:#FDE047;border:1px solid rgba(234,179,8,.3);}
+.badge-cancelled{background:rgba(239,68,68,.15);color:#FCA5A5;}
+.badge-done{background:rgba(99,102,241,.15);color:#C4B5FD;}
+.nav-tab{padding:10px 20px;cursor:pointer;border-bottom:2px solid transparent;color:#888;}
+.nav-tab.active{border-color:#C9A84C;color:#C9A84C;}
+</style>
+</head>
+<body class="bg-dark text-white min-h-screen">
+<div id="app">
+  <header class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(15,15,15,.95)">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold text-lg">{{designer.avatar}}</div>
+        <div>
+          <div class="font-bold">{{designer.name}}</div>
+          <div class="text-muted text-xs">{{designer.role}} | 設計師工作台</div>
+        </div>
+      </div>
+      <div class="flex gap-1">
+        <button :class="['nav-tab',tab==='schedule'?'active':'']" @click="tab='schedule'">班表</button>
+        <button :class="['nav-tab',tab==='bookings'?'active':'']" @click="tab='bookings'">預約</button>
+        <button :class="['nav-tab',tab==='profile'?'active':'']" @click="tab='profile'">資料</button>
+      </div>
+      <button class="btn btn-ghost text-xs" @click="logout">登出</button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    <!-- 班表 -->
+    <div v-if="tab==='schedule'" class="fade">
+      <h2 class="text-xl font-bold serif mb-5">近7天班表</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="day in weekSchedule" :key="day.date" class="card p-4">
+          <div class="flex justify-between mb-3">
+            <div><div class="font-bold">週{{day.day}}</div><div class="text-muted text-xs">{{day.date}}</div></div>
+            <span class="text-xs px-2 py-1 rounded-full" :class="day.bookings.length>0?'text-gold bg-gold/10':'text-muted'">{{day.bookings.length}} 筆</span>
+          </div>
+          <div v-if="day.bookings.length" class="space-y-2">
+            <div v-for="b in day.bookings" :key="b.id" class="text-xs p-2 rounded bg-gray-800">
+              <div class="font-semibold">{{b.time}} {{b.customerName}}</div>
+              <div class="text-muted">{{b.serviceName}}</div>
+            </div>
+          </div>
+          <div v-else class="text-muted text-xs text-center py-4">無預約</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 預約管理 -->
+    <div v-if="tab==='bookings'" class="fade">
+      <h2 class="text-xl font-bold serif mb-5">我的預約</h2>
+      <div class="space-y-3">
+        <div v-for="b in myBookings" :key="b.id" class="card p-4 flex justify-between items-center">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold">{{b.customerName}}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span>
+            </div>
+            <div class="text-sm text-muted">{{b.serviceName}} · {{b.date}} {{b.time}}</div>
+          </div>
+          <div class="flex gap-2">
+            <button v-if="b.status==='pending'" class="btn btn-gold text-xs px-3 py-1" @click="updateStatus(b.id,'confirmed')">確認</button>
+            <button v-if="b.status==='confirmed'" class="btn btn-ghost text-xs px-3 py-1" @click="updateStatus(b.id,'done')">完成</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 個人資料 -->
+    <div v-if="tab==='profile'" class="fade">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card p-6">
+          <div class="flex items-center gap-5 mb-6">
+            <div class="w-20 h-20 rounded-full bg-gold flex items-center justify-center text-black font-bold text-3xl">{{designer.avatar}}</div>
+            <div>
+              <div class="text-2xl font-bold serif">{{designer.name}}</div>
+              <div class="text-muted">{{designer.role}}</div>
+              <div class="text-yellow-400 text-sm">★ {{designer.rating}}</div>
+            </div>
+          </div>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between border-b border-gray-800 pb-2"><span class="text-muted">等級</span><span class="text-gold font-bold">Lv.{{designer.level}}</span></div>
+            <div class="flex justify-between border-b border-gray-800 pb-2"><span class="text-muted">作品數</span><span>{{designer.works}} 件</span></div>
+            <div class="flex justify-between"><span class="text-muted">狀態</span><span :class="designer.available?'text-green-400':'text-red-400'">{{designer.available?'上班中':'休假中'}}</span></div>
+          </div>
+        </div>
+        <div class="card p-6">
+          <div class="text-sm font-semibold mb-4 text-muted">本月統計</div>
+          <div class="space-y-4">
+            <div class="flex justify-between"><span class="text-muted">本月預約</span><span class="text-2xl font-bold text-gold">{{myBookings.filter(b=>b.date.startsWith('2026-03')).length}}</span></div>
+            <div class="flex justify-between"><span class="text-muted">完成服務</span><span class="text-2xl font-bold text-green-400">{{myBookings.filter(b=>b.status==='done').length}}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue;
+
+// 權限檢查
+if (!Auth.isLoggedIn() || !Auth.hasPermission('designer')) {
+  window.location.href = '../index.html';
+}
+
+const session = Auth.getSession();
+const designerId = session?.designerId || 1;
+
+const DESIGNERS = [
+  { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染'], bio:'10年經驗', avatar:'A', rating:4.9, reviews:142, works:320, available:true },
+  { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮'], bio:'首爾歸國', avatar:'K', rating:4.8, reviews:98, works:215, available:true },
+  { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','SPA'], bio:'輕柔手法', avatar:'B', rating:4.7, reviews:63, works:140, available:true },
+  { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘'], bio:'婚禮達人', avatar:'J', rating:4.9, reviews:117, works:278, available:false },
+  { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮'], bio:'活潑開朗', avatar:'M', rating:4.6, reviews:45, works:98, available:true },
+];
+
+const BOOKINGS = [
+  { id:'b1', customerName:'王小明', designerId:1, serviceName:'挑染', date:'2026-03-25', time:'10:00', price:3200, status:'confirmed', note:'' },
+  { id:'b2', customerName:'林美華', designerId:3, serviceName:'護髮', date:'2026-03-25', time:'14:00', price:1200, status:'confirmed', note:'' },
+  { id:'b3', customerName:'張志豪', designerId:2, serviceName:'燙髮', date:'2026-03-26', time:'11:00', price:2800, status:'pending', note:'' },
+  { id:'b4', customerName:'陳佳琳', designerId:1, serviceName:'染髮', date:'2026-03-28', time:'13:00', price:2200, status:'pending', note:'' },
+  { id:'b5', customerName:'李雅婷', designerId:5, serviceName:'剪髮', date:'2026-03-22', time:'15:30', price:600, status:'confirmed', note:'' },
+];
+
+createApp({
+  setup() {
+    const tab = ref('schedule');
+    const bookings = ref([...BOOKINGS]);
+    const toast = ref({ show:false, msg:'' });
+    const designer = computed(() => DESIGNERS.find(d => d.id === designerId) || DESIGNERS[0]);
+    const myBookings = computed(() => bookings.value.filter(b => b.designerId === designerId).sort((a,b) => a.date.localeCompare(b.date)));
+    
+    const weekSchedule = computed(() => {
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() + i);
+        const dateStr = d.toISOString().slice(0, 10);
+        days.push({
+          date: dateStr,
+          day: ['日','一','二','三','四','五','六'][d.getDay()],
+          bookings: bookings.value.filter(b => b.designerId === designerId && b.date === dateStr && b.status !== 'cancelled')
+        });
+      }
+      return days;
+    });
+
+    const statusText = { confirmed: '已確認', pending: '待確認', cancelled: '已取消', done: '已完成' };
+
+    function updateStatus(id, status) {
+      const b = bookings.value.find(x => x.id === id);
+      if (b) {
+        b.status = status;
+        toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
+        setTimeout(() => toast.value.show = false, 2000);
+      }
+    }
+
+    function logout() {
+      Auth.logout();
+      window.location.href = '../index.html';
+    }
+
+    return { tab, designer, myBookings, weekSchedule, statusText, updateStatus, logout, toast };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

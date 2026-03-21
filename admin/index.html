@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>店家管理後台 - AKB 多元化音樂發廊</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="../auth.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
+*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
+.serif{font-family:'Noto Serif TC',serif;}
+.gold{color:#C9A84C;}
+.bg-gold{background:#C9A84C;}
+.text-gold{color:#C9A84C;}
+.bg-dark{background:#0F0F0F;}
+.bg-card{background:#1C1C1C;}
+.text-muted{color:#888;}
+input,select{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;}
+input:focus{border-color:#C9A84C;}
+.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;}
+.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:10px 24px;}
+.btn-gold:hover{opacity:.85;}
+.btn-ghost{background:transparent;color:#888;border:1px solid #333;padding:8px 16px;}
+.btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
+.btn-danger{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.fade{animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:12px;}
+.badge-confirmed{background:rgba(34,197,94,.15);color:#86EFAC;}
+.badge-pending{background:rgba(234,179,8,.15);color:#FDE047;}
+.badge-cancelled{background:rgba(239,68,68,.15);color:#FCA5A5;}
+.badge-done{background:rgba(99,102,241,.15);color:#C4B5FD;}
+.sidebar-item{padding:10px 16px;border-radius:8px;cursor:pointer;color:#888;display:flex;align-items:center;gap:10px;}
+.sidebar-item:hover{background:#252525;color:#fff;}
+.sidebar-item.active{background:rgba(201,168,76,.12);color:#C9A84C;}
+.stat-card{border-radius:12px;padding:20px;position:relative;overflow:hidden;}
+.stat-gold{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);}
+.stat-green{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);}
+.stat-blue{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);}
+.stat-purple{background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:12px 14px;text-align:left;}
+th{font-size:12px;color:#666;border-bottom:1px solid #2A2A2A;}
+td{border-bottom:1px solid #1E1E1E;font-size:14px;}
+</style>
+</head>
+<body class="bg-dark text-white min-h-screen">
+<div id="app" class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="w-56 border-r border-gray-800 flex-shrink-0 hidden md:flex flex-col" style="background:#141414">
+    <div class="p-5 border-b border-gray-800">
+      <div class="font-bold serif text-lg text-gold">AKB 管理後台</div>
+      <div class="text-muted text-xs mt-1">{{session?.name || '管理員'}}</div>
+    </div>
+    <nav class="p-3 flex-1 space-y-1">
+      <div :class="['sidebar-item',tab==='dashboard'?'active':'']" @click="tab='dashboard'">📊 儀表板</div>
+      <div :class="['sidebar-item',tab==='bookings'?'active':'']" @click="tab='bookings'">📋 預約管理</div>
+      <div :class="['sidebar-item',tab==='designers'?'active':'']" @click="tab='designers'">👥 設計師管理</div>
+      <div :class="['sidebar-item',tab==='customers'?'active':'']" @click="tab='customers'">👤 顧客資料</div>
+      <div :class="['sidebar-item',tab==='services'?'active':'']" @click="tab='services'">⭐ 服務項目</div>
+    </nav>
+    <div class="p-3">
+      <button class="sidebar-item w-full" @click="logout">🚪 登出</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-1 overflow-auto">
+    <!-- Mobile nav -->
+    <div class="md:hidden flex border-b border-gray-800 overflow-x-auto bg-gray-900">
+      <button v-for="t in tabs" :key="t.k" :class="['px-4 py-3 text-sm whitespace-nowrap',tab===t.k?'text-gold border-b-2 border-gold':'text-muted']" @click="tab=t.k">{{t.l}}</button>
+    </div>
+
+    <div class="p-6">
+      <!-- Dashboard -->
+      <div v-if="tab==='dashboard'" class="fade">
+        <h2 class="text-2xl font-bold serif mb-6">今日概覽</h2>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="stat-card stat-gold">
+            <div class="text-muted text-xs mb-2">今日預約</div>
+            <div class="text-3xl font-bold text-gold">{{stats.today}}</div>
+          </div>
+          <div class="stat-card stat-green">
+            <div class="text-muted text-xs mb-2">本月營收</div>
+            <div class="text-3xl font-bold text-green-400">{{(stats.revenue/1000).toFixed(0)}}K</div>
+          </div>
+          <div class="stat-card stat-blue">
+            <div class="text-muted text-xs mb-2">顧客總數</div>
+            <div class="text-3xl font-bold text-blue-400">{{customers.length}}</div>
+          </div>
+          <div class="stat-card stat-purple">
+            <div class="text-muted text-xs mb-2">待確認</div>
+            <div class="text-3xl font-bold text-purple-400">{{stats.pending}}</div>
+          </div>
+        </div>
+        <h3 class="text-lg font-bold mb-4">近期預約</h3>
+        <div class="card overflow-hidden">
+          <table>
+            <thead><tr><th>顧客</th><th>設計師</th><th>服務</th><th>時間</th><th>狀態</th></tr></thead>
+            <tbody>
+              <tr v-for="b in bookings.slice(0,5)" :key="b.id">
+                <td class="font-semibold">{{b.customerName}}</td>
+                <td class="text-muted">{{b.designerName}}</td>
+                <td>{{b.serviceName}}</td>
+                <td class="text-muted text-sm">{{b.date}} {{b.time}}</td>
+                <td><span class="text-xs px-2 py-1 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bookings -->
+      <div v-if="tab==='bookings'" class="fade">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-2xl font-bold serif">預約管理</h2>
+          <input v-model="search" class="max-w-xs" placeholder="搜尋..." style="width:200px">
+        </div>
+        <div class="card overflow-x-auto">
+          <table>
+            <thead><tr><th>顧客</th><th>設計師</th><th>服務</th><th>時間</th><th>金額</th><th>狀態</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="b in filteredBookings" :key="b.id">
+                <td class="font-semibold">{{b.customerName}}</td>
+                <td>{{b.designerName}}</td>
+                <td>{{b.serviceName}}</td>
+                <td class="text-sm text-muted">{{b.date}} {{b.time}}</td>
+                <td class="text-gold font-semibold">{{b.price.toLocaleString()}}</td>
+                <td><span class="text-xs px-2 py-1 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
+                <td>
+                  <div class="flex gap-1">
+                    <button v-if="b.status==='pending'" class="btn btn-gold text-xs px-2 py-1" @click="updateStatus(b.id,'confirmed')">確認</button>
+                    <button v-if="b.status==='pending'" class="btn btn-danger text-xs px-2 py-1" @click="updateStatus(b.id,'cancelled')">取消</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Designers -->
+      <div v-if="tab==='designers'" class="fade">
+        <h2 class="text-2xl font-bold serif mb-5">設計師管理</h2>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div v-for="d in designers" :key="d.id" class="card p-5">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl">{{d.avatar}}</div>
+              <div>
+                <div class="font-bold text-lg">{{d.name}}</div>
+                <div class="text-muted text-xs">{{d.role}}</div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs px-3 py-1 rounded-full" :class="d.available?'text-green-400 bg-green-900/30':'text-red-400 bg-red-900/30'">{{d.available?'上班中':'休假中'}}</span>
+              <button class="btn btn-ghost text-xs" @click="d.available=!d.available">切換</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customers -->
+      <div v-if="tab==='customers'" class="fade">
+        <h2 class="text-2xl font-bold serif mb-5">顧客資料</h2>
+        <div class="card overflow-x-auto">
+          <table>
+            <thead><tr><th>姓名</th><th>手機</th><th>來訪次數</th><th>累計消費</th></tr></thead>
+            <tbody>
+              <tr v-for="c in customers" :key="c.id">
+                <td class="font-semibold">{{c.name}}</td>
+                <td class="text-muted">{{c.phone}}</td>
+                <td class="text-gold font-bold">{{c.visits}}</td>
+                <td class="font-semibold text-green-400">NT$ {{c.totalSpent.toLocaleString()}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Services -->
+      <div v-if="tab==='services'" class="fade">
+        <h2 class="text-2xl font-bold serif mb-5">服務項目</h2>
+        <div class="card overflow-x-auto">
+          <table>
+            <thead><tr><th>服務名稱</th><th>類別</th><th>時長</th><th>定價</th></tr></thead>
+            <tbody>
+              <tr v-for="s in services" :key="s.id">
+                <td class="font-semibold">{{s.name}}</td>
+                <td><span class="text-xs px-2 py-0.5 rounded-full bg-gray-800">{{s.category}}</span></td>
+                <td class="text-muted">{{s.duration}} 分鐘</td>
+                <td class="text-gold font-bold">NT$ {{s.price.toLocaleString()}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue;
+
+// 權限檢查 - 僅管理員
+if (!Auth.isLoggedIn() || !Auth.hasPermission('admin')) {
+  window.location.href = '../index.html';
+}
+
+const session = Auth.getSession();
+
+const BOOKINGS = [
+  { id:'b1', customerName:'王小明', designerName:'Aika', serviceName:'挑染', date:'2026-03-25', time:'10:00', price:3200, status:'confirmed' },
+  { id:'b2', customerName:'林美華', designerName:'Bella', serviceName:'護髮', date:'2026-03-25', time:'14:00', price:1200, status:'confirmed' },
+  { id:'b3', customerName:'張志豪', designerName:'Ken', serviceName:'燙髮', date:'2026-03-26', time:'11:00', price:2800, status:'pending' },
+];
+
+const DESIGNERS = [
+  { id:1, name:'Aika', role:'首席設計師', avatar:'A', available:true },
+  { id:2, name:'Ken', role:'資深設計師', avatar:'K', available:true },
+  { id:3, name:'Bella', role:'設計師', avatar:'B', available:true },
+];
+
+const CUSTOMERS = [
+  { id:1, name:'王小明', phone:'0912-345-678', visits:12, totalSpent:18400 },
+  { id:2, name:'林美華', phone:'0923-456-789', visits:7, totalSpent:9800 },
+];
+
+const SERVICES = [
+  { id:1, name:'剪髮造型', category:'基礎', duration:60, price:600 },
+  { id:2, name:'燙髮', category:'進階', duration:150, price:2800 },
+  { id:3, name:'染髮', category:'進階', duration:120, price:2200 },
+];
+
+createApp({
+  setup() {
+    const tab = ref('dashboard');
+    const tabs = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'}];
+    const bookings = ref([...BOOKINGS]);
+    const designers = ref([...DESIGNERS]);
+    const customers = ref([...CUSTOMERS]);
+    const services = ref([...SERVICES]);
+    const search = ref('');
+    const toast = ref({ show:false, msg:'' });
+    const statusText = { confirmed: '已確認', pending: '待確認', cancelled: '已取消', done: '已完成' };
+
+    const today = new Date().toISOString().slice(0,10);
+    const thisMonth = today.slice(0,7);
+
+    const stats = computed(() => ({
+      today: bookings.value.filter(b => b.date === today && b.status !== 'cancelled').length,
+      revenue: bookings.value.filter(b => b.date.startsWith(thisMonth) && (b.status === 'confirmed' || b.status === 'done')).reduce((a,c) => a + c.price, 0),
+      pending: bookings.value.filter(b => b.status === 'pending').length
+    }));
+
+    const filteredBookings = computed(() => {
+      if (!search.value) return bookings.value;
+      const q = search.value.toLowerCase();
+      return bookings.value.filter(b => b.customerName.toLowerCase().includes(q) || b.designerName.toLowerCase().includes(q));
+    });
+
+    function updateStatus(id, status) {
+      const b = bookings.value.find(x => x.id === id);
+      if (b) {
+        b.status = status;
+        toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
+        setTimeout(() => toast.value.show = false, 2000);
+      }
+    }
+
+    function logout() {
+      Auth.logout();
+      window.location.href = '../index.html';
+    }
+
+    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
