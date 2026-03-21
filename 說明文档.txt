@@ -1,0 +1,60 @@
+完成項目
+文件結構
+akb-salon/
+├── index.html          # 客戶預約端（公開）
+├── auth.js             # 共用權限驗證模組
+├── designer/
+│   └── index.html      # 設計師端（需登入）
+└── admin/
+    └── index.html      # 店家後台（需管理員登入）
+權限設置
+端口	訪問權限	登入帳號
+客戶預約端	公開	無需登入
+設計師端	需設計師帳號	aika / ken / bella / jay / mia（密碼：akb2026）
+店家後台	僅管理員	admin（密碼：akb2026）
+功能說明
+客戶預約端 (index.html)
+
+公開訪問，可進行預約
+提供「設計師/店家登入」入口
+設計師端 (designer/index.html)
+
+未登入自動跳轉回首頁
+班表查看、預約管理、個人資料
+店家後台 (admin/index.html)
+
+僅管理員可進入
+儀表板、預約管理、設計師管理、顧客資料、服務項目
+auth.js 權限模組
+
+登入驗證（24小時會話）
+角色權限檢查
+頁面保護機制
+所有任務已完成。你可以直接打開 index.html 測試三個端口的導航和登入流程。
+
+
+
+----------------------------------------------------
+
+三端口分離已經完成！以下是完成的內容：
+
+完成摘要
+三端口架構
+端口	路徑	說明
+入口頁	/index.html	純粹的入口導航頁面，三個卡片連結到各端口
+客戶端	/client/index.html	獨立預約系統，無需登入即可使用
+設計師端	/designer/login.html → /designer/index.html	獨立登入頁 + 工作台
+店家後台	/admin/login.html → /admin/index.html	獨立登入頁 + 管理後台
+權限流程
+客戶端 - 直接訪問，無需登入
+設計師端 - 訪問 /designer/index.html 時若未登入，自動跳轉到 /designer/login.html
+店家後台 - 訪問 /admin/index.html 時若未登入，自動跳轉到 /admin/login.html
+預設登入資訊
+管理員：帳號 admin / 密碼 akb2026
+設計師：選擇設計師 / 密碼 akb2026
+所有文件已準備就緒，可以直接在瀏覽器中測試三端口的導航流程。
+
+
+
+
+

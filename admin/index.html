@@ -206,9 +206,9 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 <script>
 const { createApp, ref, computed } = Vue;
 
-// 權限檢查 - 僅管理員
+// 權限檢查 - 僅管理員，未登入則跳轉到登入頁
 if (!Auth.isLoggedIn() || !Auth.hasPermission('admin')) {
-  window.location.href = '../index.html';
+  window.location.href = './login.html';
 }
 
 const session = Auth.getSession();

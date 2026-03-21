@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>客戶預約 - AKB 多元化音樂發廊</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
+*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
+.serif{font-family:'Noto Serif TC',serif;}
+.gold{color:#C9A84C;}
+.bg-gold{background:#C9A84C;}
+.bg-gold-grad{background:linear-gradient(135deg,#C9A84C,#E8D5A3);}
+.text-gold{color:#C9A84C;}
+.bg-dark{background:#0F0F0F;}
+.bg-card{background:#1C1C1C;}
+.bg-input{background:#252525;}
+.text-muted{color:#888;}
+.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;}
+.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:10px 24px;}
+.btn-gold:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 4px 14px rgba(201,168,76,.4);}
+.btn-ghost{background:transparent;color:#888;border:1px solid #333;padding:8px 16px;}
+.btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
+.fade{animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:12px;}
+.nav-tab{padding:10px 20px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;color:#888;font-weight:500;}
+.nav-tab:hover{color:#C9A84C;}
+.nav-tab.active{border-color:#C9A84C;color:#C9A84C;}
+.step-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;}
+.step-done{background:rgba(201,168,76,.2);color:#C9A84C;border:2px solid #C9A84C;}
+.step-current{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;}
+.step-todo{background:#252525;color:#555;border:2px solid #333;}
+.calendar-cell{padding:6px;text-align:center;cursor:pointer;border-radius:6px;transition:all .2s;font-size:13px;}
+.calendar-cell:hover{background:#333;color:#fff;}
+.calendar-cell.selected{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;font-weight:700;}
+.calendar-cell.today{border:1px solid #C9A84C;color:#C9A84C;}
+.calendar-cell.disabled{color:#444;cursor:not-allowed;}
+.time-slot{padding:8px 12px;border:1px solid #333;border-radius:6px;cursor:pointer;transition:all .2s;font-size:13px;text-align:center;}
+.time-slot:hover{border-color:#C9A84C;color:#C9A84C;}
+.time-slot.selected{background:rgba(201,168,76,.15);border-color:#C9A84C;color:#C9A84C;font-weight:600;}
+.time-slot.booked{background:#1a1a1a;color:#444;cursor:not-allowed;border-color:#2a2a2a;}
+.designer-card{border-radius:12px;cursor:pointer;transition:all .25s;}
+.designer-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.designer-card.selected{border:2px solid #C9A84C!important;box-shadow:0 0 0 3px rgba(201,168,76,.2);}
+input,select,textarea{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;width:100%;outline:none;transition:border 0.2s;}
+input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:#1C1C1C;border:1px solid #333;border-radius:16px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;padding:28px;}
+</style>
+</head>
+<body class="bg-dark text-white min-h-screen">
+<div id="app">
+  <!-- Header -->
+  <header class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(15,15,15,.95);backdrop-filter:blur(12px)">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <a href="../index.html" class="flex items-center gap-2 text-muted hover:text-gold transition-colors">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        <span class="font-bold serif text-lg text-white">AKB 發廊</span>
+      </a>
+      <div class="flex gap-1">
+        <button :class="['nav-tab text-sm',bookingStep>0?'':'']" @click="bookingStep===5?resetBooking():null">預約服務</button>
+        <button class="nav-tab text-sm" @click="showModal='designers'">認識設計師</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-8">
+    <!-- Step indicator -->
+    <div v-if="bookingStep<5" class="flex items-center justify-center gap-2 mb-8 text-xs">
+      <template v-for="n in [1,2,3,4]" :key="n">
+        <div :class="['step-dot',n<bookingStep?'step-done':n===bookingStep?'step-current':'step-todo']">
+          <span v-if="n<bookingStep">✓</span>
+          <span v-else>{{n}}</span>
+        </div>
+        <div v-if="n<4" :class="['h-px w-10 transition-all',n<bookingStep?'bg-gold':'bg-gray-700']"></div>
+      </template>
+      <div class="ml-3 text-muted">
+        {{['選擇服務','選擇設計師','選擇時間','填寫資料'][bookingStep-1]}}
+      </div>
+    </div>
+
+    <!-- Step 1: Service -->
+    <div v-if="bookingStep===1" class="fade">
+      <h2 class="text-2xl font-bold serif mb-6">選擇服務項目</h2>
+      <div v-for="cat in ['招牌','進階','基礎','護理','特殊']" :key="cat" class="mb-6">
+        <div class="text-xs uppercase tracking-widest text-muted mb-3">{{cat}} 服務</div>
+        <div class="space-y-2">
+          <div v-for="s in services.filter(x=>x.category===cat)" :key="s.id"
+            :class="['card p-4 cursor-pointer transition-all flex items-center justify-between',bookingForm.serviceId===s.id?'border-2 border-gold':'' ]"
+            @click="bookingForm.serviceId=s.id">
+            <div class="flex items-center gap-4">
+              <div :class="['w-2 h-2 rounded-full',bookingForm.serviceId===s.id?'bg-gold':'bg-gray-600']"></div>
+              <div>
+                <div class="font-semibold">{{s.name}}</div>
+                <div class="text-muted text-xs">{{s.en}} &middot; {{s.duration}}分鐘</div>
+              </div>
+            </div>
+            <div class="text-gold font-bold">NT$ {{s.price.toLocaleString()}}</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end mt-6">
+        <button :disabled="!bookingForm.serviceId" :class="['btn btn-gold px-8 py-3',!bookingForm.serviceId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=2">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Designer -->
+    <div v-if="bookingStep===2" class="fade">
+      <h2 class="text-2xl font-bold serif mb-6">選擇設計師</h2>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div v-for="d in designers" :key="d.id"
+          :class="['designer-card card p-5',d.available?'':'opacity-50 cursor-not-allowed',bookingForm.designerId===d.id?'selected':'']"
+          @click="d.available&&(bookingForm.designerId=d.id)">
+          <div class="flex items-start gap-4">
+            <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl flex-shrink-0">{{d.avatar}}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="font-bold text-lg">{{d.name}}</div>
+                <span class="text-xs px-2 py-0.5 rounded-full font-bold" :style="d.level==='A'?'background:rgba(201,168,76,.2);color:#C9A84C':d.level==='B'?'background:rgba(99,102,241,.2);color:#A78BFA':'background:rgba(34,197,94,.2);color:#86EFAC'">Lv.{{d.level}}</span>
+              </div>
+              <div class="text-muted text-xs mb-2">{{d.role}}</div>
+              <div class="text-yellow-400 text-xs mb-2">★ {{d.rating}} <span class="text-muted">({{d.reviews}}則評價)</span></div>
+              <div class="flex flex-wrap gap-1">
+                <span v-for="sp in d.specialty.slice(0,3)" :key="sp" class="text-xs px-2 py-0.5 rounded-full" style="background:#252525;color:#aaa">{{sp}}</span>
+              </div>
+              <div v-if="!d.available" class="mt-2 text-xs text-red-400">目前休假中</div>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-muted border-t border-gray-800 pt-3">{{d.bio}}</div>
+        </div>
+      </div>
+      <div class="flex justify-between mt-6">
+        <button class="btn btn-ghost" @click="bookingStep=1">← 上一步</button>
+        <button :disabled="!bookingForm.designerId" :class="['btn btn-gold px-8 py-3',!bookingForm.designerId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=3">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Date & Time -->
+    <div v-if="bookingStep===3" class="fade">
+      <h2 class="text-2xl font-bold serif mb-6">選擇預約日期與時間</h2>
+      <!-- Calendar -->
+      <div class="card p-5 mb-4">
+        <div class="flex items-center justify-between mb-4">
+          <button class="btn btn-ghost px-3 py-2" @click="calendarMonth>1?calendarMonth--:null">←</button>
+          <div class="font-semibold">{{calendarYear}}年 {{calendarMonth}}月</div>
+          <button class="btn btn-ghost px-3 py-2" @click="calendarMonth<12?calendarMonth++:null">→</button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 mb-2">
+          <div v-for="w in ['日','一','二','三','四','五','六']" :key="w" class="text-center text-xs text-muted py-1">{{w}}</div>
+        </div>
+        <div class="grid grid-cols-7 gap-1">
+          <div v-for="n in calDays.first" :key="'e'+n" class="calendar-cell disabled"></div>
+          <div v-for="d in calDays.total" :key="d"
+            :class="['calendar-cell',isDatePast(d)?'disabled':isSelectedD(d)?'selected':isTodayD(d)?'today':'hover:bg-gray-800']"
+            @click="!isDatePast(d)&&selectDate(d)">{{d}}</div>
+        </div>
+      </div>
+      <!-- Time slots -->
+      <div v-if="bookingForm.date" class="card p-5 fade">
+        <div class="text-sm font-semibold mb-3">可用時段 <span class="text-muted font-normal">{{bookingForm.date}}</span></div>
+        <div class="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          <div v-for="t in ALL_TIMES" :key="t"
+            :class="['time-slot',isTimeBooked(t)?'booked':bookingForm.time===t?'selected':'']"
+            @click="!isTimeBooked(t)&&(bookingForm.time=t)">
+            {{t}}
+            <div v-if="isTimeBooked(t)" class="text-xs mt-0.5" style="color:#555">已訂</div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="text-center text-muted text-sm py-8">請先在上方選擇日期</div>
+      <div class="flex justify-between mt-6">
+        <button class="btn btn-ghost" @click="bookingStep=2">← 上一步</button>
+        <button :disabled="!bookingForm.date||!bookingForm.time" :class="['btn btn-gold px-8 py-3',(!bookingForm.date||!bookingForm.time)?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=4">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Personal info -->
+    <div v-if="bookingStep===4" class="fade">
+      <h2 class="text-2xl font-bold serif mb-2">填寫預約資料</h2>
+      <div class="card p-5 mb-4 text-sm">
+        <div class="text-muted text-xs uppercase tracking-wider mb-3">預約摘要</div>
+        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">服務</span><span class="font-semibold">{{services.find(s=>s.id===bookingForm.serviceId)?.name}}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">設計師</span><span class="font-semibold">{{designers.find(d=>d.id===bookingForm.designerId)?.name}}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">日期時間</span><span class="font-semibold">{{bookingForm.date}} {{bookingForm.time}}</span></div>
+        <div class="flex justify-between py-1"><span class="text-muted">費用</span><span class="font-bold text-gold">NT$ {{services.find(s=>s.id===bookingForm.serviceId)?.price?.toLocaleString()}}</span></div>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-muted mb-1">姓名 *</label>
+          <input v-model="bookingForm.name" placeholder="請輸入您的姓名" />
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">手機號碼 *</label>
+          <input v-model="bookingForm.phone" placeholder="09XX-XXX-XXX" />
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Email（可選，接收確認信）</label>
+          <input v-model="bookingForm.email" placeholder="your@email.com" type="email" />
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">備註 / 特殊需求</label>
+          <textarea v-model="bookingForm.note" rows="3" placeholder="例如：想染玫瑰金、頭髮較細..."></textarea>
+        </div>
+      </div>
+      <div class="flex justify-between mt-6">
+        <button class="btn btn-ghost" @click="bookingStep=3">← 上一步</button>
+        <button :disabled="!bookingForm.name||!bookingForm.phone" :class="['btn btn-gold px-8 py-3',(!bookingForm.name||!bookingForm.phone)?'opacity-40 cursor-not-allowed':'']" @click="submitBooking()">確認預約 ✓</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Done -->
+    <div v-if="bookingStep===5 && bookingDone" class="fade text-center py-12">
+      <div class="text-6xl mb-6">🎉</div>
+      <h2 class="text-2xl font-bold serif gold mb-3">預約成功！</h2>
+      <p class="text-muted mb-8">感謝您選擇 AKB 音樂發廊，期待為您服務。</p>
+      <div class="card p-6 text-left max-w-sm mx-auto mb-8">
+        <div class="text-xs text-muted uppercase tracking-wider mb-3">預約確認單</div>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">預約編號</span><span class="font-mono text-xs text-gold">{{bookingDone.id}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">姓名</span><span>{{bookingDone.customerName}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">服務</span><span>{{bookingDone.serviceName}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">設計師</span><span>{{bookingDone.designerName}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">時間</span><span>{{bookingDone.date}} {{bookingDone.time}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">費用</span><span class="font-bold text-gold">NT$ {{bookingDone.price.toLocaleString()}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">狀態</span><span class="badge-status badge-pending">待確認</span></div>
+        </div>
+      </div>
+      <div class="flex gap-3 justify-center">
+        <button class="btn btn-gold px-8 py-3" @click="resetBooking()">再次預約</button>
+        <a href="../index.html" class="btn btn-ghost px-6 py-3">返回首頁</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Designers modal -->
+  <div v-if="showModal==='designers'" class="modal-overlay" @click.self="showModal=''">
+    <div class="modal-box fade">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-xl font-bold serif gold">認識我們的設計師</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showModal=''">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div v-for="d in designers" :key="d.id" class="flex gap-4 p-4 rounded-xl" style="background:#252525">
+          <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl flex-shrink-0">{{d.avatar}}</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-bold">{{d.name}}</span>
+              <span class="text-muted text-xs">{{d.role}}</span>
+              <span class="text-yellow-400 text-xs">★ {{d.rating}}</span>
+            </div>
+            <div class="text-muted text-xs mb-2">{{d.bio}}</div>
+            <div class="flex flex-wrap gap-1">
+              <span v-for="sp in d.specialty" :key="sp" class="text-xs px-2 py-0.5 rounded-full" style="background:#333;color:#aaa">{{sp}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+
+const SERVICES = [
+  { id:1, name:'剪髮造型', en:'Haircut & Style', price:600, duration:60, category:'基礎' },
+  { id:2, name:'燙髮', en:'Perm', price:2800, duration:150, category:'進階' },
+  { id:3, name:'染髮', en:'Color', price:2200, duration:120, category:'進階' },
+  { id:4, name:'挑染 / 挑色', en:'Highlights', price:3200, duration:150, category:'進階' },
+  { id:5, name:'護髮療程', en:'Hair Treatment', price:1200, duration:60, category:'護理' },
+  { id:6, name:'頭皮 SPA', en:'Scalp SPA', price:900, duration:60, category:'護理' },
+  { id:7, name:'全套音樂造型', en:'Music Style Package', price:4500, duration:180, category:'招牌' },
+  { id:8, name:'新娘 / 特殊造型', en:'Bridal / Special', price:6800, duration:240, category:'特殊' },
+];
+
+const DESIGNERS = [
+  { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染','音樂造型'], bio:'擅長韓系潮流色彩，10年經驗，粉絲稱她為「調色魔法師」', avatar:'A', rating:4.9, reviews:142, available:true },
+  { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮','男士剪髮'], bio:'韓式小臉燙&歐美捲專家，留學首爾5年歸國', avatar:'K', rating:4.8, reviews:98, available:true },
+  { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','頭皮SPA','護髮療程'], bio:'輕柔手法，細心聆聽每位客人需求', avatar:'B', rating:4.7, reviews:63, available:true },
+  { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘造型','特殊造型'], bio:'婚禮造型達人，已完成超過200組新娘', avatar:'J', rating:4.9, reviews:117, available:false },
+  { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮','頭皮SPA'], bio:'活潑開朗，擅長與客人溝通，讓你放鬆享受', avatar:'M', rating:4.6, reviews:45, available:true },
+];
+
+const ALL_TIMES = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
+
+// 模擬已預約的時段
+const EXISTING_BOOKINGS = [
+  { designerId:1, date:'2026-03-25', time:'10:00' },
+  { designerId:3, date:'2026-03-25', time:'14:00' },
+  { designerId:2, date:'2026-03-26', time:'11:00' },
+];
+
+createApp({
+  setup() {
+    const bookingStep = ref(1);
+    const bookingForm = reactive({ serviceId:null, designerId:null, date:'', time:'', name:'', phone:'', email:'', note:'' });
+    const bookingDone = ref(null);
+    const showModal = ref('');
+    const calendarMonth = ref(3);
+    const calendarYear = ref(2026);
+    const services = ref(SERVICES);
+    const designers = ref(DESIGNERS);
+
+    const calDays = computed(() => {
+      const first = new Date(calendarYear.value, calendarMonth.value-1, 1).getDay();
+      const total = new Date(calendarYear.value, calendarMonth.value, 0).getDate();
+      return { first, total };
+    });
+
+    function selectDate(d) {
+      if(d < 1) return;
+      const m = String(calendarMonth.value).padStart(2,'0');
+      const dd = String(d).padStart(2,'0');
+      const dateStr = `${calendarYear.value}-${m}-${dd}`;
+      const today = new Date(); today.setHours(0,0,0,0);
+      if(new Date(dateStr) < today) return;
+      bookingForm.date = dateStr;
+      bookingForm.time = '';
+    }
+
+    function isDatePast(d) {
+      if(d < 1) return true;
+      const m = String(calendarMonth.value).padStart(2,'0');
+      const dd = String(d).padStart(2,'0');
+      const today = new Date(); today.setHours(0,0,0,0);
+      return new Date(`${calendarYear.value}-${m}-${dd}`) < today;
+    }
+
+    function isTodayD(d) {
+      const now = new Date();
+      return now.getFullYear()===calendarYear.value && now.getMonth()+1===calendarMonth.value && now.getDate()===d;
+    }
+
+    function isSelectedD(d) {
+      if(!bookingForm.date) return false;
+      const m = String(calendarMonth.value).padStart(2,'0');
+      const dd = String(d).padStart(2,'0');
+      return bookingForm.date === `${calendarYear.value}-${m}-${dd}`;
+    }
+
+    function isTimeBooked(t) {
+      if(!bookingForm.date || !bookingForm.designerId) return false;
+      return EXISTING_BOOKINGS.some(b => b.designerId===bookingForm.designerId && b.date===bookingForm.date && b.time===t);
+    }
+
+    function submitBooking() {
+      const svc = services.value.find(s=>s.id===bookingForm.serviceId);
+      const des = designers.value.find(d=>d.id===bookingForm.designerId);
+      bookingDone.value = {
+        id: 'BK' + Date.now().toString().slice(-6),
+        customerName: bookingForm.name,
+        serviceName: svc.name,
+        designerName: des.name,
+        date: bookingForm.date,
+        time: bookingForm.time,
+        price: svc.price,
+      };
+      bookingStep.value = 5;
+    }
+
+    function resetBooking() {
+      Object.assign(bookingForm, { serviceId:null, designerId:null, date:'', time:'', name:'', phone:'', email:'', note:'' });
+      bookingStep.value = 1;
+      bookingDone.value = null;
+    }
+
+    return {
+      bookingStep, bookingForm, bookingDone, showModal, calendarMonth, calendarYear,
+      services, designers, ALL_TIMES, calDays,
+      selectDate, isDatePast, isTodayD, isSelectedD, isTimeBooked,
+      submitBooking, resetBooking,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

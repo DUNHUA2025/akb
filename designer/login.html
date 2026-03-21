@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>設計師登入 - AKB 多元化音樂發廊</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="../auth.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
+*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
+.serif{font-family:'Noto Serif TC',serif;}
+.gold{color:#C9A84C;}
+.bg-gold{background:#C9A84C;}
+.bg-gold-grad{background:linear-gradient(135deg,#C9A84C,#E8D5A3);}
+.text-gold{color:#C9A84C;}
+.bg-dark{background:#0F0F0F;}
+.bg-card{background:#1C1C1C;}
+.text-muted{color:#888;}
+input{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:12px 16px;width:100%;outline:none;transition:border 0.2s;}
+input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
+.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;}
+.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:12px 24px;}
+.btn-gold:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 4px 14px rgba(201,168,76,.4);}
+.btn-ghost{background:transparent;color:#888;border:1px solid #333;padding:10px 20px;}
+.btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
+.fade{animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:16px;}
+.shimmer{background:linear-gradient(90deg,#C9A84C,#E8D5A3,#C9A84C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;}
+.designer-btn{background:#252525;border:1px solid #333;border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s;text-align:left;}
+.designer-btn:hover{border-color:#C9A84C;}
+.designer-btn.selected{border-color:#C9A84C;background:rgba(201,168,76,.1);}
+</style>
+</head>
+<body class="bg-dark text-white min-h-screen">
+<div id="app">
+  <div class="min-h-screen flex items-center justify-center fade" style="background:radial-gradient(ellipse at top,#1a1400 0%,#0F0F0F 60%)">
+    <div class="w-full max-w-sm px-6">
+      <a href="../index.html" class="btn btn-ghost mb-6 text-sm inline-flex">← 返回首頁</a>
+      
+      <div class="text-center mb-8">
+        <div class="text-4xl font-bold serif shimmer mb-2">AKB</div>
+        <div class="text-gold text-sm tracking-wider">設計師工作台</div>
+      </div>
+      
+      <div class="card p-6">
+        <div class="text-xl font-bold mb-6 text-center">選擇設計師登入</div>
+        
+        <div v-if="error" class="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm text-center">
+          {{error}}
+        </div>
+        
+        <div class="space-y-3 mb-6">
+          <div v-for="d in designers" :key="d.id" 
+            :class="['designer-btn flex items-center gap-3',selectedDesigner?.id===d.id?'selected':'']"
+            @click="selectDesigner(d)">
+            <div class="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold">{{d.avatar}}</div>
+            <div class="flex-1">
+              <div class="font-semibold">{{d.name}}</div>
+              <div class="text-muted text-xs">{{d.role}}</div>
+            </div>
+            <div v-if="selectedDesigner?.id===d.id" class="text-gold">✓</div>
+          </div>
+        </div>
+        
+        <div v-if="selectedDesigner" class="fade">
+          <div class="mb-4">
+            <label class="block text-xs text-muted mb-2">密碼</label>
+            <input v-model="password" type="password" placeholder="請輸入密碼" @keyup.enter="login"/>
+          </div>
+          <button class="btn btn-gold w-full py-3" @click="login" :disabled="loading">
+            {{loading ? '登入中...' : '登入'}}
+          </button>
+        </div>
+        
+        <div class="mt-6 pt-4 border-t border-gray-800 text-center">
+          <div class="text-xs text-muted mb-2">預設密碼</div>
+          <div class="text-xs text-gray-500">所有設計師密碼：akb2026</div>
+        </div>
+      </div>
+      
+      <div class="mt-8 text-center text-muted text-xs">
+        <div>AKB 多元化音樂發廊 設計師系統</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref } = Vue;
+
+const DESIGNERS = [
+  { id:1, name:'Aika', role:'首席設計師', avatar:'A', username:'aika' },
+  { id:2, name:'Ken', role:'資深設計師', avatar:'K', username:'ken' },
+  { id:3, name:'Bella', role:'設計師', avatar:'B', username:'bella' },
+  { id:4, name:'Jay', role:'資深設計師', avatar:'J', username:'jay' },
+  { id:5, name:'Mia', role:'設計師', avatar:'M', username:'mia' },
+];
+
+createApp({
+  setup() {
+    const designers = ref(DESIGNERS);
+    const selectedDesigner = ref(null);
+    const password = ref('');
+    const error = ref('');
+    const loading = ref(false);
+    
+    // 如果已登入，直接進入工作台
+    if (Auth.isLoggedIn() && Auth.hasPermission('designer')) {
+      window.location.href = './index.html';
+    }
+    
+    function selectDesigner(d) {
+      selectedDesigner.value = d;
+      error.value = '';
+    }
+    
+    function login() {
+      error.value = '';
+      
+      if (!selectedDesigner.value) {
+        error.value = '請選擇設計師';
+        return;
+      }
+      if (!password.value) {
+        error.value = '請輸入密碼';
+        return;
+      }
+      
+      loading.value = true;
+      
+      // 使用 auth.js 進行登入
+      const result = Auth.login(selectedDesigner.value.username, password.value);
+      
+      setTimeout(() => {
+        loading.value = false;
+        
+        if (result.success) {
+          if (result.role === 'designer' || result.role === 'admin') {
+            window.location.href = './index.html';
+          } else {
+            error.value = '您沒有設計師權限';
+            Auth.logout();
+          }
+        } else {
+          error.value = result.error || '登入失敗';
+        }
+      }, 500);
+    }
+    
+    return { designers, selectedDesigner, password, error, loading, selectDesigner, login };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
