@@ -1,7 +1,10 @@
 // AKB 多元化音樂發廊 - 共用權限模組
 // 提供登入驗證、角色權限檢查、會話管理
 
-const AUTH_CONFIG = {
+const AUTH_STORAGE_KEY = 'akb_auth_config';
+
+// 預設帳號配置
+const DEFAULT_AUTH_CONFIG = {
   // 管理員帳號
   admin: {
     username: 'admin',
@@ -19,6 +22,25 @@ const AUTH_CONFIG = {
     { username: 'mia', password: 'akb2026', role: 'designer', name: 'Mia', designerId: 5 }
   ]
 };
+
+// 從 localStorage 載入帳號配置，若無則使用預設值
+function loadAuthConfig() {
+  const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (saved) {
+    return JSON.parse(saved);
+  }
+  // 首次使用，儲存預設值
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(DEFAULT_AUTH_CONFIG));
+  return DEFAULT_AUTH_CONFIG;
+}
+
+// 儲存帳號配置到 localStorage
+function saveAuthConfig(config) {
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(config));
+}
+
+// 初始化帳號配置
+const AUTH_CONFIG = loadAuthConfig();
 
 const Auth = {
   // 檢查是否已登入
@@ -119,6 +141,8 @@ const Auth = {
       }
       // 更新管理員密碼
       AUTH_CONFIG.admin.password = newPassword;
+      // 儲存到 localStorage
+      saveAuthConfig(AUTH_CONFIG);
       // 更新會話
       session.timestamp = Date.now();
       localStorage.setItem('akb_session', JSON.stringify(session));
@@ -132,6 +156,8 @@ const Auth = {
       }
       // 更新設計師密碼
       designer.password = newPassword;
+      // 儲存到 localStorage
+      saveAuthConfig(AUTH_CONFIG);
       // 更新會話
       session.timestamp = Date.now();
       localStorage.setItem('akb_session', JSON.stringify(session));
