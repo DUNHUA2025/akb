@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="../auth.js"></script>
+<script src="../js/api.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
 *{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
@@ -330,11 +331,19 @@ if (!Auth.isLoggedIn() || !Auth.hasPermission('admin')) {
 
 const session = Auth.getSession();
 
-const BOOKINGS = [
-  { id:'b1', customerName:'王小明', designerName:'Aika', serviceName:'挑染', date:'2026-03-25', time:'10:00', price:3200, status:'confirmed' },
-  { id:'b2', customerName:'林美華', designerName:'Bella', serviceName:'護髮', date:'2026-03-25', time:'14:00', price:1200, status:'confirmed' },
-  { id:'b3', customerName:'張志豪', designerName:'Ken', serviceName:'燙髮', date:'2026-03-26', time:'11:00', price:2800, status:'pending' },
-];
+// 從後端 API 載入預約資料
+async function loadBookingsFromAPI() {
+  try {
+    const bookings = await salonAPI.getBookings();
+    return bookings;
+  } catch (error) {
+    console.error('Failed to load bookings:', error);
+    return [];
+  }
+}
+
+// 預設空預約列表，實際資料從 API 載入
+const BOOKINGS = [];
 
 const DESIGNERS_KEY = 'akb_designers_data';
 
@@ -373,36 +382,20 @@ function saveDesigners(designers) {
   localStorage.setItem(DESIGNERS_KEY, JSON.stringify(designers));
 }
 
-// 從預約資料生成客戶列表
-function loadCustomersFromBookings() {
-  const CLIENT_BOOKINGS_KEY = 'akb_client_bookings';
-  const bookings = JSON.parse(localStorage.getItem(CLIENT_BOOKINGS_KEY) || '[]');
-  
-  // 按手機號碼分組統計客戶資料
-  const customerMap = {};
-  bookings.forEach(b => {
-    const phone = b.customerPhone || '';
-    const name = b.customerName || '未知客戶';
-    const key = phone || name;
-    
-    if (!customerMap[key]) {
-      customerMap[key] = {
-        id: key,
-        name: name,
-        phone: phone,
-        visits: 0,
-        totalSpent: 0
-      };
-    }
-    
-    // 只統計已確認和已完成的預約
-    if (b.status === 'confirmed' || b.status === 'done') {
-      customerMap[key].visits++;
-      customerMap[key].totalSpent += parseInt(b.price) || 0;
-    }
-  });
-  
-  return Object.values(customerMap);
+// 從後端 API 獲取客戶列表
+async function loadCustomersFromAPI() {
+  try {
+    const customers = await salonAPI.getCustomers();
+    return customers;
+  } catch (error) {
+    console.error('Failed to load customers:', error);
+    return [];
+  }
+}
+
+// 保留舊函數名稱向後相容
+async function loadCustomersFromBookings() {
+  return loadCustomersFromAPI();
 }
 
 const CUSTOMERS = loadCustomersFromBookings();
@@ -419,12 +412,33 @@ createApp({
     const tabs = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'}];
     const bookings = ref([...BOOKINGS]);
     const designers = ref(loadDesigners());
-    const customers = ref([...CUSTOMERS]);
+    const customers = ref([]);
     const services = ref([...SERVICES]);
     const search = ref('');
     const toast = ref({ show:false, msg:'' });
     const statusText = { confirmed: '已確認', pending: '待確認', cancelled: '已取消', done: '已完成' };
     const designerFilter = ref('all');
+    
+    // 初始化：從後端載入資料
+    async function initData() {
+      bookings.value = await loadBookingsFromAPI();
+      customers.value = await loadCustomersFromAPI();
+    }
+    initData();
+    
+    // 監聽 WebSocket 即時更新
+    salonAPI.on('NEW_BOOKING', (booking) => {
+      bookings.value.push(booking);
+      toast.value = { show: true, msg: '收到新預約！' };
+      setTimeout(() => toast.value.show = false, 3000);
+    });
+    
+    salonAPI.on('UPDATE_BOOKING', (booking) => {
+      const idx = bookings.value.findIndex(b => b.id === booking.id);
+      if (idx !== -1) {
+        bookings.value[idx] = booking;
+      }
+    });
     
     // 設計師篩選
     const filteredDesigners = computed(() => {
@@ -450,11 +464,20 @@ createApp({
       return bookings.value.filter(b => b.customerName.toLowerCase().includes(q) || b.designerName.toLowerCase().includes(q));
     });
 
-    function updateStatus(id, status) {
-      const b = bookings.value.find(x => x.id === id);
-      if (b) {
-        b.status = status;
-        toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
+    async function updateStatus(id, status) {
+      try {
+        // 使用後端 API 更新狀態
+        await salonAPI.updateBooking(id, { status });
+        
+        const b = bookings.value.find(x => x.id === id);
+        if (b) {
+          b.status = status;
+          toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
+          setTimeout(() => toast.value.show = false, 2000);
+        }
+      } catch (error) {
+        console.error('Failed to update status:', error);
+        toast.value = { show:true, msg: '更新失敗，請重試' };
         setTimeout(() => toast.value.show = false, 2000);
       }
     }
@@ -619,8 +642,8 @@ createApp({
       }
     }
 
-    function refreshCustomers() {
-      customers.value = loadCustomersFromBookings();
+    async function refreshCustomers() {
+      customers.value = await loadCustomersFromAPI();
       toast.value = { show: true, msg: '顧客資料已更新' };
       setTimeout(() => toast.value.show = false, 2000);
     }
