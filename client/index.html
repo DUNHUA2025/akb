@@ -63,6 +63,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
       <div class="flex gap-1">
         <button :class="['nav-tab text-sm',bookingStep>0?'':'']" @click="bookingStep===5?resetBooking():null">預約服務</button>
         <button class="nav-tab text-sm" @click="showModal='designers'">認識設計師</button>
+        <button class="nav-tab text-sm" @click="openMyBookings()">我的預約</button>
       </div>
     </div>
   </header>
@@ -85,7 +86,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
     <!-- Step 1: Service -->
     <div v-if="bookingStep===1" class="fade">
       <h2 class="text-2xl font-bold serif mb-6">選擇服務項目</h2>
-      <div v-for="cat in ['招牌','進階','基礎','護理','特殊']" :key="cat" class="mb-6">
+      <div v-for="cat in ['基礎','染髮','燙髮','護理']" :key="cat" class="mb-6">
         <div class="text-xs uppercase tracking-widest text-muted mb-3">{{cat}} 服務</div>
         <div class="space-y-2">
           <div v-for="s in services.filter(x=>x.category===cat)" :key="s.id"
@@ -98,7 +99,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
                 <div class="text-muted text-xs">{{s.en}} &middot; {{s.duration}}分鐘</div>
               </div>
             </div>
-            <div class="text-gold font-bold">NT$ {{s.price.toLocaleString()}}</div>
+            <div class="text-gold font-bold">${{s.price.toLocaleString()}}</div>
           </div>
         </div>
       </div>
@@ -185,7 +186,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">服務</span><span class="font-semibold">{{services.find(s=>s.id===bookingForm.serviceId)?.name}}</span></div>
         <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">設計師</span><span class="font-semibold">{{designers.find(d=>d.id===bookingForm.designerId)?.name}}</span></div>
         <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">日期時間</span><span class="font-semibold">{{bookingForm.date}} {{bookingForm.time}}</span></div>
-        <div class="flex justify-between py-1"><span class="text-muted">費用</span><span class="font-bold text-gold">NT$ {{services.find(s=>s.id===bookingForm.serviceId)?.price?.toLocaleString()}}</span></div>
+        <div class="flex justify-between py-1"><span class="text-muted">費用</span><span class="font-bold text-gold">${{services.find(s=>s.id===bookingForm.serviceId)?.price?.toLocaleString()}}</span></div>
       </div>
       <div class="space-y-4">
         <div>
@@ -224,7 +225,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
           <div class="flex justify-between"><span class="text-muted">服務</span><span>{{bookingDone.serviceName}}</span></div>
           <div class="flex justify-between"><span class="text-muted">設計師</span><span>{{bookingDone.designerName}}</span></div>
           <div class="flex justify-between"><span class="text-muted">時間</span><span>{{bookingDone.date}} {{bookingDone.time}}</span></div>
-          <div class="flex justify-between"><span class="text-muted">費用</span><span class="font-bold text-gold">NT$ {{bookingDone.price.toLocaleString()}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">費用</span><span class="font-bold text-gold">${{bookingDone.price.toLocaleString()}}</span></div>
           <div class="flex justify-between"><span class="text-muted">狀態</span><span class="badge-status badge-pending">待確認</span></div>
         </div>
       </div>
@@ -260,20 +261,160 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
       </div>
     </div>
   </div>
+
+  <!-- My Bookings Modal -->
+  <div v-if="showModal==='myBookings'" class="modal-overlay" @click.self="showModal=''">
+    <div class="modal-box fade" style="max-width:480px">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-xl font-bold serif gold">我的預約</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showModal=''">✕</button>
+      </div>
+      
+      <!-- 未驗證狀態 -->
+      <div v-if="!myBookings.verified">
+        <p class="text-muted text-sm mb-4">請輸入手機號碼查詢您的預約記錄</p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-muted mb-1">手機號碼</label>
+            <input v-model="myBookings.phone" placeholder="09XX-XXX-XXX" @keyup.enter="verifyPhone()"/>
+          </div>
+          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
+            {{myBookings.error}}
+          </div>
+          <button class="btn btn-gold w-full py-3" @click="verifyPhone()" :disabled="myBookings.loading">
+            {{myBookings.loading ? '查詢中...' : '查詢預約'}}
+          </button>
+        </div>
+        <div class="mt-4 pt-4 border-t border-gray-800 text-center">
+          <p class="text-xs text-muted">首次查詢將自動為您創建帳號</p>
+        </div>
+      </div>
+      
+      <!-- 已驗證但未設置密碼 -->
+      <div v-else-if="myBookings.verified && !myBookings.hasPassword">
+        <div class="text-center mb-4">
+          <div class="text-4xl mb-2">🔒</div>
+          <p class="text-sm">為保護您的預約資料，請設置查詢密碼</p>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-muted mb-1">設置密碼（至少6位）</label>
+            <input v-model="myBookings.newPassword" type="password" placeholder="請設置密碼"/>
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">確認密碼</label>
+            <input v-model="myBookings.confirmPassword" type="password" placeholder="再次輸入密碼" @keyup.enter="setPassword()"/>
+          </div>
+          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
+            {{myBookings.error}}
+          </div>
+          <button class="btn btn-gold w-full py-3" @click="setPassword()" :disabled="myBookings.loading">
+            {{myBookings.loading ? '設置中...' : '設置密碼'}}
+          </button>
+        </div>
+      </div>
+      
+      <!-- 已驗證且已設置密碼 - 需要輸入密碼 -->
+      <div v-else-if="myBookings.verified && myBookings.hasPassword && !myBookings.authenticated">
+        <p class="text-muted text-sm mb-4">請輸入查詢密碼</p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-muted mb-1">密碼</label>
+            <input v-model="myBookings.password" type="password" placeholder="請輸入密碼" @keyup.enter="loginWithPassword()"/>
+          </div>
+          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
+            {{myBookings.error}}
+          </div>
+          <button class="btn btn-gold w-full py-3" @click="loginWithPassword()" :disabled="myBookings.loading">
+            {{myBookings.loading ? '驗證中...' : '確認'}}
+          </button>
+          <button class="btn btn-ghost w-full py-2 text-sm" @click="resetMyBookings()">使用其他手機號碼</button>
+        </div>
+      </div>
+      
+      <!-- 已登入 - 顯示預約列表 -->
+      <div v-else>
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm">
+            <span class="text-muted">手機號碼：</span>
+            <span class="font-semibold">{{myBookings.phone}}</span>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost px-3 py-1 text-xs" @click="showModal='changePassword'">修改密碼</button>
+            <button class="btn btn-ghost px-3 py-1 text-xs" @click="logoutMyBookings()">登出</button>
+          </div>
+        </div>
+        
+        <div v-if="myBookings.list.length===0" class="text-center py-8 text-muted">
+          <div class="text-4xl mb-2">📋</div>
+          <p>暫無預約記錄</p>
+        </div>
+        <div v-else class="space-y-3 max-h-80 overflow-y-auto">
+          <div v-for="b in myBookings.list" :key="b.id" class="card p-4">
+            <div class="flex justify-between items-start mb-2">
+              <div class="font-semibold">{{b.serviceName}}</div>
+              <span class="text-xs px-2 py-0.5 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span>
+            </div>
+            <div class="text-sm text-muted mb-1">設計師：{{b.designerName}}</div>
+            <div class="text-sm text-muted mb-2">{{b.date}} {{b.time}}</div>
+            <div class="flex justify-between items-center">
+              <span class="text-gold font-bold">${{b.price.toLocaleString()}}</span>
+              <button v-if="b.status==='pending'" class="btn btn-ghost px-3 py-1 text-xs text-red-400" @click="cancelBooking(b.id)">取消預約</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div v-if="showModal==='changePassword'" class="modal-overlay" @click.self="showModal='myBookings'">
+    <div class="modal-box fade" style="max-width:400px">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-xl font-bold serif gold">修改查詢密碼</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showModal='myBookings'">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-muted mb-1">當前密碼</label>
+          <input v-model="changePwdForm.current" type="password" placeholder="請輸入當前密碼"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">新密碼（至少6位）</label>
+          <input v-model="changePwdForm.newPwd" type="password" placeholder="請輸入新密碼"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">確認新密碼</label>
+          <input v-model="changePwdForm.confirm" type="password" placeholder="再次輸入新密碼" @keyup.enter="changeClientPassword()"/>
+        </div>
+        <div v-if="changePwdForm.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
+          {{changePwdForm.error}}
+        </div>
+        <div v-if="changePwdForm.success" class="p-3 rounded-lg bg-green-900/30 border border-green-700 text-green-300 text-sm">
+          {{changePwdForm.success}}
+        </div>
+        <button class="btn btn-gold w-full py-3" @click="changeClientPassword()" :disabled="changePwdForm.loading">
+          {{changePwdForm.loading ? '修改中...' : '確認修改'}}
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 const { createApp, ref, reactive, computed } = Vue;
 
 const SERVICES = [
-  { id:1, name:'剪髮造型', en:'Haircut & Style', price:600, duration:60, category:'基礎' },
-  { id:2, name:'燙髮', en:'Perm', price:2800, duration:150, category:'進階' },
-  { id:3, name:'染髮', en:'Color', price:2200, duration:120, category:'進階' },
-  { id:4, name:'挑染 / 挑色', en:'Highlights', price:3200, duration:150, category:'進階' },
-  { id:5, name:'護髮療程', en:'Hair Treatment', price:1200, duration:60, category:'護理' },
-  { id:6, name:'頭皮 SPA', en:'Scalp SPA', price:900, duration:60, category:'護理' },
-  { id:7, name:'全套音樂造型', en:'Music Style Package', price:4500, duration:180, category:'招牌' },
-  { id:8, name:'新娘 / 特殊造型', en:'Bridal / Special', price:6800, duration:240, category:'特殊' },
+  { id:1, name:'洗剪吹', en:'Wash, cut and blow-dry', price:128, duration:60, category:'基礎' },
+  { id:2, name:'單剪', en:'Single cut', price:68, duration:30, category:'基礎' },
+  { id:3, name:'洗吹', en:'Wash and blow-dry', price:88, duration:45, category:'基礎' },
+  { id:4, name:'彩色染髮', en:'Color hair dye', price:168, duration:90, category:'染髮' },
+  { id:5, name:'電髮', en:'Perm', price:268, duration:120, category:'燙髮' },
+  { id:6, name:'顏色焗油', en:'Color hair treatment', price:228, duration:60, category:'護理' },
+  { id:7, name:'水療焗油', en:'Spa hair treatment', price:188, duration:60, category:'護理' },
+  { id:8, name:'陶瓷數碼曲', en:'Ceramic digital hair treatment', price:358, duration:150, category:'燙髮' },
+  { id:9, name:'技術染髮', en:'Technical hair dye', price:228, duration:120, category:'染髮' },
+  { id:10, name:'負離子直髮', en:'Negative ion hair straightening', price:228, duration:120, category:'燙髮' },
 ];
 
 const DESIGNERS = [
@@ -367,11 +508,193 @@ createApp({
       bookingDone.value = null;
     }
 
+    // ========== 我的預約功能 ==========
+    const myBookings = reactive({
+      phone: '',
+      verified: false,
+      hasPassword: false,
+      authenticated: false,
+      loading: false,
+      error: '',
+      list: [],
+      newPassword: '',
+      confirmPassword: '',
+      password: ''
+    });
+
+    const changePwdForm = reactive({
+      current: '',
+      newPwd: '',
+      confirm: '',
+      loading: false,
+      error: '',
+      success: ''
+    });
+
+    const statusText = { pending: '待確認', confirmed: '已確認', cancelled: '已取消', done: '已完成' };
+
+    // 客戶帳號資料儲存
+    const CLIENT_ACCOUNTS_KEY = 'akb_client_accounts';
+    const CLIENT_BOOKINGS_KEY = 'akb_client_bookings';
+
+    function getClientAccounts() {
+      const data = localStorage.getItem(CLIENT_ACCOUNTS_KEY);
+      return data ? JSON.parse(data) : {};
+    }
+
+    function saveClientAccount(phone, password) {
+      const accounts = getClientAccounts();
+      accounts[phone] = { password, createdAt: Date.now() };
+      localStorage.setItem(CLIENT_ACCOUNTS_KEY, JSON.stringify(accounts));
+    }
+
+    function getClientBookings() {
+      const data = localStorage.getItem(CLIENT_BOOKINGS_KEY);
+      return data ? JSON.parse(data) : [];
+    }
+
+    function openMyBookings() {
+      showModal.value = 'myBookings';
+      resetMyBookingsState();
+    }
+
+    function resetMyBookingsState() {
+      myBookings.phone = '';
+      myBookings.verified = false;
+      myBookings.hasPassword = false;
+      myBookings.authenticated = false;
+      myBookings.error = '';
+      myBookings.list = [];
+      myBookings.newPassword = '';
+      myBookings.confirmPassword = '';
+      myBookings.password = '';
+    }
+
+    function resetMyBookings() {
+      resetMyBookingsState();
+    }
+
+    function verifyPhone() {
+      myBookings.error = '';
+      if (!myBookings.phone || myBookings.phone.length < 10) {
+        myBookings.error = '請輸入正確的手機號碼';
+        return;
+      }
+      myBookings.loading = true;
+      setTimeout(() => {
+        const accounts = getClientAccounts();
+        myBookings.hasPassword = !!accounts[myBookings.phone]?.password;
+        myBookings.verified = true;
+        myBookings.loading = false;
+      }, 500);
+    }
+
+    function setPassword() {
+      myBookings.error = '';
+      if (!myBookings.newPassword || myBookings.newPassword.length < 6) {
+        myBookings.error = '密碼長度至少6位';
+        return;
+      }
+      if (myBookings.newPassword !== myBookings.confirmPassword) {
+        myBookings.error = '兩次輸入的密碼不一致';
+        return;
+      }
+      myBookings.loading = true;
+      setTimeout(() => {
+        saveClientAccount(myBookings.phone, myBookings.newPassword);
+        myBookings.hasPassword = true;
+        myBookings.authenticated = true;
+        loadMyBookings();
+        myBookings.loading = false;
+      }, 500);
+    }
+
+    function loginWithPassword() {
+      myBookings.error = '';
+      if (!myBookings.password) {
+        myBookings.error = '請輸入密碼';
+        return;
+      }
+      myBookings.loading = true;
+      setTimeout(() => {
+        const accounts = getClientAccounts();
+        if (accounts[myBookings.phone]?.password === myBookings.password) {
+          myBookings.authenticated = true;
+          loadMyBookings();
+        } else {
+          myBookings.error = '密碼不正確';
+        }
+        myBookings.loading = false;
+      }, 500);
+    }
+
+    function loadMyBookings() {
+      const allBookings = getClientBookings();
+      myBookings.list = allBookings.filter(b => b.customerPhone === myBookings.phone);
+    }
+
+    function logoutMyBookings() {
+      resetMyBookingsState();
+    }
+
+    function cancelBooking(bookingId) {
+      if (!confirm('確定要取消這個預約嗎？')) return;
+      const allBookings = getClientBookings();
+      const idx = allBookings.findIndex(b => b.id === bookingId);
+      if (idx !== -1) {
+        allBookings[idx].status = 'cancelled';
+        localStorage.setItem(CLIENT_BOOKINGS_KEY, JSON.stringify(allBookings));
+        loadMyBookings();
+      }
+    }
+
+    function changeClientPassword() {
+      changePwdForm.error = '';
+      changePwdForm.success = '';
+      
+      if (!changePwdForm.current || !changePwdForm.newPwd || !changePwdForm.confirm) {
+        changePwdForm.error = '請填寫所有欄位';
+        return;
+      }
+      if (changePwdForm.newPwd.length < 6) {
+        changePwdForm.error = '新密碼長度至少6位';
+        return;
+      }
+      if (changePwdForm.newPwd !== changePwdForm.confirm) {
+        changePwdForm.error = '兩次輸入的新密碼不一致';
+        return;
+      }
+      
+      changePwdForm.loading = true;
+      setTimeout(() => {
+        const accounts = getClientAccounts();
+        if (accounts[myBookings.phone]?.password !== changePwdForm.current) {
+          changePwdForm.error = '當前密碼不正確';
+          changePwdForm.loading = false;
+          return;
+        }
+        saveClientAccount(myBookings.phone, changePwdForm.newPwd);
+        changePwdForm.success = '密碼修改成功！';
+        changePwdForm.loading = false;
+        setTimeout(() => {
+          changePwdForm.current = '';
+          changePwdForm.newPwd = '';
+          changePwdForm.confirm = '';
+          changePwdForm.success = '';
+          showModal.value = 'myBookings';
+        }, 1500);
+      }, 500);
+    }
+
     return {
       bookingStep, bookingForm, bookingDone, showModal, calendarMonth, calendarYear,
       services, designers, ALL_TIMES, calDays,
       selectDate, isDatePast, isTodayD, isSelectedD, isTimeBooked,
       submitBooking, resetBooking,
+      // 我的預約
+      myBookings, changePwdForm, statusText,
+      openMyBookings, resetMyBookings, verifyPhone, setPassword,
+      loginWithPassword, logoutMyBookings, cancelBooking, changeClientPassword
     };
   }
 }).mount('#app');

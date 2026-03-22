@@ -61,7 +61,8 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
       <div :class="['sidebar-item',tab==='customers'?'active':'']" @click="tab='customers'">👤 顧客資料</div>
       <div :class="['sidebar-item',tab==='services'?'active':'']" @click="tab='services'">⭐ 服務項目</div>
     </nav>
-    <div class="p-3">
+    <div class="p-3 space-y-1">
+      <button class="sidebar-item w-full" @click="showChangePwd=true">🔒 修改密碼</button>
       <button class="sidebar-item w-full" @click="logout">🚪 登出</button>
     </div>
   </aside>
@@ -172,7 +173,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
                 <td class="font-semibold">{{c.name}}</td>
                 <td class="text-muted">{{c.phone}}</td>
                 <td class="text-gold font-bold">{{c.visits}}</td>
-                <td class="font-semibold text-green-400">NT$ {{c.totalSpent.toLocaleString()}}</td>
+                <td class="font-semibold text-green-400">${{c.totalSpent.toLocaleString()}}</td>
               </tr>
             </tbody>
           </table>
@@ -190,7 +191,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
                 <td class="font-semibold">{{s.name}}</td>
                 <td><span class="text-xs px-2 py-0.5 rounded-full bg-gray-800">{{s.category}}</span></td>
                 <td class="text-muted">{{s.duration}} 分鐘</td>
-                <td class="text-gold font-bold">NT$ {{s.price.toLocaleString()}}</td>
+                <td class="text-gold font-bold">${{s.price.toLocaleString()}}</td>
               </tr>
             </tbody>
           </table>
@@ -201,10 +202,43 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 
   <!-- Toast -->
   <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
+
+  <!-- 修改密碼 Modal -->
+  <div v-if="showChangePwd" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="showChangePwd=false">
+    <div class="card p-7 w-full max-w-sm fade">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold serif gold">修改管理員密碼</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showChangePwd=false">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-muted mb-1">當前密碼</label>
+          <input v-model="pwdForm.current" type="password" placeholder="請輸入當前密碼" class="w-full"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">新密碼（至少6位）</label>
+          <input v-model="pwdForm.newPwd" type="password" placeholder="請輸入新密碼" class="w-full"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">確認新密碼</label>
+          <input v-model="pwdForm.confirm" type="password" placeholder="再次輸入新密碼" class="w-full" @keyup.enter="changePassword()"/>
+        </div>
+        <div v-if="pwdForm.error" class="p-3 rounded-lg text-sm" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;">
+          {{pwdForm.error}}
+        </div>
+        <div v-if="pwdForm.success" class="p-3 rounded-lg text-sm" style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;">
+          {{pwdForm.success}}
+        </div>
+        <button class="btn btn-gold w-full py-3" @click="changePassword()" :disabled="pwdForm.loading">
+          {{pwdForm.loading ? '修改中...' : '確認修改'}}
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-const { createApp, ref, computed } = Vue;
+const { createApp, ref, computed, reactive } = Vue;
 
 // 權限檢查 - 僅管理員，未登入則跳轉到登入頁
 if (!Auth.isLoggedIn() || !Auth.hasPermission('admin')) {
@@ -277,7 +311,51 @@ createApp({
       window.location.href = '../index.html';
     }
 
-    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session };
+    // 修改密碼
+    const showChangePwd = ref(false);
+    const pwdForm = reactive({
+      current: '',
+      newPwd: '',
+      confirm: '',
+      loading: false,
+      error: '',
+      success: ''
+    });
+
+    function changePassword() {
+      pwdForm.error = '';
+      pwdForm.success = '';
+
+      if (!pwdForm.current || !pwdForm.newPwd || !pwdForm.confirm) {
+        pwdForm.error = '請填寫所有欄位';
+        return;
+      }
+      if (pwdForm.newPwd.length < 6) {
+        pwdForm.error = '新密碼長度至少6位';
+        return;
+      }
+      if (pwdForm.newPwd !== pwdForm.confirm) {
+        pwdForm.error = '兩次輸入的新密碼不一致';
+        return;
+      }
+
+      pwdForm.loading = true;
+      setTimeout(() => {
+        const result = Auth.changePassword(pwdForm.current, pwdForm.newPwd);
+        if (result.success) {
+          pwdForm.success = '密碼修改成功！請使用新密碼重新登入';
+          setTimeout(() => {
+            Auth.logout();
+            window.location.href = './login.html';
+          }, 1500);
+        } else {
+          pwdForm.error = result.error || '修改失敗，請重試';
+        }
+        pwdForm.loading = false;
+      }, 500);
+    }
+
+    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session, showChangePwd, pwdForm, changePassword };
   }
 }).mount('#app');
 </script>

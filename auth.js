@@ -103,6 +103,50 @@ const Auth = {
       return false;
     }
     return true;
+  },
+
+  // 修改密碼
+  changePassword(currentPassword, newPassword) {
+    const session = this.getSession();
+    if (!session) {
+      return { success: false, error: '請先登入' };
+    }
+
+    // 驗證當前密碼
+    if (session.role === 'admin') {
+      if (currentPassword !== AUTH_CONFIG.admin.password) {
+        return { success: false, error: '當前密碼不正確' };
+      }
+      // 更新管理員密碼
+      AUTH_CONFIG.admin.password = newPassword;
+      // 更新會話
+      session.timestamp = Date.now();
+      localStorage.setItem('akb_session', JSON.stringify(session));
+      return { success: true };
+    }
+
+    if (session.role === 'designer') {
+      const designer = AUTH_CONFIG.designers.find(d => d.designerId === session.designerId);
+      if (!designer || currentPassword !== designer.password) {
+        return { success: false, error: '當前密碼不正確' };
+      }
+      // 更新設計師密碼
+      designer.password = newPassword;
+      // 更新會話
+      session.timestamp = Date.now();
+      localStorage.setItem('akb_session', JSON.stringify(session));
+      return { success: true };
+    }
+
+    return { success: false, error: '無法修改密碼' };
+  },
+
+  // 驗證密碼強度
+  validatePassword(password) {
+    if (password.length < 6) {
+      return { valid: false, error: '密碼長度至少6位' };
+    }
+    return { valid: true };
   }
 };
 

@@ -33,6 +33,10 @@
 .badge-done{background:rgba(99,102,241,.15);color:#C4B5FD;}
 .nav-tab{padding:10px 20px;cursor:pointer;border-bottom:2px solid transparent;color:#888;}
 .nav-tab.active{border-color:#C9A84C;color:#C9A84C;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:#1C1C1C;border:1px solid #333;border-radius:16px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;}
+input{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;width:100%;outline:none;transition:border 0.2s;}
+input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
 </style>
 </head>
 <body class="bg-dark text-white min-h-screen">
@@ -49,7 +53,9 @@
       <div class="flex gap-1">
         <button :class="['nav-tab',tab==='schedule'?'active':'']" @click="tab='schedule'">班表</button>
         <button :class="['nav-tab',tab==='bookings'?'active':'']" @click="tab='bookings'">預約</button>
-        <button :class="['nav-tab',tab==='profile'?'active':'']" @click="tab='profile'">資料</button>
+        <button :class="['nav-tab',tab==='records'?'active':'']" @click="tab='records'">服務記錄</button>
+        <button :class="['nav-tab',tab==='earnings'?'active':'']" @click="tab='earnings'">收入統計</button>
+        <button :class="['nav-tab',tab==='profile'?'active':'']" @click="tab='profile'">個人資料</button>
       </div>
       <button class="btn btn-ghost text-xs" @click="logout">登出</button>
     </div>
@@ -114,23 +120,62 @@
             <div class="flex justify-between"><span class="text-muted">狀態</span><span :class="designer.available?'text-green-400':'text-red-400'">{{designer.available?'上班中':'休假中'}}</span></div>
           </div>
         </div>
-        <div class="card p-6">
-          <div class="text-sm font-semibold mb-4 text-muted">本月統計</div>
-          <div class="space-y-4">
-            <div class="flex justify-between"><span class="text-muted">本月預約</span><span class="text-2xl font-bold text-gold">{{myBookings.filter(b=>b.date.startsWith('2026-03')).length}}</span></div>
-            <div class="flex justify-between"><span class="text-muted">完成服務</span><span class="text-2xl font-bold text-green-400">{{myBookings.filter(b=>b.status==='done').length}}</span></div>
+        <div class="space-y-6">
+          <div class="card p-6">
+            <div class="text-sm font-semibold mb-4 text-muted">本月統計</div>
+            <div class="space-y-4">
+              <div class="flex justify-between"><span class="text-muted">本月預約</span><span class="text-2xl font-bold text-gold">{{myBookings.filter(b=>b.date.startsWith('2026-03')).length}}</span></div>
+              <div class="flex justify-between"><span class="text-muted">完成服務</span><span class="text-2xl font-bold text-green-400">{{myBookings.filter(b=>b.status==='done').length}}</span></div>
+            </div>
+          </div>
+          <div class="card p-6">
+            <div class="text-sm font-semibold mb-4 text-muted">帳號安全</div>
+            <button class="btn btn-ghost w-full" @click="showChangePwd=true">修改密碼</button>
           </div>
         </div>
       </div>
     </div>
   </main>
 
+  <!-- 修改密碼 Modal -->
+  <div v-if="showChangePwd" class="modal-overlay" @click.self="showChangePwd=false">
+    <div class="modal-box fade" style="max-width:400px">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-xl font-bold serif gold">修改密碼</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showChangePwd=false">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-muted mb-1">當前密碼</label>
+          <input v-model="pwdForm.current" type="password" placeholder="請輸入當前密碼"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">新密碼（至少6位）</label>
+          <input v-model="pwdForm.newPwd" type="password" placeholder="請輸入新密碼"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">確認新密碼</label>
+          <input v-model="pwdForm.confirm" type="password" placeholder="再次輸入新密碼" @keyup.enter="changePassword()"/>
+        </div>
+        <div v-if="pwdForm.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
+          {{pwdForm.error}}
+        </div>
+        <div v-if="pwdForm.success" class="p-3 rounded-lg bg-green-900/30 border border-green-700 text-green-300 text-sm">
+          {{pwdForm.success}}
+        </div>
+        <button class="btn btn-gold w-full py-3" @click="changePassword()" :disabled="pwdForm.loading">
+          {{pwdForm.loading ? '修改中...' : '確認修改'}}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
 </div>
 
 <script>
-const { createApp, ref, computed } = Vue;
+const { createApp, ref, computed, reactive } = Vue;
 
 // 權限檢查 - 未登入則跳轉到登入頁
 if (!Auth.isLoggedIn() || !Auth.hasPermission('designer')) {
@@ -194,7 +239,51 @@ createApp({
       window.location.href = '../index.html';
     }
 
-    return { tab, designer, myBookings, weekSchedule, statusText, updateStatus, logout, toast };
+    // 修改密碼
+    const showChangePwd = ref(false);
+    const pwdForm = reactive({
+      current: '',
+      newPwd: '',
+      confirm: '',
+      loading: false,
+      error: '',
+      success: ''
+    });
+
+    function changePassword() {
+      pwdForm.error = '';
+      pwdForm.success = '';
+
+      if (!pwdForm.current || !pwdForm.newPwd || !pwdForm.confirm) {
+        pwdForm.error = '請填寫所有欄位';
+        return;
+      }
+      if (pwdForm.newPwd.length < 6) {
+        pwdForm.error = '新密碼長度至少6位';
+        return;
+      }
+      if (pwdForm.newPwd !== pwdForm.confirm) {
+        pwdForm.error = '兩次輸入的新密碼不一致';
+        return;
+      }
+
+      pwdForm.loading = true;
+      setTimeout(() => {
+        const result = Auth.changePassword(pwdForm.current, pwdForm.newPwd);
+        if (result.success) {
+          pwdForm.success = '密碼修改成功！請使用新密碼重新登入';
+          setTimeout(() => {
+            Auth.logout();
+            window.location.href = './login.html';
+          }, 1500);
+        } else {
+          pwdForm.error = result.error || '修改失敗';
+        }
+        pwdForm.loading = false;
+      }, 500);
+    }
+
+    return { tab, designer, myBookings, weekSchedule, statusText, updateStatus, logout, toast, showChangePwd, pwdForm, changePassword };
   }
 }).mount('#app');
 </script>
