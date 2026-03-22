@@ -507,14 +507,20 @@ createApp({
       return EXISTING_BOOKINGS.some(b => b.designerId===bookingForm.designerId && b.date===bookingForm.date && b.time===t);
     }
 
+    // 標準化手機號碼（移除所有非數字字符）
+    function normalizePhone(phone) {
+      return phone.replace(/\D/g, '');
+    }
+
     function submitBooking() {
       const svc = services.value.find(s=>s.id===bookingForm.serviceId);
       const des = designers.value.find(d=>d.id===bookingForm.designerId);
       const bookingId = 'BK' + Date.now().toString().slice(-6);
+      const normalizedPhone = normalizePhone(bookingForm.phone);
       const newBooking = {
         id: bookingId,
         customerName: bookingForm.name,
-        customerPhone: bookingForm.phone,
+        customerPhone: normalizedPhone,
         serviceName: svc.name,
         designerId: bookingForm.designerId,
         designerName: des.name,
@@ -615,14 +621,18 @@ createApp({
 
     function verifyPhone() {
       myBookings.error = '';
-      if (!myBookings.phone || myBookings.phone.length < 10) {
+      const normalizedPhone = normalizePhone(myBookings.phone);
+      if (!normalizedPhone || normalizedPhone.length < 8) {
         myBookings.error = '請輸入正確的手機號碼';
         return;
       }
       myBookings.loading = true;
       setTimeout(() => {
         const accounts = getClientAccounts();
-        myBookings.hasPassword = !!accounts[myBookings.phone]?.password;
+        // 查找是否有該手機號碼的帳號（支援標準化後的匹配）
+        const accountPhone = Object.keys(accounts).find(p => normalizePhone(p) === normalizedPhone);
+        myBookings.phone = accountPhone || normalizedPhone; // 使用已存在的格式或標準化格式
+        myBookings.hasPassword = !!(accountPhone && accounts[accountPhone]?.password);
         myBookings.verified = true;
         myBookings.loading = false;
       }, 500);
@@ -640,7 +650,10 @@ createApp({
       }
       myBookings.loading = true;
       setTimeout(() => {
-        saveClientAccount(myBookings.phone, myBookings.newPassword);
+        // 使用標準化後的手機號碼儲存帳號
+        const normalizedPhone = normalizePhone(myBookings.phone);
+        saveClientAccount(normalizedPhone, myBookings.newPassword);
+        myBookings.phone = normalizedPhone;
         myBookings.hasPassword = true;
         myBookings.authenticated = true;
         loadMyBookings();
@@ -657,7 +670,11 @@ createApp({
       myBookings.loading = true;
       setTimeout(() => {
         const accounts = getClientAccounts();
-        if (accounts[myBookings.phone]?.password === myBookings.password) {
+        const normalizedPhone = normalizePhone(myBookings.phone);
+        // 查找標準化後的手機號碼對應的帳號
+        const accountPhone = Object.keys(accounts).find(p => normalizePhone(p) === normalizedPhone) || normalizedPhone;
+        if (accounts[accountPhone]?.password === myBookings.password) {
+          myBookings.phone = accountPhone;
           myBookings.authenticated = true;
           loadMyBookings();
         } else {
@@ -669,7 +686,9 @@ createApp({
 
     function loadMyBookings() {
       const allBookings = getClientBookings();
-      myBookings.list = allBookings.filter(b => b.customerPhone === myBookings.phone);
+      const normalizedPhone = normalizePhone(myBookings.phone);
+      // 使用標準化後的手機號碼進行匹配
+      myBookings.list = allBookings.filter(b => normalizePhone(b.customerPhone) === normalizedPhone);
     }
 
     function logoutMyBookings() {
@@ -683,6 +702,11 @@ createApp({
       if (idx !== -1) {
         allBookings[idx].status = 'cancelled';
         localStorage.setItem(CLIENT_BOOKINGS_KEY, JSON.stringify(allBookings));
+        
+        // 同時同步到設計師端的預約資料
+        const SHARED_BOOKINGS_KEY = 'akb_bookings_data';
+        localStorage.setItem(SHARED_BOOKINGS_KEY, JSON.stringify(allBookings));
+        
         loadMyBookings();
       }
     }

@@ -39,10 +39,8 @@
     <div class="text-muted text-sm tracking-wider">Music • Style • Identity</div>
   </div>
 
-  <!-- 三個入口 -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-6">
-    
-    <!-- 客戶預約端 -->
+  <!-- 客戶預約入口 -->
+  <div class="w-full max-w-md px-6 mb-8">
     <a href="./client/index.html" class="portal-card text-center">
       <div class="portal-icon bg-gold-grad">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0F0F0F" stroke-width="2">
@@ -54,35 +52,6 @@
       <p class="text-muted text-sm">線上預約服務，選擇設計師與時段</p>
       <div class="mt-4 text-gold text-sm">立即預約 →</div>
     </a>
-
-    <!-- 設計師端 -->
-    <a href="./designer/index.html" class="portal-card text-center">
-      <div class="portal-icon" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9 2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9 2.83-2.83"/>
-        </svg>
-      </div>
-      <h3 class="text-xl font-bold mb-2">設計師工作台</h3>
-      <p class="text-muted text-sm">查看班表、管理預約、個人資料</p>
-      <div class="mt-4 text-blue-400 text-sm">進入工作台 →</div>
-    </a>
-
-    <!-- 店家後台 -->
-    <a href="./admin/login.html" class="portal-card text-center">
-      <div class="portal-icon" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9);">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-          <rect x="3" y="3" width="7" height="7"/>
-          <rect x="14" y="3" width="7" height="7"/>
-          <rect x="14" y="14" width="7" height="7"/>
-          <rect x="3" y="14" width="7" height="7"/>
-        </svg>
-      </div>
-      <h3 class="text-xl font-bold mb-2">店家管理後台</h3>
-      <p class="text-muted text-sm">預約管理、設計師管理、數據報表</p>
-      <div class="mt-4 text-purple-400 text-sm">管理員登入 →</div>
-    </a>
-
   </div>
 
   <!-- 宣傳單展示 -->
@@ -140,6 +109,42 @@
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- 內部系統入口 -->
+  <div class="mt-16 w-full max-w-2xl px-6">
+    <h3 class="text-center text-gold text-lg font-bold mb-6 tracking-wider">內部系統</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- 設計師端 -->
+      <a href="./designer/index.html" class="portal-card text-center">
+        <div class="portal-icon" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9 2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9 2.83-2.83"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold mb-2">設計師工作台</h3>
+        <p class="text-muted text-sm">查看班表、管理預約、個人資料</p>
+        <div class="mt-4 text-blue-400 text-sm">進入工作台 →</div>
+      </a>
+
+      <!-- 店家後台 -->
+      <a href="./admin/login.html" class="portal-card text-center">
+        <div class="portal-icon" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9);">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold mb-2">店家管理後台</h3>
+        <p class="text-muted text-sm">預約管理、設計師管理、數據報表</p>
+        <div class="mt-4 text-purple-400 text-sm">管理員登入 →</div>
+      </a>
+
     </div>
   </div>
 

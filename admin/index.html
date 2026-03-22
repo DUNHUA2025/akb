@@ -192,7 +192,10 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 
       <!-- Customers -->
       <div v-if="tab==='customers'" class="fade">
-        <h2 class="text-2xl font-bold serif mb-5">顧客資料</h2>
+        <div class="flex justify-between items-center mb-5">
+          <h2 class="text-2xl font-bold serif">顧客資料</h2>
+          <button @click="refreshCustomers" class="btn btn-primary">🔄 刷新資料</button>
+        </div>
         <div class="card overflow-x-auto">
           <table>
             <thead><tr><th>姓名</th><th>手機</th><th>來訪次數</th><th>累計消費</th></tr></thead>
@@ -202,6 +205,9 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
                 <td class="text-muted">{{c.phone}}</td>
                 <td class="text-gold font-bold">{{c.visits}}</td>
                 <td class="font-semibold text-green-400">${{c.totalSpent.toLocaleString()}}</td>
+              </tr>
+              <tr v-if="customers.length === 0">
+                <td colspan="4" class="text-center text-muted py-8">暫無顧客資料</td>
               </tr>
             </tbody>
           </table>
@@ -367,10 +373,39 @@ function saveDesigners(designers) {
   localStorage.setItem(DESIGNERS_KEY, JSON.stringify(designers));
 }
 
-const CUSTOMERS = [
-  { id:1, name:'王小明', phone:'0912-345-678', visits:12, totalSpent:18400 },
-  { id:2, name:'林美華', phone:'0923-456-789', visits:7, totalSpent:9800 },
-];
+// 從預約資料生成客戶列表
+function loadCustomersFromBookings() {
+  const CLIENT_BOOKINGS_KEY = 'akb_client_bookings';
+  const bookings = JSON.parse(localStorage.getItem(CLIENT_BOOKINGS_KEY) || '[]');
+  
+  // 按手機號碼分組統計客戶資料
+  const customerMap = {};
+  bookings.forEach(b => {
+    const phone = b.customerPhone || '';
+    const name = b.customerName || '未知客戶';
+    const key = phone || name;
+    
+    if (!customerMap[key]) {
+      customerMap[key] = {
+        id: key,
+        name: name,
+        phone: phone,
+        visits: 0,
+        totalSpent: 0
+      };
+    }
+    
+    // 只統計已確認和已完成的預約
+    if (b.status === 'confirmed' || b.status === 'done') {
+      customerMap[key].visits++;
+      customerMap[key].totalSpent += parseInt(b.price) || 0;
+    }
+  });
+  
+  return Object.values(customerMap);
+}
+
+const CUSTOMERS = loadCustomersFromBookings();
 
 const SERVICES = [
   { id:1, name:'剪髮造型', category:'基礎', duration:60, price:600 },
@@ -584,7 +619,13 @@ createApp({
       }
     }
 
-    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session, showChangePwd, pwdForm, changePassword, designerFilter, filteredDesigners, showDesignerModal, isEditingDesigner, designerForm, openAddDesigner, editDesigner, saveDesigner, setDesignerStatus };
+    function refreshCustomers() {
+      customers.value = loadCustomersFromBookings();
+      toast.value = { show: true, msg: '顧客資料已更新' };
+      setTimeout(() => toast.value.show = false, 2000);
+    }
+
+    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session, showChangePwd, pwdForm, changePassword, designerFilter, filteredDesigners, showDesignerModal, isEditingDesigner, designerForm, openAddDesigner, editDesigner, saveDesigner, setDesignerStatus, refreshCustomers };
   }
 }).mount('#app');
 </script>

@@ -365,6 +365,10 @@ function loadBookings() {
 // 儲存預約資料到 localStorage
 function saveBookings(bookings) {
   localStorage.setItem(SHARED_BOOKINGS_KEY, JSON.stringify(bookings));
+  
+  // 同時同步到客戶端的預約資料（讓客戶端也能看到狀態更新）
+  const CLIENT_BOOKINGS_KEY = 'akb_client_bookings';
+  localStorage.setItem(CLIENT_BOOKINGS_KEY, JSON.stringify(bookings));
 }
 
 const BOOKINGS = loadBookings();
