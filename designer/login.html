@@ -91,7 +91,10 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
 <script>
 const { createApp, ref } = Vue;
 
-const DESIGNERS = [
+const DESIGNERS_KEY = 'akb_designers_data';
+
+// 預設設計師登入資料（只包含登入需要的欄位）
+const DEFAULT_LOGIN_DATA = [
   { id:1, name:'Aika', role:'首席設計師', avatar:'A', username:'aika' },
   { id:2, name:'Ken', role:'資深設計師', avatar:'K', username:'ken' },
   { id:3, name:'Bella', role:'設計師', avatar:'B', username:'bella' },
@@ -99,9 +102,40 @@ const DESIGNERS = [
   { id:5, name:'Mia', role:'設計師', avatar:'M', username:'mia' },
 ];
 
+// 從 localStorage 載入設計師資料，並合併登入需要的 username
+function loadDesignersForLogin() {
+  const saved = localStorage.getItem(DESIGNERS_KEY);
+  if (saved) {
+    const fullData = JSON.parse(saved);
+    // 只返回在職的設計師，並合併 username
+    return fullData
+      .filter(d => d.status !== 'resigned') // 排除已離職
+      .map(d => {
+        const loginInfo = DEFAULT_LOGIN_DATA.find(l => l.id === d.id);
+        return {
+          id: d.id,
+          name: d.name,
+          role: d.role,
+          avatar: d.avatar,
+          username: loginInfo ? loginInfo.username : d.name.toLowerCase()
+        };
+      });
+  }
+  // 首次使用，初始化 localStorage
+  const initialData = [
+    { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染'], bio:'10年經驗', avatar:'A', rating:4.9, reviews:142, works:320, available:true, status:'active' },
+    { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮'], bio:'首爾歸國', avatar:'K', rating:4.8, reviews:98, works:215, available:true, status:'active' },
+    { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','SPA'], bio:'輕柔手法', avatar:'B', rating:4.7, reviews:63, works:140, available:true, status:'active' },
+    { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘'], bio:'婚禮達人', avatar:'J', rating:4.9, reviews:117, works:278, available:false, status:'active' },
+    { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮'], bio:'活潑開朗', avatar:'M', rating:4.6, reviews:45, works:98, available:true, status:'active' },
+  ];
+  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(initialData));
+  return DEFAULT_LOGIN_DATA;
+}
+
 createApp({
   setup() {
-    const designers = ref(DESIGNERS);
+    const designers = ref(loadDesignersForLogin());
     const selectedDesigner = ref(null);
     const password = ref('');
     const error = ref('');

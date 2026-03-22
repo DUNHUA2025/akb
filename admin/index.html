@@ -144,19 +144,47 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 
       <!-- Designers -->
       <div v-if="tab==='designers'" class="fade">
-        <h2 class="text-2xl font-bold serif mb-5">設計師管理</h2>
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-2xl font-bold serif">設計師管理</h2>
+          <button class="btn btn-gold" @click="openAddDesigner()">+ 新增設計師</button>
+        </div>
+        
+        <!-- 狀態篩選 -->
+        <div class="flex gap-2 mb-4">
+          <button class="btn btn-ghost text-xs" :class="designerFilter==='all'?'text-gold border-gold':''" @click="designerFilter='all'">全部</button>
+          <button class="btn btn-ghost text-xs" :class="designerFilter==='active'?'text-gold border-gold':''" @click="designerFilter='active'">在職</button>
+          <button class="btn btn-ghost text-xs" :class="designerFilter==='leave'?'text-gold border-gold':''" @click="designerFilter='leave'">休假</button>
+          <button class="btn btn-ghost text-xs" :class="designerFilter==='resigned'?'text-gold border-gold':''" @click="designerFilter='resigned'">已離職</button>
+        </div>
+        
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div v-for="d in designers" :key="d.id" class="card p-5">
+          <div v-for="d in filteredDesigners" :key="d.id" class="card p-5" :class="d.status==='resigned'?'opacity-50':''">
             <div class="flex items-center gap-4 mb-4">
               <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl">{{d.avatar}}</div>
-              <div>
-                <div class="font-bold text-lg">{{d.name}}</div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="font-bold text-lg">{{d.name}}</div>
+                  <span class="text-xs px-2 py-0.5 rounded-full font-bold" :style="d.level==='A'?'background:rgba(201,168,76,.2);color:#C9A84C':d.level==='B'?'background:rgba(99,102,241,.2);color:#A78BFA':'background:rgba(34,197,94,.2);color:#86EFAC'">Lv.{{d.level}}</span>
+                </div>
                 <div class="text-muted text-xs">{{d.role}}</div>
+                <div class="text-yellow-400 text-xs">★ {{d.rating}} <span class="text-muted">({{d.reviews}}則)</span></div>
               </div>
             </div>
-            <div class="flex items-center justify-between">
-              <span class="text-xs px-3 py-1 rounded-full" :class="d.available?'text-green-400 bg-green-900/30':'text-red-400 bg-red-900/30'">{{d.available?'上班中':'休假中'}}</span>
-              <button class="btn btn-ghost text-xs" @click="d.available=!d.available">切換</button>
+            <div class="text-xs text-muted mb-3">{{d.bio}}</div>
+            <div class="flex flex-wrap gap-1 mb-3">
+              <span v-for="sp in d.specialty" :key="sp" class="text-xs px-2 py-0.5 rounded-full bg-gray-800">{{sp}}</span>
+            </div>
+            <div class="flex items-center justify-between pt-3 border-t border-gray-800">
+              <span class="text-xs px-3 py-1 rounded-full" 
+                :class="d.status==='resigned'?'text-gray-400 bg-gray-800':d.status==='leave'?'text-yellow-400 bg-yellow-900/30':d.available?'text-green-400 bg-green-900/30':'text-red-400 bg-red-900/30'">
+                {{d.status==='resigned'?'已離職':d.status==='leave'?'休假中':d.available?'上班中':'休息中'}}
+              </span>
+              <div class="flex gap-1">
+                <button v-if="d.status!=='resigned'" class="btn btn-ghost text-xs px-2 py-1" @click="editDesigner(d)">編輯</button>
+                <button v-if="d.status==='active'" class="btn btn-ghost text-xs px-2 py-1" @click="setDesignerStatus(d.id,'leave')">休假</button>
+                <button v-if="d.status==='leave'" class="btn btn-ghost text-xs px-2 py-1" @click="setDesignerStatus(d.id,'active')">復職</button>
+                <button v-if="d.status!=='resigned'" class="btn btn-danger text-xs px-2 py-1" @click="setDesignerStatus(d.id,'resigned')">離職</button>
+              </div>
             </div>
           </div>
         </div>
@@ -202,6 +230,55 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 
   <!-- Toast -->
   <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
+
+  <!-- 設計師編輯/新增 Modal -->
+  <div v-if="showDesignerModal" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="showDesignerModal=false">
+    <div class="card p-7 w-full max-w-md fade">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold serif gold">{{isEditingDesigner?'編輯設計師':'新增設計師'}}</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showDesignerModal=false">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-muted mb-1">名稱 *</label>
+          <input v-model="designerForm.name" placeholder="請輸入設計師名稱" class="w-full"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">職稱</label>
+          <select v-model="designerForm.role" class="w-full bg-gray-800 border-gray-700">
+            <option value="首席設計師">首席設計師</option>
+            <option value="資深設計師">資深設計師</option>
+            <option value="設計師">設計師</option>
+            <option value="助理設計師">助理設計師</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">等級</label>
+          <select v-model="designerForm.level" class="w-full bg-gray-800 border-gray-700">
+            <option value="A">A級 (首席)</option>
+            <option value="B">B級 (資深)</option>
+            <option value="C">C級 (一般)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">專長技能（用逗號分隔）</label>
+          <input v-model="designerForm.specialty" placeholder="例如：染髮, 燙髮, 剪髮" class="w-full"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">個人簡介</label>
+          <input v-model="designerForm.bio" placeholder="請輸入個人簡介" class="w-full"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">頭像字母</label>
+          <input v-model="designerForm.avatar" :placeholder="designerForm.name?designerForm.name.charAt(0).toUpperCase():'A'" class="w-full"/>
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button class="btn btn-ghost flex-1" @click="showDesignerModal=false">取消</button>
+          <button class="btn btn-gold flex-1" @click="saveDesigner()">{{isEditingDesigner?'儲存':'新增'}}</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 修改密碼 Modal -->
   <div v-if="showChangePwd" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="showChangePwd=false">
@@ -253,11 +330,42 @@ const BOOKINGS = [
   { id:'b3', customerName:'張志豪', designerName:'Ken', serviceName:'燙髮', date:'2026-03-26', time:'11:00', price:2800, status:'pending' },
 ];
 
-const DESIGNERS = [
-  { id:1, name:'Aika', role:'首席設計師', avatar:'A', available:true },
-  { id:2, name:'Ken', role:'資深設計師', avatar:'K', available:true },
-  { id:3, name:'Bella', role:'設計師', avatar:'B', available:true },
+const DESIGNERS_KEY = 'akb_designers_data';
+
+// 預設設計師資料
+const DEFAULT_DESIGNERS = [
+  { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染'], bio:'10年經驗', avatar:'A', rating:4.9, reviews:142, works:320, available:true, status:'active' },
+  { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮'], bio:'首爾歸國', avatar:'K', rating:4.8, reviews:98, works:215, available:true, status:'active' },
+  { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','SPA'], bio:'輕柔手法', avatar:'B', rating:4.7, reviews:63, works:140, available:true, status:'active' },
+  { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘'], bio:'婚禮達人', avatar:'J', rating:4.9, reviews:117, works:278, available:false, status:'active' },
+  { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮'], bio:'活潑開朗', avatar:'M', rating:4.6, reviews:45, works:98, available:true, status:'active' },
 ];
+
+// 從 localStorage 載入設計師資料
+function loadDesigners() {
+  const saved = localStorage.getItem(DESIGNERS_KEY);
+  if (saved) {
+    const data = JSON.parse(saved);
+    // 確保新欄位有預設值
+    return data.map(d => ({
+      ...d,
+      status: d.status || 'active',
+      level: d.level || 'C',
+      specialty: d.specialty || [],
+      bio: d.bio || '',
+      rating: d.rating || 4.5,
+      reviews: d.reviews || 0,
+      works: d.works || 0
+    }));
+  }
+  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(DEFAULT_DESIGNERS));
+  return DEFAULT_DESIGNERS;
+}
+
+// 儲存設計師資料
+function saveDesigners(designers) {
+  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(designers));
+}
 
 const CUSTOMERS = [
   { id:1, name:'王小明', phone:'0912-345-678', visits:12, totalSpent:18400 },
@@ -275,12 +383,22 @@ createApp({
     const tab = ref('dashboard');
     const tabs = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'}];
     const bookings = ref([...BOOKINGS]);
-    const designers = ref([...DESIGNERS]);
+    const designers = ref(loadDesigners());
     const customers = ref([...CUSTOMERS]);
     const services = ref([...SERVICES]);
     const search = ref('');
     const toast = ref({ show:false, msg:'' });
     const statusText = { confirmed: '已確認', pending: '待確認', cancelled: '已取消', done: '已完成' };
+    const designerFilter = ref('all');
+    
+    // 設計師篩選
+    const filteredDesigners = computed(() => {
+      if (designerFilter.value === 'all') return designers.value;
+      if (designerFilter.value === 'active') return designers.value.filter(d => d.status === 'active');
+      if (designerFilter.value === 'leave') return designers.value.filter(d => d.status === 'leave');
+      if (designerFilter.value === 'resigned') return designers.value.filter(d => d.status === 'resigned');
+      return designers.value;
+    });
 
     const today = new Date().toISOString().slice(0,10);
     const thisMonth = today.slice(0,7);
@@ -355,7 +473,118 @@ createApp({
       }, 500);
     }
 
-    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session, showChangePwd, pwdForm, changePassword };
+    // 設計師管理功能
+    const showDesignerModal = ref(false);
+    const isEditingDesigner = ref(false);
+    const designerForm = reactive({
+      id: null,
+      name: '',
+      role: '設計師',
+      level: 'C',
+      specialty: '',
+      bio: '',
+      avatar: '',
+      status: 'active',
+      available: true
+    });
+
+    function openAddDesigner() {
+      isEditingDesigner.value = false;
+      designerForm.id = null;
+      designerForm.name = '';
+      designerForm.role = '設計師';
+      designerForm.level = 'C';
+      designerForm.specialty = '';
+      designerForm.bio = '';
+      designerForm.avatar = '';
+      designerForm.status = 'active';
+      designerForm.available = true;
+      showDesignerModal.value = true;
+    }
+
+    function editDesigner(d) {
+      isEditingDesigner.value = true;
+      designerForm.id = d.id;
+      designerForm.name = d.name;
+      designerForm.role = d.role;
+      designerForm.level = d.level || 'C';
+      designerForm.specialty = d.specialty ? d.specialty.join(', ') : '';
+      designerForm.bio = d.bio || '';
+      designerForm.avatar = d.avatar;
+      designerForm.status = d.status || 'active';
+      designerForm.available = d.available;
+      showDesignerModal.value = true;
+    }
+
+    function saveDesigner() {
+      if (!designerForm.name.trim()) {
+        toast.value = { show: true, msg: '請輸入設計師名稱' };
+        return;
+      }
+      
+      const avatar = designerForm.avatar.trim() || designerForm.name.trim().charAt(0).toUpperCase();
+      const specialtyList = designerForm.specialty.split(',').map(s => s.trim()).filter(s => s);
+      
+      if (isEditingDesigner.value) {
+        // 編輯現有設計師
+        const idx = designers.value.findIndex(d => d.id === designerForm.id);
+        if (idx !== -1) {
+          designers.value[idx] = {
+            ...designers.value[idx],
+            name: designerForm.name.trim(),
+            role: designerForm.role,
+            level: designerForm.level,
+            specialty: specialtyList,
+            bio: designerForm.bio.trim(),
+            avatar: avatar
+          };
+          toast.value = { show: true, msg: '設計師資料已更新' };
+        }
+      } else {
+        // 新增設計師
+        const newId = Math.max(...designers.value.map(d => d.id), 0) + 1;
+        const newDesigner = {
+          id: newId,
+          name: designerForm.name.trim(),
+          role: designerForm.role,
+          level: designerForm.level,
+          specialty: specialtyList,
+          bio: designerForm.bio.trim(),
+          avatar: avatar,
+          rating: 5.0,
+          reviews: 0,
+          works: 0,
+          available: true,
+          status: 'active'
+        };
+        designers.value.push(newDesigner);
+        toast.value = { show: true, msg: '新設計師已新增' };
+      }
+      
+      saveDesigners(designers.value);
+      showDesignerModal.value = false;
+      setTimeout(() => toast.value.show = false, 2000);
+    }
+
+    function setDesignerStatus(id, status) {
+      const d = designers.value.find(x => x.id === id);
+      if (d) {
+        d.status = status;
+        if (status === 'resigned') {
+          d.available = false;
+        } else if (status === 'active') {
+          d.available = true;
+        } else if (status === 'leave') {
+          d.available = false;
+        }
+        saveDesigners(designers.value);
+        const statusMap = { active: '已設為在職', leave: '已設為休假', resigned: '已標記為離職' };
+        toast.value = { show: true, msg: statusMap[status] };
+        setTimeout(() => toast.value.show = false, 2000);
+      }
+    }
+
+    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session, showChangePwd, pwdForm, changePassword, designerFilter, filteredDesigners, showDesignerModal, isEditingDesigner, designerForm, openAddDesigner, editDesigner, saveDesigner, setDesignerStatus };
   }
 }).mount('#app');
 </script>

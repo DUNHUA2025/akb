@@ -417,13 +417,33 @@ const SERVICES = [
   { id:10, name:'負離子直髮', en:'Negative ion hair straightening', price:228, duration:120, category:'燙髮' },
 ];
 
-const DESIGNERS = [
-  { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染','音樂造型'], bio:'擅長韓系潮流色彩，10年經驗，粉絲稱她為「調色魔法師」', avatar:'A', rating:4.9, reviews:142, available:true },
-  { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮','男士剪髮'], bio:'韓式小臉燙&歐美捲專家，留學首爾5年歸國', avatar:'K', rating:4.8, reviews:98, available:true },
-  { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','頭皮SPA','護髮療程'], bio:'輕柔手法，細心聆聽每位客人需求', avatar:'B', rating:4.7, reviews:63, available:true },
-  { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘造型','特殊造型'], bio:'婚禮造型達人，已完成超過200組新娘', avatar:'J', rating:4.9, reviews:117, available:false },
-  { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮','頭皮SPA'], bio:'活潑開朗，擅長與客人溝通，讓你放鬆享受', avatar:'M', rating:4.6, reviews:45, available:true },
+const DESIGNERS_KEY = 'akb_designers_data';
+
+// 預設設計師資料
+const DEFAULT_DESIGNERS = [
+  { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染','音樂造型'], bio:'擅長韓系潮流色彩，10年經驗，粉絲稱她為「調色魔法師」', avatar:'A', rating:4.9, reviews:142, available:true, status:'active' },
+  { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮','男士剪髮'], bio:'韓式小臉燙&歐美捲專家，留學首爾5年歸國', avatar:'K', rating:4.8, reviews:98, available:true, status:'active' },
+  { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','頭皮SPA','護髮療程'], bio:'輕柔手法，細心聆聽每位客人需求', avatar:'B', rating:4.7, reviews:63, available:true, status:'active' },
+  { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘造型','特殊造型'], bio:'婚禮造型達人，已完成超過200組新娘', avatar:'J', rating:4.9, reviews:117, available:false, status:'active' },
+  { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮','頭皮SPA'], bio:'活潑開朗，擅長與客人溝通，讓你放鬆享受', avatar:'M', rating:4.6, reviews:45, available:true, status:'active' },
 ];
+
+// 從 localStorage 載入設計師資料，過濾掉已離職的設計師
+function loadDesigners() {
+  const saved = localStorage.getItem(DESIGNERS_KEY);
+  if (saved) {
+    const data = JSON.parse(saved);
+    // 過濾掉已離職的設計師，並確保舊資料有 status 欄位
+    return data
+      .filter(d => d.status !== 'resigned')
+      .map(d => ({ ...d, status: d.status || 'active' }));
+  }
+  // 首次載入，儲存預設值
+  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(DEFAULT_DESIGNERS));
+  return DEFAULT_DESIGNERS.filter(d => d.status !== 'resigned');
+}
+
+const DESIGNERS = loadDesigners();
 
 const ALL_TIMES = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
 
@@ -490,15 +510,34 @@ createApp({
     function submitBooking() {
       const svc = services.value.find(s=>s.id===bookingForm.serviceId);
       const des = designers.value.find(d=>d.id===bookingForm.designerId);
-      bookingDone.value = {
-        id: 'BK' + Date.now().toString().slice(-6),
+      const bookingId = 'BK' + Date.now().toString().slice(-6);
+      const newBooking = {
+        id: bookingId,
         customerName: bookingForm.name,
+        customerPhone: bookingForm.phone,
         serviceName: svc.name,
+        designerId: bookingForm.designerId,
         designerName: des.name,
         date: bookingForm.date,
         time: bookingForm.time,
         price: svc.price,
+        status: 'pending',
+        note: bookingForm.note,
+        createdAt: Date.now()
       };
+      
+      // 儲存到 localStorage，讓設計師端可以看到
+      const allBookings = getClientBookings();
+      allBookings.push(newBooking);
+      localStorage.setItem(CLIENT_BOOKINGS_KEY, JSON.stringify(allBookings));
+      
+      // 同時儲存到共享的預約資料（設計師端使用）
+      const SHARED_BOOKINGS_KEY = 'akb_bookings_data';
+      const sharedBookings = JSON.parse(localStorage.getItem(SHARED_BOOKINGS_KEY) || '[]');
+      sharedBookings.push(newBooking);
+      localStorage.setItem(SHARED_BOOKINGS_KEY, JSON.stringify(sharedBookings));
+      
+      bookingDone.value = newBooking;
       bookingStep.value = 5;
     }
 

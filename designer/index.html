@@ -102,35 +102,126 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
       </div>
     </div>
 
+    <!-- 服務記錄 -->
+    <div v-if="tab==='records'" class="fade">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold serif">服務記錄</h2>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost text-xs" @click="recordFilter='all'" :class="recordFilter==='all'?'text-gold border-gold':''">全部</button>
+          <button class="btn btn-ghost text-xs" @click="recordFilter='month'" :class="recordFilter==='month'?'text-gold border-gold':''">本月</button>
+          <button class="btn btn-ghost text-xs" @click="recordFilter='week'" :class="recordFilter==='week'?'text-gold border-gold':''">本週</button>
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-800 text-muted">
+            <tr>
+              <th class="text-left p-3">日期時間</th>
+              <th class="text-left p-3">客戶</th>
+              <th class="text-left p-3">服務項目</th>
+              <th class="text-right p-3">金額</th>
+              <th class="text-center p-3">狀態</th>
+              <th class="text-left p-3">備註</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800">
+            <tr v-for="r in filteredRecords" :key="r.id" class="hover:bg-gray-800/50">
+              <td class="p-3">{{r.date}} {{r.time}}</td>
+              <td class="p-3">{{r.customerName}}</td>
+              <td class="p-3">{{r.serviceName}}</td>
+              <td class="p-3 text-right text-gold">${{r.price.toLocaleString()}}</td>
+              <td class="p-3 text-center">
+                <span class="text-xs px-2 py-0.5 rounded-full" :class="'badge-'+r.status">{{statusText[r.status]}}</span>
+              </td>
+              <td class="p-3 text-muted">{{r.note || '-'}}</td>
+            </tr>
+            <tr v-if="filteredRecords.length===0">
+              <td colspan="6" class="p-8 text-center text-muted">暫無記錄</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 收入統計 -->
+    <div v-if="tab==='earnings'" class="fade">
+      <h2 class="text-xl font-bold serif mb-5">收入統計</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="card p-5">
+          <div class="text-muted text-xs mb-1">本日收入</div>
+          <div class="text-2xl font-bold text-gold">${{todayEarnings.toLocaleString()}}</div>
+          <div class="text-xs text-muted mt-1">{{todayBookingCount}} 筆預約</div>
+        </div>
+        <div class="card p-5">
+          <div class="text-muted text-xs mb-1">本週收入</div>
+          <div class="text-2xl font-bold text-blue-400">${{weekEarnings.toLocaleString()}}</div>
+          <div class="text-xs text-muted mt-1">{{weekBookingCount}} 筆預約</div>
+        </div>
+        <div class="card p-5">
+          <div class="text-muted text-xs mb-1">本月收入</div>
+          <div class="text-2xl font-bold text-green-400">${{monthEarnings.toLocaleString()}}</div>
+          <div class="text-xs text-muted mt-1">{{monthBookingCount}} 筆預約</div>
+        </div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-semibold mb-4 text-muted">服務項目收入分布</div>
+        <div class="space-y-3">
+          <div v-for="item in serviceEarnings" :key="item.name" class="flex items-center gap-3">
+            <div class="w-24 text-sm">{{item.name}}</div>
+            <div class="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div class="bg-gold h-full rounded-full" :style="{width: item.percent + '%'}"></div>
+            </div>
+            <div class="w-20 text-right text-sm">${{item.amount.toLocaleString()}}</div>
+            <div class="w-12 text-right text-xs text-muted">{{item.count}}次</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 個人資料 -->
     <div v-if="tab==='profile'" class="fade">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="card p-6">
-          <div class="flex items-center gap-5 mb-6">
-            <div class="w-20 h-20 rounded-full bg-gold flex items-center justify-center text-black font-bold text-3xl">{{designer.avatar}}</div>
-            <div>
-              <div class="text-2xl font-bold serif">{{designer.name}}</div>
-              <div class="text-muted">{{designer.role}}</div>
-              <div class="text-yellow-400 text-sm">★ {{designer.rating}}</div>
+          <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-5">
+              <div class="w-20 h-20 rounded-full bg-gold flex items-center justify-center text-black font-bold text-3xl">{{designer.avatar}}</div>
+              <div>
+                <div class="text-2xl font-bold serif">{{designer.name}}</div>
+                <div class="text-muted">{{designer.role}}</div>
+                <div class="text-yellow-400 text-sm">★ {{designer.rating}}</div>
+              </div>
             </div>
+            <button class="btn btn-ghost text-xs" @click="initEditForm(); showEditProfile=true">編輯資料</button>
           </div>
           <div class="space-y-3 text-sm">
             <div class="flex justify-between border-b border-gray-800 pb-2"><span class="text-muted">等級</span><span class="text-gold font-bold">Lv.{{designer.level}}</span></div>
             <div class="flex justify-between border-b border-gray-800 pb-2"><span class="text-muted">作品數</span><span>{{designer.works}} 件</span></div>
-            <div class="flex justify-between"><span class="text-muted">狀態</span><span :class="designer.available?'text-green-400':'text-red-400'">{{designer.available?'上班中':'休假中'}}</span></div>
+            <div class="flex justify-between border-b border-gray-800 pb-2"><span class="text-muted">專長</span><span>{{designer.specialty.join('、')}}</span></div>
+            <div class="flex justify-between border-b border-gray-800 pb-2"><span class="text-muted">簡介</span><span class="text-right">{{designer.bio}}</span></div>
+            <div class="flex justify-between items-center">
+              <span class="text-muted">工作狀態</span>
+              <div class="flex items-center gap-2">
+                <span :class="designer.available?'text-green-400':'text-red-400'">{{designer.available?'上班中':'休假中'}}</span>
+                <button class="btn btn-ghost text-xs px-2 py-1" @click="toggleAvailability">
+                  {{designer.available?'設為休假':'設為上班'}}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="space-y-6">
           <div class="card p-6">
             <div class="text-sm font-semibold mb-4 text-muted">本月統計</div>
             <div class="space-y-4">
-              <div class="flex justify-between"><span class="text-muted">本月預約</span><span class="text-2xl font-bold text-gold">{{myBookings.filter(b=>b.date.startsWith('2026-03')).length}}</span></div>
-              <div class="flex justify-between"><span class="text-muted">完成服務</span><span class="text-2xl font-bold text-green-400">{{myBookings.filter(b=>b.status==='done').length}}</span></div>
+              <div class="flex justify-between"><span class="text-muted">本月預約</span><span class="text-2xl font-bold text-gold">{{monthBookingCount}}</span></div>
+              <div class="flex justify-between"><span class="text-muted">已完成</span><span class="text-2xl font-bold text-green-400">{{myBookings.filter(b=>b.status==='done').length}}</span></div>
+              <div class="flex justify-between"><span class="text-muted">待確認</span><span class="text-2xl font-bold text-yellow-400">{{myBookings.filter(b=>b.status==='pending').length}}</span></div>
             </div>
           </div>
           <div class="card p-6">
             <div class="text-sm font-semibold mb-4 text-muted">帳號安全</div>
-            <button class="btn btn-ghost w-full" @click="showChangePwd=true">修改密碼</button>
+            <button class="btn btn-ghost w-full mb-2" @click="showChangePwd=true">修改密碼</button>
+            <button class="btn btn-danger w-full text-xs" @click="logout">登出</button>
           </div>
         </div>
       </div>
@@ -170,6 +261,41 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
     </div>
   </div>
 
+  <!-- 編輯個人資料 Modal -->
+  <div v-if="showEditProfile" class="modal-overlay" @click.self="showEditProfile=false">
+    <div class="modal-box fade" style="max-width:480px">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-xl font-bold serif gold">編輯個人資料</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showEditProfile=false">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-muted mb-1">顯示名稱</label>
+          <input v-model="editForm.name" placeholder="請輸入顯示名稱"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">個人簡介</label>
+          <input v-model="editForm.bio" placeholder="請輸入個人簡介"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">專長技能（用逗號分隔）</label>
+          <input v-model="editForm.specialty" placeholder="例如：染髮, 燙髮, 剪髮"/>
+        </div>
+        <div v-if="editForm.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
+          {{editForm.error}}
+        </div>
+        <div v-if="editForm.success" class="p-3 rounded-lg bg-green-900/30 border border-green-700 text-green-300 text-sm">
+          {{editForm.success}}
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost flex-1" @click="showEditProfile=false">取消</button>
+          <button class="btn btn-gold flex-1" @click="saveProfile()" :disabled="editForm.loading">
+            {{editForm.loading ? '儲存中...' : '儲存'}}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
 </div>
@@ -185,7 +311,10 @@ if (!Auth.isLoggedIn() || !Auth.hasPermission('designer')) {
 const session = Auth.getSession();
 const designerId = session?.designerId || 1;
 
-const DESIGNERS = [
+const DESIGNERS_KEY = 'akb_designers_data';
+
+// 預設設計師資料
+const DEFAULT_DESIGNERS = [
   { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染'], bio:'10年經驗', avatar:'A', rating:4.9, reviews:142, works:320, available:true },
   { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮'], bio:'首爾歸國', avatar:'K', rating:4.8, reviews:98, works:215, available:true },
   { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','SPA'], bio:'輕柔手法', avatar:'B', rating:4.7, reviews:63, works:140, available:true },
@@ -193,13 +322,52 @@ const DESIGNERS = [
   { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮'], bio:'活潑開朗', avatar:'M', rating:4.6, reviews:45, works:98, available:true },
 ];
 
-const BOOKINGS = [
-  { id:'b1', customerName:'王小明', designerId:1, serviceName:'挑染', date:'2026-03-25', time:'10:00', price:3200, status:'confirmed', note:'' },
-  { id:'b2', customerName:'林美華', designerId:3, serviceName:'護髮', date:'2026-03-25', time:'14:00', price:1200, status:'confirmed', note:'' },
-  { id:'b3', customerName:'張志豪', designerId:2, serviceName:'燙髮', date:'2026-03-26', time:'11:00', price:2800, status:'pending', note:'' },
-  { id:'b4', customerName:'陳佳琳', designerId:1, serviceName:'染髮', date:'2026-03-28', time:'13:00', price:2200, status:'pending', note:'' },
-  { id:'b5', customerName:'李雅婷', designerId:5, serviceName:'剪髮', date:'2026-03-22', time:'15:30', price:600, status:'confirmed', note:'' },
+// 從 localStorage 載入設計師資料，若無則使用預設值
+function loadDesigners() {
+  const saved = localStorage.getItem(DESIGNERS_KEY);
+  if (saved) {
+    return JSON.parse(saved);
+  }
+  // 首次載入，儲存預設值
+  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(DEFAULT_DESIGNERS));
+  return DEFAULT_DESIGNERS;
+}
+
+// 儲存設計師資料到 localStorage
+function saveDesigners(designers) {
+  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(designers));
+}
+
+const DESIGNERS = loadDesigners();
+
+const SHARED_BOOKINGS_KEY = 'akb_bookings_data';
+
+// 預設預約資料
+const DEFAULT_BOOKINGS = [
+  { id:'b1', customerName:'王小明', customerPhone:'0912-345-678', designerId:1, serviceName:'挑染', date:'2026-03-25', time:'10:00', price:3200, status:'confirmed', note:'', createdAt: Date.now() },
+  { id:'b2', customerName:'林美華', customerPhone:'0923-456-789', designerId:3, serviceName:'護髮', date:'2026-03-25', time:'14:00', price:1200, status:'confirmed', note:'', createdAt: Date.now() },
+  { id:'b3', customerName:'張志豪', customerPhone:'0934-567-890', designerId:2, serviceName:'燙髮', date:'2026-03-26', time:'11:00', price:2800, status:'pending', note:'', createdAt: Date.now() },
+  { id:'b4', customerName:'陳佳琳', customerPhone:'0945-678-901', designerId:1, serviceName:'染髮', date:'2026-03-28', time:'13:00', price:2200, status:'pending', note:'', createdAt: Date.now() },
+  { id:'b5', customerName:'李雅婷', customerPhone:'0956-789-012', designerId:5, serviceName:'剪髮', date:'2026-03-22', time:'15:30', price:600, status:'confirmed', note:'', createdAt: Date.now() },
 ];
+
+// 從 localStorage 載入預約資料
+function loadBookings() {
+  const saved = localStorage.getItem(SHARED_BOOKINGS_KEY);
+  if (saved) {
+    return JSON.parse(saved);
+  }
+  // 首次載入，儲存預設值
+  localStorage.setItem(SHARED_BOOKINGS_KEY, JSON.stringify(DEFAULT_BOOKINGS));
+  return DEFAULT_BOOKINGS;
+}
+
+// 儲存預約資料到 localStorage
+function saveBookings(bookings) {
+  localStorage.setItem(SHARED_BOOKINGS_KEY, JSON.stringify(bookings));
+}
+
+const BOOKINGS = loadBookings();
 
 createApp({
   setup() {
@@ -229,6 +397,7 @@ createApp({
       const b = bookings.value.find(x => x.id === id);
       if (b) {
         b.status = status;
+        saveBookings(bookings.value); // 同步到 localStorage
         toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
         setTimeout(() => toast.value.show = false, 2000);
       }
@@ -283,7 +452,130 @@ createApp({
       }, 500);
     }
 
-    return { tab, designer, myBookings, weekSchedule, statusText, updateStatus, logout, toast, showChangePwd, pwdForm, changePassword };
+    // 服務記錄篩選
+    const recordFilter = ref('all');
+    const filteredRecords = computed(() => {
+      let records = myBookings.value;
+      const today = new Date().toISOString().slice(0, 10);
+      if (recordFilter.value === 'month') {
+        const monthPrefix = today.slice(0, 7);
+        records = records.filter(r => r.date.startsWith(monthPrefix));
+      } else if (recordFilter.value === 'week') {
+        const weekLater = new Date(); weekLater.setDate(weekLater.getDate() + 7);
+        records = records.filter(r => r.date >= today && r.date <= weekLater.toISOString().slice(0, 10));
+      }
+      return records.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+    });
+
+    // 收入統計
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayEarnings = computed(() => myBookings.value
+      .filter(b => b.date === todayStr && (b.status === 'done' || b.status === 'confirmed'))
+      .reduce((sum, b) => sum + b.price, 0));
+    const todayBookingCount = computed(() => myBookings.value.filter(b => b.date === todayStr).length);
+    
+    const weekEarnings = computed(() => {
+      const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      return myBookings.value
+        .filter(b => b.date >= weekStart.toISOString().slice(0, 10) && (b.status === 'done' || b.status === 'confirmed'))
+        .reduce((sum, b) => sum + b.price, 0);
+    });
+    const weekBookingCount = computed(() => {
+      const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      return myBookings.value.filter(b => b.date >= weekStart.toISOString().slice(0, 10)).length;
+    });
+    
+    const monthEarnings = computed(() => {
+      const monthPrefix = todayStr.slice(0, 7);
+      return myBookings.value
+        .filter(b => b.date.startsWith(monthPrefix) && (b.status === 'done' || b.status === 'confirmed'))
+        .reduce((sum, b) => sum + b.price, 0);
+    });
+    const monthBookingCount = computed(() => {
+      const monthPrefix = todayStr.slice(0, 7);
+      return myBookings.value.filter(b => b.date.startsWith(monthPrefix)).length;
+    });
+
+    const serviceEarnings = computed(() => {
+      const serviceMap = {};
+      myBookings.value.filter(b => b.status === 'done').forEach(b => {
+        if (!serviceMap[b.serviceName]) serviceMap[b.serviceName] = { name: b.serviceName, amount: 0, count: 0 };
+        serviceMap[b.serviceName].amount += b.price;
+        serviceMap[b.serviceName].count++;
+      });
+      const list = Object.values(serviceMap).sort((a, b) => b.amount - a.amount);
+      const maxAmount = list[0]?.amount || 1;
+      return list.map(item => ({ ...item, percent: (item.amount / maxAmount) * 100 }));
+    });
+
+    // 工作狀態切換
+    function toggleAvailability() {
+      const d = DESIGNERS.find(x => x.id === designerId);
+      if (d) {
+        d.available = !d.available;
+        saveDesigners(DESIGNERS); // 儲存到 localStorage
+        toast.value = { show: true, msg: d.available ? '已設為上班中' : '已設為休假中' };
+        setTimeout(() => toast.value.show = false, 2000);
+      }
+    }
+
+    // 編輯個人資料
+    const showEditProfile = ref(false);
+    const editForm = reactive({
+      name: '',
+      bio: '',
+      specialty: '',
+      loading: false,
+      error: '',
+      success: ''
+    });
+
+    function saveProfile() {
+      editForm.error = '';
+      editForm.success = '';
+      
+      if (!editForm.name.trim()) {
+        editForm.error = '請輸入顯示名稱';
+        return;
+      }
+      
+      editForm.loading = true;
+      setTimeout(() => {
+        const d = DESIGNERS.find(x => x.id === designerId);
+        if (d) {
+          d.name = editForm.name.trim();
+          d.bio = editForm.bio.trim();
+          d.specialty = editForm.specialty.split(',').map(s => s.trim()).filter(s => s);
+          saveDesigners(DESIGNERS); // 儲存到 localStorage
+        }
+        editForm.success = '資料已更新';
+        editForm.loading = false;
+        setTimeout(() => {
+          showEditProfile.value = false;
+          editForm.success = '';
+        }, 1500);
+      }, 500);
+    }
+
+    // 初始化編輯表單
+    function initEditForm() {
+      editForm.name = designer.value.name;
+      editForm.bio = designer.value.bio;
+      editForm.specialty = designer.value.specialty.join(', ');
+      editForm.error = '';
+      editForm.success = '';
+    }
+
+    return { 
+      tab, designer, myBookings, weekSchedule, statusText, updateStatus, logout, toast, 
+      showChangePwd, pwdForm, changePassword,
+      // 服務記錄
+      recordFilter, filteredRecords,
+      // 收入統計
+      todayEarnings, todayBookingCount, weekEarnings, weekBookingCount, monthEarnings, monthBookingCount, serviceEarnings,
+      // 個人資料
+      showEditProfile, editForm, saveProfile, initEditForm, toggleAvailability
+    };
   }
 }).mount('#app');
 </script>
