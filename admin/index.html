@@ -18,7 +18,7 @@
     var s = localStorage.getItem('akb_session');
     if (!s) { document.documentElement.style.display = 'none'; window.location.replace('./login.html'); return; }
     var d = JSON.parse(s);
-    if (!d || !d.role || d.role !== 'admin' || (Date.now() - d.timestamp > 86400000)) {
+    if (!d || !d.role || d.role !== 'admin' || (Date.now() - d.timestamp > 604800000)) {
       localStorage.removeItem('akb_session');
       document.documentElement.style.display = 'none';
       window.location.replace('./login.html');
@@ -28,6 +28,8 @@
     window.location.replace('./login.html');
   }
 })();
+// 驗證通過時確保頁面可見（防止殘留 display:none 黑屏）
+document.documentElement.style.display = '';
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
@@ -473,7 +475,7 @@ const { createApp, ref, computed, reactive } = Vue;
 // 權限檢查已移至 <head> 早期執行（防閃退），此處保留為備援
 // Early guard in <head> already handles redirect; this is just a safety fallback.
 
-const session = Auth.getSession();
+const session = Auth.getSession() || {};
 
 // 從後端 API 載入預約資料（降級使用 localStorage）
 async function loadBookingsFromAPI() {
@@ -486,7 +488,7 @@ async function loadBookingsFromAPI() {
   } catch (error) {
     console.warn('後端不可用，使用本地資料');
     const data = localStorage.getItem('akb_bookings_data') || localStorage.getItem('akb_client_bookings');
-    return data ? JSON.parse(data) : [];
+    try { return data ? JSON.parse(data) : []; } catch(_) { return []; }
   }
 }
 
@@ -508,7 +510,12 @@ const DEFAULT_DESIGNERS = [
 function loadDesigners() {
   const saved = localStorage.getItem(DESIGNERS_KEY);
   if (saved) {
-    const data = JSON.parse(saved);
+    let data;
+    try { data = JSON.parse(saved); } catch(_) { data = null; }
+    if (!data || !Array.isArray(data)) {
+      localStorage.removeItem(DESIGNERS_KEY);
+      return DEFAULT_DESIGNERS;
+    }
     // 確保新欄位有預設值
     return data.map(d => ({
       ...d,
@@ -538,7 +545,7 @@ async function loadCustomersFromAPI() {
   } catch (error) {
     console.warn('後端不可用，從本地預約資料統計客戶');
     const data = localStorage.getItem('akb_client_bookings') || localStorage.getItem('akb_bookings_data');
-    const bookings = data ? JSON.parse(data) : [];
+    let bookings; try { bookings = data ? JSON.parse(data) : []; } catch(_) { bookings = []; }
     const customerMap = {};
     bookings.forEach(b => {
       const key = b.customerPhone || b.customerName || '';
