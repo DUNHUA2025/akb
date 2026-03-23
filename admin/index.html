@@ -8,6 +8,26 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="../auth.js"></script>
 <script src="../js/api.js"></script>
+<script>
+/* ── Early auth guard: hide page instantly if not logged in ──
+   Runs synchronously in <head>, before any HTML renders.
+   Eliminates the "flash of admin content" before redirect.    */
+(function() {
+  try {
+    var s = localStorage.getItem('akb_session');
+    if (!s) { document.documentElement.style.display = 'none'; window.location.replace('./login.html'); return; }
+    var d = JSON.parse(s);
+    if (!d || !d.role || d.role !== 'admin' || (Date.now() - d.timestamp > 86400000)) {
+      localStorage.removeItem('akb_session');
+      document.documentElement.style.display = 'none';
+      window.location.replace('./login.html');
+    }
+  } catch(e) {
+    document.documentElement.style.display = 'none';
+    window.location.replace('./login.html');
+  }
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
 *{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
@@ -449,10 +469,8 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 <script>
 const { createApp, ref, computed, reactive } = Vue;
 
-// 權限檢查 - 僅管理員，未登入則跳轉到登入頁
-if (!Auth.isLoggedIn() || !Auth.hasPermission('admin')) {
-  window.location.href = './login.html';
-}
+// 權限檢查已移至 <head> 早期執行（防閃退），此處保留為備援
+// Early guard in <head> already handles redirect; this is just a safety fallback.
 
 const session = Auth.getSession();
 
