@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
+<link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>設計師工作台 - AKB 多元化音樂發廊</title>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -50,7 +51,7 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
 </style>
 </head>
 <body class="bg-dark text-white min-h-screen">
-<div id="app">
+<div id="app" style="visibility:hidden">
   <header class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(15,15,15,.96);backdrop-filter:blur(12px);">
     <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -313,13 +314,19 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
 <script>
 const { createApp, ref, computed, reactive } = Vue;
 
-// 權限檢查 - 未登入則跳轉到登入頁
-if (!Auth.isLoggedIn() || !Auth.hasPermission('designer')) {
-  window.location.href = './login.html';
-}
+// ── 安全守衛：DOMContentLoaded 延遲檢查，防止閃退 ────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  var sess = Auth.getSession();
+  if (!sess || !Auth.hasPermission('designer')) {
+    window.location.replace('./login.html');
+    return;
+  }
+  var el = document.getElementById('app');
+  if (el) el.style.visibility = 'visible';
+});
 
-const session = Auth.getSession();
-const designerId = session?.designerId || 1;
+const session = Auth.getSession() || {};
+const designerId = session.designerId || 1;
 
 const DESIGNERS_KEY = 'akb_designers_data';
 
