@@ -4,157 +4,383 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>AKB 多元化音樂發廊</title>
+<meta name="description" content="AKB 多元化音樂發廊 — 位於屯門，提供洗剪吹、染髮、燙髮、護髮等專業髮型服務，立即線上預約。"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
-*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
+*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --gold:#C9A84C;
+  --gold-light:#E8D5A3;
+  --dark:#0F0F0F;
+  --card:#1C1C1C;
+  --border:#2A2A2A;
+}
+html{scroll-behavior:smooth;}
+body{background:var(--dark);color:#fff;min-height:100vh;}
 .serif{font-family:'Noto Serif TC',serif;}
-.gold{color:#C9A84C;}
-.bg-gold{background:#C9A84C;}
-.bg-gold-grad{background:linear-gradient(135deg,#C9A84C,#E8D5A3);}
-.text-gold{color:#C9A84C;}
-.bg-dark{background:#0F0F0F;}
+.gold{color:var(--gold);}
+.text-gold{color:var(--gold);}
 .text-muted{color:#888;}
-.shimmer{background:linear-gradient(90deg,#C9A84C,#E8D5A3,#C9A84C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;}
-.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;}
-.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:14px 28px;font-size:16px;}
-.btn-gold:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 4px 14px rgba(201,168,76,.4);}
-.btn-outline{background:transparent;color:#C9A84C;border:1px solid #C9A84C;padding:13px 26px;font-size:16px;}
-.btn-outline:hover{background:rgba(201,168,76,.1);}
-.fade{animation:fadeUp .5s ease;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
-.portal-card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:16px;padding:32px;transition:all 0.3s;cursor:pointer;text-decoration:none;color:white;display:block;}
-.portal-card:hover{border-color:#C9A84C;transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.4);}
-.portal-icon{width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+.bg-gold-grad{background:linear-gradient(135deg,var(--gold),var(--gold-light));}
+
+/* 動畫 */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes shimmerMove{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:.6;}100%{transform:scale(1.6);opacity:0;}}
+
+.fade-up{animation:fadeUp .6s ease both;}
+.fade-up-1{animation-delay:.1s;}
+.fade-up-2{animation-delay:.2s;}
+.fade-up-3{animation-delay:.3s;}
+.fade-up-4{animation-delay:.4s;}
+.fade-in{animation:fadeIn .8s ease both;}
+
+/* 金色閃光文字 */
+.shimmer-text{
+  background:linear-gradient(90deg,#C9A84C 0%,#F0DFA0 40%,#C9A84C 60%,#E8D5A3 100%);
+  background-size:200% auto;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:shimmerMove 3s linear infinite;
+}
+
+/* Hero 背景 */
+.hero-bg{
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%,rgba(201,168,76,.18) 0%,transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%,rgba(201,168,76,.06) 0%,transparent 60%),
+    #0F0F0F;
+  min-height:100vh;
+}
+
+/* 入口卡片 */
+.portal-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:28px 24px;
+  transition:all .35s cubic-bezier(.4,0,.2,1);
+  cursor:pointer;
+  text-decoration:none;
+  color:#fff;
+  display:block;
+  position:relative;
+  overflow:hidden;
+}
+.portal-card::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:20px;
+  background:linear-gradient(135deg,rgba(201,168,76,.08),transparent);
+  opacity:0;
+  transition:opacity .35s;
+}
+.portal-card:hover::before{opacity:1;}
+.portal-card:hover{
+  border-color:var(--gold);
+  transform:translateY(-6px);
+  box-shadow:0 20px 48px rgba(0,0,0,.5),0 0 0 1px rgba(201,168,76,.3);
+}
+.portal-icon{
+  width:60px;height:60px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 18px;
+}
+
+/* 主預約按鈕 */
+.btn-cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:linear-gradient(135deg,var(--gold),var(--gold-light));
+  color:#0F0F0F;
+  font-weight:700;font-size:17px;
+  padding:16px 36px;
+  border-radius:50px;
+  border:none;cursor:pointer;
+  text-decoration:none;
+  transition:all .3s;
+  box-shadow:0 4px 20px rgba(201,168,76,.35);
+  position:relative;
+  overflow:hidden;
+}
+.btn-cta::after{
+  content:'';position:absolute;inset:0;
+  background:rgba(255,255,255,.15);
+  opacity:0;transition:opacity .2s;
+}
+.btn-cta:hover::after{opacity:1;}
+.btn-cta:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(201,168,76,.5);}
+.btn-cta:active{transform:translateY(0);}
+
+/* Pulse 裝飾 */
+.pulse-dot{
+  position:absolute;
+  width:10px;height:10px;
+  border-radius:50%;
+  background:var(--gold);
+}
+.pulse-dot::before,.pulse-dot::after{
+  content:'';position:absolute;
+  width:10px;height:10px;
+  border-radius:50%;
+  border:2px solid var(--gold);
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  animation:pulse-ring 2s ease-out infinite;
+}
+.pulse-dot::after{animation-delay:.8s;}
+
+/* 服務價目表 */
+.price-table{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  overflow:hidden;
+}
+.price-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;
+  border-bottom:1px solid rgba(42,42,42,.8);
+  transition:background .2s;
+}
+.price-row:last-child{border-bottom:none;}
+.price-row:hover{background:rgba(255,255,255,.03);}
+.price-row .name{font-size:14px;font-weight:500;}
+.price-row .en{font-size:11px;color:#666;margin-top:2px;}
+.price-row .price{font-size:15px;font-weight:700;color:var(--gold);white-space:nowrap;}
+
+/* 內部系統標籤 */
+.section-label{
+  display:flex;align-items:center;gap:10px;
+  font-size:11px;text-transform:uppercase;letter-spacing:.2em;
+  color:#555;margin-bottom:20px;
+}
+.section-label::before,.section-label::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+
+/* 聯絡區塊 */
+.contact-row{
+  display:flex;align-items:center;gap-x-2;gap:8px;
+  font-size:13px;color:#777;padding:6px 0;
+}
+.contact-row svg{flex-shrink:0;}
+
+/* 宣傳圖片 */
+.promo-wrap{
+  border-radius:20px;
+  overflow:hidden;
+  border:1px solid rgba(201,168,76,.4);
+  box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px rgba(201,168,76,.1);
+  transition:box-shadow .3s;
+}
+.promo-wrap:hover{box-shadow:0 12px 56px rgba(0,0,0,.7),0 0 0 1px rgba(201,168,76,.3);}
+
+/* 分隔裝飾線 */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:40px 0;}
+
+/* 滾動提示 */
+.scroll-hint{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  font-size:11px;color:#555;letter-spacing:.1em;
+  animation:float 2s ease-in-out infinite;
+}
+
+/* RWD */
+@media(max-width:640px){
+  .btn-cta{font-size:15px;padding:14px 28px;}
+  .portal-card{padding:22px 18px;}
+}
 </style>
 </head>
-<body class="bg-dark text-white min-h-screen">
+<body>
 
-<!-- 入口頁面 -->
-<div class="min-h-screen flex flex-col items-center justify-center fade" style="background:radial-gradient(ellipse at top,#1a1400 0%,#0F0F0F 60%)">
-  
-  <!-- Logo -->
-  <div class="text-center mb-12">
-    <img src="logo.png" alt="AKB Music Salon" class="mx-auto mb-4" style="max-width:280px;height:auto;filter:drop-shadow(0 4px 20px rgba(201,168,76,0.3));">
-    <div class="text-muted text-sm tracking-wider">Music • Style • Identity</div>
-  </div>
+<div class="hero-bg">
 
-  <!-- 客戶預約入口 -->
-  <div class="w-full max-w-md px-6 mb-8">
-    <a href="./client/index.html" class="portal-card text-center">
-      <div class="portal-icon bg-gold-grad">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0F0F0F" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
+  <!-- ── Hero 區塊 ── -->
+  <section class="flex flex-col items-center justify-center text-center px-6 pt-16 pb-10" style="min-height:88vh;">
+    
+    <!-- Logo -->
+    <div class="fade-up fade-up-1 mb-8 relative">
+      <!-- Pulse 裝飾 -->
+      <div class="pulse-dot" style="top:-8px;right:-8px;"></div>
+      <img src="logo.png" alt="AKB Music Salon"
+        style="max-width:260px;width:100%;height:auto;filter:drop-shadow(0 6px 28px rgba(201,168,76,0.35));"
+        loading="eager">
+    </div>
+
+    <!-- 標語 -->
+    <div class="fade-up fade-up-2 mb-3">
+      <p class="text-sm tracking-widest" style="color:#666;">Music &nbsp;·&nbsp; Style &nbsp;·&nbsp; Identity</p>
+    </div>
+
+    <!-- 主標題 -->
+    <div class="fade-up fade-up-2 mb-10">
+      <h1 class="serif text-3xl sm:text-4xl font-bold shimmer-text mb-3">AKB 多元化音樂發廊</h1>
+      <p class="text-base" style="color:#999;max-width:320px;margin:0 auto;line-height:1.7;">
+        在音樂的氛圍中，讓每一位設計師為你打造獨一無二的造型
+      </p>
+    </div>
+
+    <!-- CTA 主按鈕 -->
+    <div class="fade-up fade-up-3 mb-6">
+      <a href="./client/index.html" class="btn-cta">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/></svg>
+        立即線上預約
+      </a>
+    </div>
+
+    <!-- 次要入口 -->
+    <div class="fade-up fade-up-3 flex items-center gap-3 flex-wrap justify-center text-sm" style="color:#666;">
+      <span>也可直接致電</span>
+      <a href="tel:55083339" class="text-gold font-semibold hover:underline">5508 3339</a>
+    </div>
+
+    <!-- 向下滾動提示 -->
+    <div class="fade-in mt-14 scroll-hint" style="animation-delay:.6s;">
+      <span>向下探索</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+  </section>
+
+  <!-- ── 宣傳圖片 ── -->
+  <section class="px-5 pb-12 fade-up" style="max-width:680px;margin:0 auto;">
+    <div class="promo-wrap">
+      <img src="promo1.png" alt="AKB 最新優惠活動" class="w-full h-auto block"
+        style="display:block;" loading="lazy">
+    </div>
+  </section>
+
+  <!-- ── 服務價目表 ── -->
+  <section class="px-5 pb-16 fade-up" style="max-width:680px;margin:0 auto;">
+    <div class="section-label">服務價目表</div>
+
+    <!-- 分類標籤 -->
+    <div class="flex gap-2 flex-wrap mb-5">
+      <span class="text-xs px-3 py-1 rounded-full font-medium" style="background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.25);">基礎護理</span>
+      <span class="text-xs px-3 py-1 rounded-full font-medium" style="background:rgba(99,102,241,.1);color:#a78bfa;border:1px solid rgba(99,102,241,.25);">染髮系列</span>
+      <span class="text-xs px-3 py-1 rounded-full font-medium" style="background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.25);">燙髮造型</span>
+    </div>
+
+    <div class="price-table">
+      <!-- 基礎 -->
+      <div style="background:rgba(201,168,76,.04);padding:8px 20px 4px;font-size:11px;letter-spacing:.12em;color:#666;text-transform:uppercase;">基礎護理</div>
+      <div class="price-row">
+        <div><div class="name">洗剪吹</div><div class="en">Wash, cut and blow-dry</div></div>
+        <div class="price">$128</div>
       </div>
-      <h3 class="text-xl font-bold mb-2">客戶預約</h3>
-      <p class="text-muted text-sm">線上預約服務，選擇設計師與時段</p>
-      <div class="mt-4 text-gold text-sm">立即預約 →</div>
-    </a>
-  </div>
-
-  <!-- 宣傳單展示 -->
-  <div class="mt-16 w-full max-w-2xl px-6">
-    <div class="rounded-16px overflow-hidden shadow-2xl" style="border:2px solid #C9A84C;">
-      <img src="promo1.png" alt="AKB 宣傳優惠" class="w-full h-auto">
+      <div class="price-row">
+        <div><div class="name">單剪</div><div class="en">Single cut</div></div>
+        <div class="price">$68</div>
+      </div>
+      <div class="price-row">
+        <div><div class="name">洗吹</div><div class="en">Wash and blow-dry</div></div>
+        <div class="price">$88</div>
+      </div>
+      <!-- 染髮 -->
+      <div style="background:rgba(99,102,241,.04);padding:8px 20px 4px;font-size:11px;letter-spacing:.12em;color:#666;text-transform:uppercase;border-top:1px solid var(--border);">染髮系列</div>
+      <div class="price-row">
+        <div><div class="name">彩色染髮</div><div class="en">Color hair dye</div></div>
+        <div class="price">$168</div>
+      </div>
+      <div class="price-row">
+        <div><div class="name">技術染髮</div><div class="en">Technical hair dye</div></div>
+        <div class="price">$228</div>
+      </div>
+      <!-- 燙髮 -->
+      <div style="background:rgba(34,197,94,.03);padding:8px 20px 4px;font-size:11px;letter-spacing:.12em;color:#666;text-transform:uppercase;border-top:1px solid var(--border);">燙髮造型</div>
+      <div class="price-row">
+        <div><div class="name">電髮</div><div class="en">Perm</div></div>
+        <div class="price">$268</div>
+      </div>
+      <div class="price-row">
+        <div><div class="name">陶瓷數碼曲</div><div class="en">Ceramic digital hair treatment</div></div>
+        <div class="price">$358</div>
+      </div>
+      <div class="price-row">
+        <div><div class="name">負離子直髮</div><div class="en">Negative ion hair straightening</div></div>
+        <div class="price">$228</div>
+      </div>
+      <!-- 護理 -->
+      <div style="background:rgba(251,191,36,.04);padding:8px 20px 4px;font-size:11px;letter-spacing:.12em;color:#666;text-transform:uppercase;border-top:1px solid var(--border);">深層護理</div>
+      <div class="price-row">
+        <div><div class="name">顏色焗油</div><div class="en">Color hair treatment</div></div>
+        <div class="price">$228</div>
+      </div>
+      <div class="price-row">
+        <div><div class="name">水療焗油</div><div class="en">Spa hair treatment</div></div>
+        <div class="price">$188</div>
+      </div>
     </div>
-  </div>
+    <p class="text-xs mt-3" style="color:#555;text-align:center;">* 價格僅供參考，實際費用以到店溝通為準</p>
+  </section>
 
-  <!-- 服務價目表 -->
-  <div class="mt-16 w-full max-w-2xl px-6">
-    <h3 class="text-center text-gold text-lg font-bold mb-6 tracking-wider">服務價目表</h3>
-    <div class="bg-[#1C1C1C] border border-[#2A2A2A] rounded-12px overflow-hidden">
-      <table class="w-full text-sm">
-        <tbody class="divide-y divide-[#2A2A2A]">
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">洗剪吹 <span class="text-muted text-xs">Wash, cut and blow-dry</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$128</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">單剪 <span class="text-muted text-xs">Single cut</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$68</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">洗吹 <span class="text-muted text-xs">Wash and blow-dry</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$88</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">彩色染髮 <span class="text-muted text-xs">Color hair dye</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$168</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">電髮 <span class="text-muted text-xs">Perm</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$268</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">顏色焗油 <span class="text-muted text-xs">Color hair treatment</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$228</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">水療焗油 <span class="text-muted text-xs">Spa hair treatment</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$188</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">陶瓷數碼曲 <span class="text-muted text-xs">Ceramic digital hair treatment</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$358</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">技術染髮 <span class="text-muted text-xs">Technical hair dye</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$228</td>
-          </tr>
-          <tr class="hover:bg-[#252525] transition-colors">
-            <td class="py-3 px-4 text-white">負離子直髮 <span class="text-muted text-xs">Negative ion hair straightening</span></td>
-            <td class="py-3 px-4 text-right text-gold font-semibold">$228</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 內部系統入口 -->
-  <div class="mt-16 w-full max-w-2xl px-6">
-    <h3 class="text-center text-gold text-lg font-bold mb-6 tracking-wider">內部系統</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <!-- ── 內部系統入口 ── -->
+  <section class="px-5 pb-16 fade-up" style="max-width:680px;margin:0 auto;">
+    <div class="section-label">內部系統</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       
       <!-- 設計師端 -->
       <a href="./designer/index.html" class="portal-card text-center">
-        <div class="portal-icon" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <div class="portal-icon" style="background:linear-gradient(135deg,rgba(59,130,246,.15),rgba(29,78,216,.15));border:1px solid rgba(59,130,246,.25);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="1.8">
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9 2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9 2.83-2.83"/>
           </svg>
         </div>
-        <h3 class="text-xl font-bold mb-2">設計師工作台</h3>
-        <p class="text-muted text-sm">查看班表、管理預約、個人資料</p>
-        <div class="mt-4 text-blue-400 text-sm">進入工作台 →</div>
+        <h3 class="font-bold text-lg mb-1">設計師工作台</h3>
+        <p class="text-sm mb-4" style="color:#666;">查看班表、管理預約、個人資料</p>
+        <div class="text-sm font-semibold" style="color:#60A5FA;">進入工作台 →</div>
       </a>
 
       <!-- 店家後台 -->
       <a href="./admin/login.html" class="portal-card text-center">
-        <div class="portal-icon" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9);">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7"/>
-            <rect x="14" y="3" width="7" height="7"/>
-            <rect x="14" y="14" width="7" height="7"/>
-            <rect x="3" y="14" width="7" height="7"/>
+        <div class="portal-icon" style="background:linear-gradient(135deg,rgba(139,92,246,.15),rgba(109,40,217,.15));border:1px solid rgba(139,92,246,.25);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.8">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
           </svg>
         </div>
-        <h3 class="text-xl font-bold mb-2">店家管理後台</h3>
-        <p class="text-muted text-sm">預約管理、設計師管理、數據報表</p>
-        <div class="mt-4 text-purple-400 text-sm">管理員登入 →</div>
+        <h3 class="font-bold text-lg mb-1">店家管理後台</h3>
+        <p class="text-sm mb-4" style="color:#666;">預約管理、設計師管理、數據報表</p>
+        <div class="text-sm font-semibold" style="color:#A78BFA;">管理員登入 →</div>
       </a>
-
     </div>
-  </div>
+  </section>
 
-  <!-- 聯絡資訊 -->
-  <div class="mt-16 text-center text-muted text-xs">
-    <div class="mb-1">📍 新界屯門石排頭路5號偉昌工業中心地下1鋪（石排輕鐵站對面）</div>
-    <div class="mb-1">☎ 5508 3339</div>
-    <div class="mb-1">🌐 <a href="https://akbmusicsalon.top" target="_blank" class="text-gold hover:underline">akbmusicsalon.top</a></div>
-    <div>週二～週日 10:00–20:00</div>
-  </div>
+  <!-- ── 聯絡資訊 ── -->
+  <section class="px-5 pb-20 fade-up" style="max-width:680px;margin:0 auto;">
+    <div class="divider"></div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;">
+      <div class="text-sm font-semibold mb-4" style="color:#999;letter-spacing:.08em;">聯絡我們</div>
+      <div class="space-y-3">
+        <div class="contact-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>新界屯門石排頭路5號偉昌工業中心地下1鋪（石排輕鐵站對面）</span>
+        </div>
+        <div class="contact-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 5.51 5.51l1.47-1.48a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 21.73 14z"/></svg>
+          <a href="tel:55083339" class="text-gold hover:underline font-semibold">5508 3339</a>
+        </div>
+        <div class="contact-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <a href="https://akbmusicsalon.top" target="_blank" rel="noopener" class="text-gold hover:underline">akbmusicsalon.top</a>
+        </div>
+        <div class="contact-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>週二 ─ 週日 &nbsp; 10:00 – 20:00</span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full" style="background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.2);">週一休息</span>
+        </div>
+      </div>
+    </div>
+    <p class="text-center text-xs mt-6" style="color:#444;">© 2026 AKB 多元化音樂發廊 · All rights reserved</p>
+  </section>
+
 </div>
 
 </body>
