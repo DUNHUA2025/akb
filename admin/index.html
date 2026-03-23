@@ -5,15 +5,14 @@
 <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>店家管理後台 - AKB 多元化音樂發廊</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="../auth.js"></script>
-<script src="../js/api.js"></script>
+<script src="../js/db.js"></script>
 <script>
 /* ── Early auth guard: hide page instantly, only show if authenticated ──
-   Runs synchronously in <head>, before any HTML renders.
-   Sets display:none first, then only restores if session is valid.
-   This completely eliminates flash-redirect (閃退).               */
+   Runs synchronously in <head>, before any HTML renders.                */
 (function() {
   document.documentElement.style.display = 'none';
   try {
@@ -25,7 +24,6 @@
       window.location.replace('./login.html');
       return;
     }
-    // ✅ Valid admin session — restore visibility
     document.documentElement.style.display = '';
   } catch(e) {
     window.location.replace('./login.html');
@@ -42,14 +40,15 @@
 .bg-dark{background:#0F0F0F;}
 .bg-card{background:#1C1C1C;}
 .text-muted{color:#888;}
-input,select{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;font-family:inherit;}
-input:focus{border-color:#C9A84C;}
+input,select,textarea{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;font-family:inherit;}
+input:focus,select:focus,textarea:focus{border-color:#C9A84C;outline:none;}
 .btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;}
 .btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:10px 24px;}
 .btn-gold:hover{opacity:.85;}
 .btn-ghost{background:transparent;color:#888;border:1px solid #333;padding:8px 16px;}
 .btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
-.btn-danger{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+.btn-danger{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);padding:8px 16px;}
+.btn-primary{background:rgba(59,130,246,.1);color:#93c5fd;border:1px solid rgba(59,130,246,.3);padding:8px 16px;}
 .fade{animation:fadeUp .3s ease;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:12px;}
@@ -100,23 +99,22 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
     </div>
 
     <div class="p-6">
+      <!-- 載入中 -->
+      <div v-if="loading" class="flex items-center justify-center py-20">
+        <div class="text-muted">載入中...</div>
+      </div>
+
       <!-- Dashboard -->
-      <div v-if="tab==='dashboard'" class="fade">
+      <div v-else-if="tab==='dashboard'" class="fade">
         <h2 class="text-2xl font-bold serif mb-6">今日概覽</h2>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div class="stat-card stat-gold">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-muted text-xs">今日預約</span>
-            </div>
+            <div class="text-muted text-xs mb-2">今日預約</div>
             <div class="text-3xl font-bold text-gold">{{stats.today}}</div>
-            <div class="text-xs text-muted mt-1">共 {{bookings.filter(b=>b.date===new Date().toISOString().slice(0,10)).length}} 筆</div>
+            <div class="text-xs text-muted mt-1">共 {{bookings.filter(b=>b.date===todayStr).length}} 筆</div>
           </div>
           <div class="stat-card stat-green">
-            <div class="text-muted text-xs mb-2">本月營收
-              <span v-if="stats.revenueGrowth!==null" class="ml-1" :class="stats.revenueGrowth>=0?'text-green-400':'text-red-400'">
-                {{stats.revenueGrowth>=0?'↑':'↓'}}{{Math.abs(stats.revenueGrowth)}}%
-              </span>
-            </div>
+            <div class="text-muted text-xs mb-2">本月營收</div>
             <div class="text-3xl font-bold text-green-400">${{(stats.revenue/1000).toFixed(1)}}K</div>
           </div>
           <div class="stat-card stat-blue">
@@ -137,7 +135,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
               <table>
                 <thead><tr><th>顧客</th><th>設計師</th><th>服務</th><th>時間</th><th>狀態</th></tr></thead>
                 <tbody>
-                  <tr v-for="b in bookings.slice().sort((a,bb)=>(a.date+a.time).localeCompare(b.date+bb.time)).slice(0,6)" :key="b.id">
+                  <tr v-for="b in bookings.slice().sort((a,bb)=>(bb.date+bb.time).localeCompare(a.date+a.time)).slice(0,6)" :key="b.id">
                     <td class="font-semibold">{{b.customerName}}</td>
                     <td class="text-muted">{{b.designerName}}</td>
                     <td>{{b.serviceName}}</td>
@@ -151,33 +149,34 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
               </table>
             </div>
           </div>
-
           <!-- 本月設計師業績 -->
           <div>
             <h3 class="text-lg font-bold mb-4">本月設計師業績</h3>
             <div class="card p-4 space-y-3">
-              <div v-if="stats.topDesigners && stats.topDesigners.length" v-for="(d,i) in stats.topDesigners" :key="d.name" class="flex items-center gap-3">
-                <div class="text-muted text-sm w-4">{{i+1}}</div>
-                <div class="flex-1">
-                  <div class="flex justify-between text-sm mb-1">
-                    <span class="font-medium">{{d.name}}</span>
-                    <span class="text-gold">${{d.revenue.toLocaleString()}}</span>
-                  </div>
-                  <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-gold rounded-full" :style="{width: (d.revenue / (stats.topDesigners[0].revenue||1) * 100) + '%'}"></div>
+              <template v-if="topDesigners.length">
+                <div v-for="(d,i) in topDesigners" :key="d.name" class="flex items-center gap-3">
+                  <div class="text-muted text-sm w-4">{{i+1}}</div>
+                  <div class="flex-1">
+                    <div class="flex justify-between text-sm mb-1">
+                      <span class="font-medium">{{d.name}}</span>
+                      <span class="text-gold">${{d.revenue.toLocaleString()}}</span>
+                    </div>
+                    <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <div class="h-full bg-gold rounded-full" :style="{width: (d.revenue/(topDesigners[0].revenue||1)*100)+'%'}"></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div v-if="!stats.topDesigners || !stats.topDesigners.length" class="text-muted text-center py-6 text-sm">本月尚無業績資料</div>
+              </template>
+              <div v-else class="text-muted text-center py-6 text-sm">本月尚無業績資料</div>
             </div>
           </div>
         </div>
 
         <!-- 熱門服務 -->
-        <div v-if="stats.topServices && stats.topServices.length">
+        <div v-if="topServices.length">
           <h3 class="text-lg font-bold mb-4">熱門服務排行</h3>
           <div class="card p-4 flex flex-wrap gap-3">
-            <div v-for="(s,i) in stats.topServices" :key="s.name" class="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800">
+            <div v-for="(s,i) in topServices" :key="s.name" class="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800">
               <span class="text-gold font-bold text-sm">{{i+1}}</span>
               <span class="text-sm">{{s.name}}</span>
               <span class="text-muted text-xs">{{s.count}} 次</span>
@@ -187,7 +186,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
       </div>
 
       <!-- Bookings -->
-      <div v-if="tab==='bookings'" class="fade">
+      <div v-else-if="tab==='bookings'" class="fade">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <h2 class="text-2xl font-bold serif">預約管理</h2>
           <div class="flex gap-2">
@@ -198,7 +197,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
               <option value="done">已完成</option>
               <option value="cancelled">已取消</option>
             </select>
-            <input v-model="search" class="max-w-xs" placeholder="搜尋顧客/設計師..." style="width:180px">
+            <input v-model="search" placeholder="搜尋顧客/設計師..." style="width:180px">
           </div>
         </div>
         <div class="card overflow-x-auto">
@@ -218,8 +217,8 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
                 <td><span class="text-xs px-2 py-1 rounded-full whitespace-nowrap" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
                 <td>
                   <div class="flex gap-1 flex-wrap">
-                    <button v-if="b.status==='pending'"    class="btn btn-gold text-xs px-2 py-1"    @click="updateStatus(b.id,'confirmed')">確認</button>
-                    <button v-if="b.status==='confirmed'"  class="btn btn-primary text-xs px-2 py-1" @click="updateStatus(b.id,'done')">完成</button>
+                    <button v-if="b.status==='pending'"   class="btn btn-gold text-xs px-2 py-1"    @click="updateStatus(b.id,'confirmed')">確認</button>
+                    <button v-if="b.status==='confirmed'" class="btn btn-primary text-xs px-2 py-1" @click="updateStatus(b.id,'done')">完成</button>
                     <button v-if="b.status==='pending'||b.status==='confirmed'" class="btn btn-danger text-xs px-2 py-1" @click="updateStatus(b.id,'cancelled')">取消</button>
                   </div>
                 </td>
@@ -233,20 +232,17 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
       </div>
 
       <!-- Designers -->
-      <div v-if="tab==='designers'" class="fade">
+      <div v-else-if="tab==='designers'" class="fade">
         <div class="flex items-center justify-between mb-5">
           <h2 class="text-2xl font-bold serif">設計師管理</h2>
           <button class="btn btn-gold" @click="openAddDesigner()">+ 新增設計師</button>
         </div>
-        
-        <!-- 狀態篩選 -->
         <div class="flex gap-2 mb-4">
           <button class="btn btn-ghost text-xs" :class="designerFilter==='all'?'text-gold border-gold':''" @click="designerFilter='all'">全部</button>
           <button class="btn btn-ghost text-xs" :class="designerFilter==='active'?'text-gold border-gold':''" @click="designerFilter='active'">在職</button>
           <button class="btn btn-ghost text-xs" :class="designerFilter==='leave'?'text-gold border-gold':''" @click="designerFilter='leave'">休假</button>
           <button class="btn btn-ghost text-xs" :class="designerFilter==='resigned'?'text-gold border-gold':''" @click="designerFilter='resigned'">已離職</button>
         </div>
-        
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div v-for="d in filteredDesigners" :key="d.id" class="card p-5" :class="d.status==='resigned'?'opacity-50':''">
             <div class="flex items-center gap-4 mb-4">
@@ -265,7 +261,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
               <span v-for="sp in d.specialty" :key="sp" class="text-xs px-2 py-0.5 rounded-full bg-gray-800">{{sp}}</span>
             </div>
             <div class="flex items-center justify-between pt-3 border-t border-gray-800">
-              <span class="text-xs px-3 py-1 rounded-full" 
+              <span class="text-xs px-3 py-1 rounded-full"
                 :class="d.status==='resigned'?'text-gray-400 bg-gray-800':d.status==='leave'?'text-yellow-400 bg-yellow-900/30':d.available?'text-green-400 bg-green-900/30':'text-red-400 bg-red-900/30'">
                 {{d.status==='resigned'?'已離職':d.status==='leave'?'休假中':d.available?'上班中':'休息中'}}
               </span>
@@ -281,24 +277,24 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
       </div>
 
       <!-- Customers -->
-      <div v-if="tab==='customers'" class="fade">
+      <div v-else-if="tab==='customers'" class="fade">
         <div class="flex justify-between items-center mb-5">
           <h2 class="text-2xl font-bold serif">顧客資料</h2>
-          <button @click="refreshCustomers" class="btn btn-gold text-sm">↺ 刷新資料</button>
+          <button @click="refreshCustomers()" class="btn btn-gold text-sm">↺ 刷新資料</button>
         </div>
         <div class="card overflow-x-auto">
           <table>
             <thead><tr><th>姓名</th><th>手機</th><th>來訪次數</th><th>累計消費</th><th>首次來訪</th><th>最近來訪</th></tr></thead>
             <tbody>
-              <tr v-for="c in customers" :key="c.id">
+              <tr v-for="c in customers" :key="c.id||c.phone">
                 <td class="font-semibold">{{c.name}}</td>
                 <td class="text-muted">{{c.phone}}</td>
-                <td class="text-gold font-bold">{{c.visits}}</td>
-                <td class="font-semibold text-green-400">${{(c.totalSpent||0).toLocaleString()}}</td>
-                <td class="text-muted text-xs">{{c.firstVisit||'—'}}</td>
-                <td class="text-muted text-xs">{{c.lastVisit||'—'}}</td>
+                <td class="text-gold font-bold">{{c.visits||c.visit_count||0}}</td>
+                <td class="font-semibold text-green-400">${{(c.totalSpent||c.total_spent||0).toLocaleString()}}</td>
+                <td class="text-muted text-xs">{{(c.firstVisit||c.first_visit||'').slice(0,10)||'—'}}</td>
+                <td class="text-muted text-xs">{{(c.lastVisit||c.last_visit||'').slice(0,10)||'—'}}</td>
               </tr>
-              <tr v-if="customers.length === 0">
+              <tr v-if="customers.length===0">
                 <td colspan="6" class="text-center text-muted py-8">暫無顧客資料</td>
               </tr>
             </tbody>
@@ -307,7 +303,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
       </div>
 
       <!-- Services -->
-      <div v-if="tab==='services'" class="fade">
+      <div v-else-if="tab==='services'" class="fade">
         <div class="flex items-center justify-between mb-5">
           <h2 class="text-2xl font-bold serif">服務項目</h2>
           <button class="btn btn-gold" @click="openAddService()">+ 新增服務</button>
@@ -350,35 +346,20 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
         <button class="btn btn-ghost px-3 py-2" @click="showServiceModal=false">✕</button>
       </div>
       <div class="space-y-4">
-        <div>
-          <label class="block text-xs text-muted mb-1">服務名稱 *</label>
-          <input v-model="serviceForm.name" placeholder="例：剪髮造型" class="w-full"/>
-        </div>
+        <div><label class="block text-xs text-muted mb-1">服務名稱 *</label><input v-model="serviceForm.name" placeholder="例：剪髮造型" class="w-full"/></div>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-xs text-muted mb-1">類別</label>
             <select v-model="serviceForm.category" class="w-full bg-gray-800 border-gray-700">
-              <option value="基礎">基礎</option>
-              <option value="染髮">染髮</option>
-              <option value="燙髮">燙髮</option>
-              <option value="護理">護理</option>
-              <option value="進階">進階</option>
-              <option value="特殊">特殊</option>
+              <option value="基礎">基礎</option><option value="染髮">染髮</option>
+              <option value="燙髮">燙髮</option><option value="護理">護理</option>
+              <option value="進階">進階</option><option value="特殊">特殊</option>
             </select>
           </div>
-          <div>
-            <label class="block text-xs text-muted mb-1">時長（分鐘）</label>
-            <input v-model.number="serviceForm.duration" type="number" min="15" step="15" class="w-full"/>
-          </div>
+          <div><label class="block text-xs text-muted mb-1">時長（分鐘）</label><input v-model.number="serviceForm.duration" type="number" min="15" step="15" class="w-full"/></div>
         </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">定價（NT$）</label>
-          <input v-model.number="serviceForm.price" type="number" min="0" class="w-full"/>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">說明</label>
-          <textarea v-model="serviceForm.description" rows="2" class="w-full" placeholder="服務說明..."></textarea>
-        </div>
+        <div><label class="block text-xs text-muted mb-1">定價（NT$）</label><input v-model.number="serviceForm.price" type="number" min="0" class="w-full"/></div>
+        <div><label class="block text-xs text-muted mb-1">說明</label><textarea v-model="serviceForm.description" rows="2" class="w-full" placeholder="服務說明..."></textarea></div>
       </div>
       <div class="flex gap-3 mt-6">
         <button class="btn btn-ghost flex-1" @click="showServiceModal=false">取消</button>
@@ -395,39 +376,23 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
         <button class="btn btn-ghost px-3 py-2" @click="showDesignerModal=false">✕</button>
       </div>
       <div class="space-y-4">
-        <div>
-          <label class="block text-xs text-muted mb-1">名稱 *</label>
-          <input v-model="designerForm.name" placeholder="請輸入設計師名稱" class="w-full"/>
-        </div>
+        <div><label class="block text-xs text-muted mb-1">名稱 *</label><input v-model="designerForm.name" placeholder="請輸入設計師名稱" class="w-full"/></div>
         <div>
           <label class="block text-xs text-muted mb-1">職稱</label>
           <select v-model="designerForm.role" class="w-full bg-gray-800 border-gray-700">
-            <option value="首席設計師">首席設計師</option>
-            <option value="資深設計師">資深設計師</option>
-            <option value="設計師">設計師</option>
-            <option value="助理設計師">助理設計師</option>
+            <option value="首席設計師">首席設計師</option><option value="資深設計師">資深設計師</option>
+            <option value="設計師">設計師</option><option value="助理設計師">助理設計師</option>
           </select>
         </div>
         <div>
           <label class="block text-xs text-muted mb-1">等級</label>
           <select v-model="designerForm.level" class="w-full bg-gray-800 border-gray-700">
-            <option value="A">A級 (首席)</option>
-            <option value="B">B級 (資深)</option>
-            <option value="C">C級 (一般)</option>
+            <option value="A">A級 (首席)</option><option value="B">B級 (資深)</option><option value="C">C級 (一般)</option>
           </select>
         </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">專長技能（用逗號分隔）</label>
-          <input v-model="designerForm.specialty" placeholder="例如：染髮, 燙髮, 剪髮" class="w-full"/>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">個人簡介</label>
-          <input v-model="designerForm.bio" placeholder="請輸入個人簡介" class="w-full"/>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">頭像字母</label>
-          <input v-model="designerForm.avatar" :placeholder="designerForm.name?designerForm.name.charAt(0).toUpperCase():'A'" class="w-full"/>
-        </div>
+        <div><label class="block text-xs text-muted mb-1">專長技能（用逗號分隔）</label><input v-model="designerForm.specialty" placeholder="例如：染髮, 燙髮, 剪髮" class="w-full"/></div>
+        <div><label class="block text-xs text-muted mb-1">個人簡介</label><input v-model="designerForm.bio" placeholder="請輸入個人簡介" class="w-full"/></div>
+        <div><label class="block text-xs text-muted mb-1">頭像字母</label><input v-model="designerForm.avatar" :placeholder="designerForm.name?designerForm.name.charAt(0).toUpperCase():'A'" class="w-full"/></div>
         <div class="flex gap-2 pt-2">
           <button class="btn btn-ghost flex-1" @click="showDesignerModal=false">取消</button>
           <button class="btn btn-gold flex-1" @click="saveDesigner()">{{isEditingDesigner?'儲存':'新增'}}</button>
@@ -444,239 +409,72 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
         <button class="btn btn-ghost px-3 py-2" @click="showChangePwd=false">✕</button>
       </div>
       <div class="space-y-4">
-        <div>
-          <label class="block text-xs text-muted mb-1">當前密碼</label>
-          <input v-model="pwdForm.current" type="password" placeholder="請輸入當前密碼" class="w-full"/>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">新密碼（至少6位）</label>
-          <input v-model="pwdForm.newPwd" type="password" placeholder="請輸入新密碼" class="w-full"/>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">確認新密碼</label>
-          <input v-model="pwdForm.confirm" type="password" placeholder="再次輸入新密碼" class="w-full" @keyup.enter="changePassword()"/>
-        </div>
-        <div v-if="pwdForm.error" class="p-3 rounded-lg text-sm" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;">
-          {{pwdForm.error}}
-        </div>
-        <div v-if="pwdForm.success" class="p-3 rounded-lg text-sm" style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;">
-          {{pwdForm.success}}
-        </div>
-        <button class="btn btn-gold w-full py-3" @click="changePassword()" :disabled="pwdForm.loading">
-          {{pwdForm.loading ? '修改中...' : '確認修改'}}
-        </button>
+        <div><label class="block text-xs text-muted mb-1">當前密碼</label><input v-model="pwdForm.current" type="password" placeholder="請輸入當前密碼" class="w-full"/></div>
+        <div><label class="block text-xs text-muted mb-1">新密碼（至少6位）</label><input v-model="pwdForm.newPwd" type="password" placeholder="請輸入新密碼" class="w-full"/></div>
+        <div><label class="block text-xs text-muted mb-1">確認新密碼</label><input v-model="pwdForm.confirm" type="password" placeholder="再次輸入新密碼" class="w-full" @keyup.enter="changePassword()"/></div>
+        <div v-if="pwdForm.error" class="p-3 rounded-lg text-sm" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;">{{pwdForm.error}}</div>
+        <div v-if="pwdForm.success" class="p-3 rounded-lg text-sm" style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;">{{pwdForm.success}}</div>
+        <button class="btn btn-gold w-full py-3" @click="changePassword()" :disabled="pwdForm.loading">{{pwdForm.loading ? '修改中...' : '確認修改'}}</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-const { createApp, ref, computed, reactive } = Vue;
+const { createApp, ref, computed, reactive, onMounted, onUnmounted } = Vue;
 
-// 權限檢查已移至 <head> 早期執行（防閃退），此處保留為備援
-// Early guard in <head> already handles redirect; this is just a safety fallback.
-
-const session = Auth.getSession() || {};
-
-// 從後端 API 載入預約資料（降級使用 localStorage）
-async function loadBookingsFromAPI() {
-  try {
-    const bookings = await salonAPI.getBookings();
-    // 快取到 localStorage
-    localStorage.setItem('akb_bookings_data', JSON.stringify(bookings));
-    localStorage.setItem('akb_client_bookings', JSON.stringify(bookings));
-    return bookings;
-  } catch (error) {
-    console.warn('後端不可用，使用本地資料');
-    const data = localStorage.getItem('akb_bookings_data') || localStorage.getItem('akb_client_bookings');
-    try { return data ? JSON.parse(data) : []; } catch(_) { return []; }
-  }
-}
-
-// 預設空預約列表，實際資料從 API 載入
-const BOOKINGS = [];
-
-const DESIGNERS_KEY = 'akb_designers_data';
-
-// 預設設計師資料
-const DEFAULT_DESIGNERS = [
-  { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染'], bio:'10年經驗', avatar:'A', rating:4.9, reviews:142, works:320, available:true, status:'active' },
-  { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮'], bio:'首爾歸國', avatar:'K', rating:4.8, reviews:98, works:215, available:true, status:'active' },
-  { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','SPA'], bio:'輕柔手法', avatar:'B', rating:4.7, reviews:63, works:140, available:true, status:'active' },
-  { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘'], bio:'婚禮達人', avatar:'J', rating:4.9, reviews:117, works:278, available:false, status:'active' },
-  { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮'], bio:'活潑開朗', avatar:'M', rating:4.6, reviews:45, works:98, available:true, status:'active' },
-];
-
-// 從 localStorage 載入設計師資料
-function loadDesigners() {
-  const saved = localStorage.getItem(DESIGNERS_KEY);
-  if (saved) {
-    let data;
-    try { data = JSON.parse(saved); } catch(_) { data = null; }
-    if (!data || !Array.isArray(data)) {
-      localStorage.removeItem(DESIGNERS_KEY);
-      return DEFAULT_DESIGNERS;
-    }
-    // 確保新欄位有預設值
-    return data.map(d => ({
-      ...d,
-      status: d.status || 'active',
-      level: d.level || 'C',
-      specialty: d.specialty || [],
-      bio: d.bio || '',
-      rating: d.rating || 4.5,
-      reviews: d.reviews || 0,
-      works: d.works || 0
-    }));
-  }
-  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(DEFAULT_DESIGNERS));
-  return DEFAULT_DESIGNERS;
-}
-
-// 儲存設計師資料
-function saveDesigners(designers) {
-  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(designers));
-}
-
-// 從後端 API 獲取客戶列表（降級從 localStorage 統計）
-async function loadCustomersFromAPI() {
-  try {
-    const customers = await salonAPI.getCustomers();
-    return customers;
-  } catch (error) {
-    console.warn('後端不可用，從本地預約資料統計客戶');
-    const data = localStorage.getItem('akb_client_bookings') || localStorage.getItem('akb_bookings_data');
-    let bookings; try { bookings = data ? JSON.parse(data) : []; } catch(_) { bookings = []; }
-    const customerMap = {};
-    bookings.forEach(b => {
-      const key = b.customerPhone || b.customerName || '';
-      if (!key) return;
-      if (!customerMap[key]) {
-        customerMap[key] = { id: key, name: b.customerName || '', phone: b.customerPhone || '', visits: 0, totalSpent: 0, firstVisit: null, lastVisit: null };
-      }
-      if (b.status === 'confirmed' || b.status === 'done') {
-        customerMap[key].visits++;
-        customerMap[key].totalSpent += parseInt(b.price) || 0;
-        if (!customerMap[key].firstVisit || b.date < customerMap[key].firstVisit) {
-          customerMap[key].firstVisit = b.date;
-        }
-        if (!customerMap[key].lastVisit || b.date > customerMap[key].lastVisit) {
-          customerMap[key].lastVisit = b.date;
-        }
-      }
-    });
-    return Object.values(customerMap);
-  }
-}
-
-// 保留舊函數名稱向後相容
-async function loadCustomersFromBookings() {
-  return loadCustomersFromAPI();
-}
-
-const CUSTOMERS = loadCustomersFromBookings();
-
-const SERVICES = [
-  { id:1, name:'剪髮造型', category:'基礎', duration:60,  price:600,  description:'專業剪髮造型，修飾臉型輪廓。' },
-  { id:2, name:'燙髮',     category:'進階', duration:150, price:2800, description:'多種燙髮技術，創造理想捲度。' },
-  { id:3, name:'染髮',     category:'進階', duration:120, price:2200, description:'時尚髮色，多色可選，持久顯色。' },
-  { id:4, name:'挑染',     category:'進階', duration:150, price:3200, description:'手工挑染，打造自然漸層感。' },
-  { id:5, name:'護髮療程', category:'護理', duration:60,  price:1200, description:'深層護髮，修復受損髮質。' },
-];
+const session  = Auth.getSession() || {};
+const todayStr = new Date().toISOString().slice(0, 10);
+const monthPfx = todayStr.slice(0, 7);
 
 createApp({
   setup() {
-    const tab = ref('dashboard');
-    const tabs = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'}];
-    const bookings  = ref([...BOOKINGS]);
-    const designers = ref(loadDesigners());
+    const tab     = ref('dashboard');
+    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'}];
+    const loading = ref(true);
+
+    const bookings  = ref([]);
+    const designers = ref([]);
     const customers = ref([]);
-    const services  = ref([...SERVICES]);
+    const services  = ref([]);
     const search    = ref('');
     const bookingStatusFilter = ref('all');
-    const toast     = ref({ show:false, msg:'' });
-    const statusText = { confirmed: '已確認', pending: '待確認', cancelled: '已取消', done: '已完成' };
-    const designerFilter = ref('all');
+    const designerFilter      = ref('all');
+    const toast     = ref({ show: false, msg: '' });
 
-    // ── 後端 stats（含成長率/設計師業績/熱門服務）
-    const stats = ref({
-      today: 0, pending: 0, revenue: 0, revenueGrowth: null,
-      totalCustomers: 0, topServices: [], topDesigners: []
-    });
+    const statusText = { confirmed:'已確認', pending:'待確認', cancelled:'已取消', done:'已完成' };
 
-    // 本地計算備援
-    function calcLocalStats() {
-      const today    = new Date().toISOString().slice(0,10);
-      const thisMonth = today.slice(0,7);
-      stats.value.today   = bookings.value.filter(b => b.date === today && b.status !== 'cancelled').length;
+    // ── 統計 ─────────────────────────────────────────────────
+    const stats = ref({ today:0, pending:0, revenue:0, totalCustomers:0 });
+
+    function calcStats() {
+      stats.value.today   = bookings.value.filter(b => b.date === todayStr && b.status !== 'cancelled').length;
       stats.value.pending = bookings.value.filter(b => b.status === 'pending').length;
-      stats.value.revenue = bookings.value.filter(b => b.date.startsWith(thisMonth) && (b.status==='confirmed'||b.status==='done'))
-                              .reduce((s,b) => s + (Number(b.price)||0), 0);
+      stats.value.revenue = bookings.value
+        .filter(b => b.date.startsWith(monthPfx) && (b.status==='confirmed'||b.status==='done'))
+        .reduce((s,b) => s+(Number(b.price)||0), 0);
     }
 
-    // 初始化：從後端載入全部資料
-    async function initData() {
-      bookings.value  = await loadBookingsFromAPI();
-      customers.value = await loadCustomersFromAPI();
-      // 嘗試拉後端統計
-      try {
-        const s = await salonAPI.getStats();
-        stats.value = { ...stats.value, ...s };
-      } catch(_) { calcLocalStats(); }
-      // 嘗試拉服務
-      try {
-        const svcs = await salonAPI.getServices();
-        if (svcs && svcs.length) services.value = svcs;
-      } catch(_) {}
-      // 嘗試拉設計師
-      try {
-        const ds = await salonAPI.getDesigners();
-        if (ds && ds.length) { designers.value = ds; saveDesigners(ds); }
-      } catch(_) {}
-    }
-    initData();
-
-    // WebSocket 即時更新
-    salonAPI.on('INIT', ({ bookings: list, designers: ds, services: svcs }) => {
-      if (list && list.length)  { bookings.value  = list; LS.setBookings(list); }
-      if (ds   && ds.length)    { designers.value = ds;   saveDesigners(ds); }
-      if (svcs && svcs.length)  { services.value  = svcs; }
-      calcLocalStats();
-    });
-    salonAPI.on('NEW_BOOKING', (b) => {
-      if (!bookings.value.find(x => x.id === b.id)) bookings.value.push(b);
-      toast.value = { show: true, msg: `收到新預約！${b.customerName} ${b.date} ${b.time}` };
-      setTimeout(() => toast.value.show = false, 4000);
-      calcLocalStats();
-    });
-    salonAPI.on('UPDATE_BOOKING', (b) => {
-      const idx = bookings.value.findIndex(x => x.id === b.id);
-      if (idx !== -1) bookings.value[idx] = b;
-      calcLocalStats();
-    });
-    salonAPI.on('DELETE_BOOKING', ({ id }) => {
-      bookings.value = bookings.value.filter(b => b.id !== id);
-      calcLocalStats();
-    });
-    salonAPI.on('NEW_DESIGNER', (d) => {
-      if (!designers.value.find(x => x.id === d.id)) designers.value.push(d);
-    });
-    salonAPI.on('UPDATE_DESIGNER', (d) => {
-      const idx = designers.value.findIndex(x => x.id === d.id);
-      if (idx !== -1) designers.value[idx] = d;
-      saveDesigners(designers.value);
-    });
-    salonAPI.on('UPDATE_SERVICES', (svcs) => {
-      if (svcs) services.value = svcs;
+    const topDesigners = computed(() => {
+      const map = {};
+      bookings.value.filter(b => b.date.startsWith(monthPfx) && (b.status==='confirmed'||b.status==='done')).forEach(b => {
+        if (!map[b.designerName]) map[b.designerName] = { name: b.designerName, revenue: 0, count: 0 };
+        map[b.designerName].revenue += Number(b.price)||0;
+        map[b.designerName].count++;
+      });
+      return Object.values(map).sort((a,b) => b.revenue - a.revenue).slice(0, 5);
     });
 
-    // 設計師篩選
-    const filteredDesigners = computed(() => {
-      if (designerFilter.value === 'all') return designers.value;
-      return designers.value.filter(d => d.status === designerFilter.value);
+    const topServices = computed(() => {
+      const map = {};
+      bookings.value.filter(b => b.status !== 'cancelled').forEach(b => {
+        if (!map[b.serviceName]) map[b.serviceName] = { name: b.serviceName, count: 0 };
+        map[b.serviceName].count++;
+      });
+      return Object.values(map).sort((a,b) => b.count - a.count).slice(0, 6);
     });
 
-    // 預約篩選（狀態 + 搜尋）
+    // ── 篩選 ─────────────────────────────────────────────────
     const filteredBookings = computed(() => {
       let list = bookings.value;
       if (bookingStatusFilter.value !== 'all') list = list.filter(b => b.status === bookingStatusFilter.value);
@@ -688,152 +486,205 @@ createApp({
           (b.customerPhone||'').includes(q)
         );
       }
-      return list.slice().sort((a, b) => (b.date+b.time).localeCompare(a.date+a.time));
+      return list.slice().sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
     });
 
-    async function updateStatus(id, status) {
-      // 先更新本地
-      const b = bookings.value.find(x => x.id === id);
-      if (b) {
-        b.status = status;
-        toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
-        setTimeout(() => toast.value.show = false, 2000);
+    const filteredDesigners = computed(() => {
+      if (designerFilter.value === 'all') return designers.value;
+      return designers.value.filter(d => d.status === designerFilter.value);
+    });
 
-        // 同步到兩個 localStorage key
-        localStorage.setItem('akb_bookings_data', JSON.stringify(bookings.value));
-        localStorage.setItem('akb_client_bookings', JSON.stringify(bookings.value));
-      }
-
-      // 嘗試同步到後端
+    // ── 初始化資料 ───────────────────────────────────────────
+    async function initData() {
+      loading.value = true;
       try {
-        await salonAPI.updateBooking(id, { status });
-      } catch (error) {
-        console.warn('後端不可用，僅更新本地資料');
+        const [bs, ds, svcs] = await Promise.all([
+          DB.getBookings(),
+          DB.getDesigners(),
+          DB.getServices(),
+        ]);
+        bookings.value  = bs  || [];
+        designers.value = ds  || [];
+        services.value  = svcs|| [];
+        calcStats();
+        // 計算客戶統計（從預約資料）
+        refreshCustomers(false);
+      } catch(e) {
+        console.error('initData:', e);
+      } finally {
+        loading.value = false;
       }
     }
 
-    function logout() {
-      Auth.logout();
-      window.location.href = '../index.html';
+    // ── 訂閱即時更新 ─────────────────────────────────────────
+    let unsubBookings   = null;
+    let unsubDesigners  = null;
+
+    function setupSubscriptions() {
+      unsubBookings = DB.subscribeBookings(({ eventType, booking: nb }) => {
+        if (!nb) return;
+        if (eventType === 'INSERT') {
+          if (!bookings.value.find(x => x.id === nb.id)) {
+            bookings.value.unshift(nb);
+            showToast(`新預約！${nb.customerName} ${nb.date} ${nb.time}`, 5000);
+          }
+        } else if (eventType === 'UPDATE') {
+          const idx = bookings.value.findIndex(x => x.id === nb.id);
+          if (idx > -1) bookings.value[idx] = nb;
+        } else if (eventType === 'DELETE') {
+          bookings.value = bookings.value.filter(x => x.id !== nb.id);
+        }
+        calcStats();
+      });
+
+      unsubDesigners = DB.subscribeDesigners(({ eventType, designer: nd }) => {
+        if (!nd) return;
+        const idx = designers.value.findIndex(x => x.id === nd.id);
+        if (eventType === 'INSERT' && idx === -1) {
+          designers.value.push(nd);
+        } else if (eventType === 'UPDATE' && idx > -1) {
+          designers.value[idx] = nd;
+        } else if (eventType === 'DELETE' && idx > -1) {
+          designers.value.splice(idx, 1);
+        }
+      });
     }
 
-    // 修改密碼
-    const showChangePwd = ref(false);
-    const pwdForm = reactive({
-      current: '',
-      newPwd: '',
-      confirm: '',
-      loading: false,
-      error: '',
-      success: ''
+    onMounted(async () => {
+      await initData();
+      setupSubscriptions();
     });
+
+    onUnmounted(() => {
+      if (unsubBookings)  unsubBookings();
+      if (unsubDesigners) unsubDesigners();
+    });
+
+    // ── Toast ─────────────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg, duration = 2500) {
+      if (toastTimer) clearTimeout(toastTimer);
+      toast.value = { show: true, msg };
+      toastTimer = setTimeout(() => toast.value.show = false, duration);
+    }
+
+    // ── 預約操作 ─────────────────────────────────────────────
+    async function updateStatus(id, status) {
+      const b = bookings.value.find(x => x.id === id);
+      if (b) b.status = status;
+      showToast(`已更新為「${statusText[status]}」`);
+      try { await DB.updateBookingStatus(id, status); } catch(e) { console.warn('updateStatus:', e); }
+    }
+
+    async function refreshCustomers(toast = true) {
+      try {
+        const raw = await DB.getCustomers();
+        if (raw && raw.length) {
+          // Supabase customers 表格式
+          customers.value = raw.map(c => ({
+            id: c.id || c.phone,
+            name: c.name || '',
+            phone: c.phone || '',
+            visits: c.visit_count || 0,
+            totalSpent: c.total_spent || 0,
+            firstVisit: c.first_visit || '',
+            lastVisit: c.last_visit || '',
+          }));
+        } else {
+          // 從預約資料計算
+          buildCustomersFromBookings();
+        }
+      } catch(e) {
+        buildCustomersFromBookings();
+      }
+      if (toast) showToast('顧客資料已更新');
+    }
+
+    function buildCustomersFromBookings() {
+      const map = {};
+      bookings.value.forEach(b => {
+        const key = b.customerPhone || b.customerName || '';
+        if (!key) return;
+        if (!map[key]) map[key] = { id: key, name: b.customerName||'', phone: b.customerPhone||'', visits:0, totalSpent:0, firstVisit:null, lastVisit:null };
+        if (b.status === 'confirmed' || b.status === 'done') {
+          map[key].visits++;
+          map[key].totalSpent += Number(b.price)||0;
+          if (!map[key].firstVisit || b.date < map[key].firstVisit) map[key].firstVisit = b.date;
+          if (!map[key].lastVisit  || b.date > map[key].lastVisit)  map[key].lastVisit  = b.date;
+        }
+      });
+      customers.value = Object.values(map);
+    }
+
+    function logout() { Auth.logout(); window.location.href = '../index.html'; }
+
+    // ── 密碼修改 ─────────────────────────────────────────────
+    const showChangePwd = ref(false);
+    const pwdForm = reactive({ current:'', newPwd:'', confirm:'', loading:false, error:'', success:'' });
 
     function changePassword() {
-      pwdForm.error = '';
-      pwdForm.success = '';
-
-      if (!pwdForm.current || !pwdForm.newPwd || !pwdForm.confirm) {
-        pwdForm.error = '請填寫所有欄位';
-        return;
-      }
-      if (pwdForm.newPwd.length < 6) {
-        pwdForm.error = '新密碼長度至少6位';
-        return;
-      }
-      if (pwdForm.newPwd !== pwdForm.confirm) {
-        pwdForm.error = '兩次輸入的新密碼不一致';
-        return;
-      }
-
+      pwdForm.error = ''; pwdForm.success = '';
+      if (!pwdForm.current||!pwdForm.newPwd||!pwdForm.confirm) { pwdForm.error='請填寫所有欄位'; return; }
+      if (pwdForm.newPwd.length < 6) { pwdForm.error='新密碼長度至少6位'; return; }
+      if (pwdForm.newPwd !== pwdForm.confirm) { pwdForm.error='兩次輸入的新密碼不一致'; return; }
       pwdForm.loading = true;
       setTimeout(() => {
-        const result = Auth.changePassword(pwdForm.current, pwdForm.newPwd);
-        if (result.success) {
+        const r = Auth.changePassword(pwdForm.current, pwdForm.newPwd);
+        if (r.success) {
           pwdForm.success = '密碼修改成功！請使用新密碼重新登入';
-          setTimeout(() => {
-            Auth.logout();
-            window.location.href = './login.html';
-          }, 1500);
+          setTimeout(() => { Auth.logout(); window.location.href='./login.html'; }, 1500);
         } else {
-          pwdForm.error = result.error || '修改失敗，請重試';
+          pwdForm.error = r.error || '修改失敗';
         }
         pwdForm.loading = false;
       }, 500);
     }
 
-    // 設計師管理功能
-    const showDesignerModal = ref(false);
-    const isEditingDesigner = ref(false);
-    const designerForm = reactive({
-      id: null,
-      name: '',
-      role: '設計師',
-      level: 'C',
-      specialty: '',
-      bio: '',
-      avatar: '',
-      status: 'active',
-      available: true
-    });
+    // ── 設計師管理 ───────────────────────────────────────────
+    const showDesignerModal  = ref(false);
+    const isEditingDesigner  = ref(false);
+    const designerForm       = reactive({ id:null, name:'', role:'設計師', level:'C', specialty:'', bio:'', avatar:'', status:'active', available:true });
 
     function openAddDesigner() {
       isEditingDesigner.value = false;
-      designerForm.id = null;
-      designerForm.name = '';
-      designerForm.role = '設計師';
-      designerForm.level = 'C';
-      designerForm.specialty = '';
-      designerForm.bio = '';
-      designerForm.avatar = '';
-      designerForm.status = 'active';
-      designerForm.available = true;
+      Object.assign(designerForm, { id:null, name:'', role:'設計師', level:'C', specialty:'', bio:'', avatar:'', status:'active', available:true });
       showDesignerModal.value = true;
     }
 
     function editDesigner(d) {
       isEditingDesigner.value = true;
-      designerForm.id = d.id;
-      designerForm.name = d.name;
-      designerForm.role = d.role;
-      designerForm.level = d.level || 'C';
-      designerForm.specialty = d.specialty ? d.specialty.join(', ') : '';
-      designerForm.bio = d.bio || '';
-      designerForm.avatar = d.avatar;
-      designerForm.status = d.status || 'active';
-      designerForm.available = d.available;
+      Object.assign(designerForm, {
+        id: d.id, name: d.name, role: d.role, level: d.level||'C',
+        specialty: Array.isArray(d.specialty) ? d.specialty.join(', ') : (d.specialty||''),
+        bio: d.bio||'', avatar: d.avatar, status: d.status||'active', available: d.available
+      });
       showDesignerModal.value = true;
     }
 
     async function saveDesigner() {
-      if (!designerForm.name.trim()) {
-        toast.value = { show: true, msg: '請輸入設計師名稱' }; return;
-      }
-      const avatar = designerForm.avatar.trim() || designerForm.name.trim().charAt(0).toUpperCase();
-      const specialtyList = designerForm.specialty.split(',').map(s => s.trim()).filter(s => s);
-      const payload = {
-        name: designerForm.name.trim(), role: designerForm.role,
-        level: designerForm.level, specialty: specialtyList,
-        bio: designerForm.bio.trim(), avatar
-      };
+      if (!designerForm.name.trim()) { showToast('請輸入設計師名稱'); return; }
+      const avatar = (designerForm.avatar||'').trim() || designerForm.name.trim().charAt(0).toUpperCase();
+      const specialty = designerForm.specialty.split(',').map(s => s.trim()).filter(Boolean);
+      const payload = { name: designerForm.name.trim(), role: designerForm.role, level: designerForm.level, specialty, bio: designerForm.bio.trim(), avatar };
 
       if (isEditingDesigner.value) {
         const idx = designers.value.findIndex(d => d.id === designerForm.id);
-        if (idx !== -1) {
-          designers.value[idx] = { ...designers.value[idx], ...payload };
-          toast.value = { show: true, msg: '設計師資料已更新' };
-          try { await salonAPI.updateDesigner(designerForm.id, payload); } catch(_) {}
-        }
+        if (idx > -1) designers.value[idx] = { ...designers.value[idx], ...payload };
+        showToast('設計師資料已更新');
+        try { await DB.updateDesigner(designerForm.id, payload); } catch(e) { console.warn(e); }
       } else {
-        const newId = Math.max(...designers.value.map(d => d.id), 0) + 1;
-        const newD  = { id: newId, rating:5.0, reviews:0, works:0, available:true, status:'active', ...payload };
-        designers.value.push(newD);
-        toast.value = { show: true, msg: '新設計師已新增' };
-        try { await salonAPI.createDesigner(payload); } catch(_) {}
+        const nd = { id: Date.now(), rating:5.0, reviews:0, works:0, available:true, status:'active', ...payload };
+        designers.value.push(nd);
+        showToast('新設計師已新增');
+        try {
+          const created = await DB.createDesigner(payload);
+          if (created) {
+            const i = designers.value.findIndex(d => d.id === nd.id);
+            if (i > -1) designers.value[i] = created;
+          }
+        } catch(e) { console.warn(e); }
       }
-
-      saveDesigners(designers.value);
       showDesignerModal.value = false;
-      setTimeout(() => toast.value.show = false, 2000);
     }
 
     async function setDesignerStatus(id, status) {
@@ -841,75 +692,67 @@ createApp({
       if (!d) return;
       d.status    = status;
       d.available = status === 'active';
-      saveDesigners(designers.value);
-      const map = { active: '已設為在職', leave: '已設為休假', resigned: '已標記為離職' };
-      toast.value = { show: true, msg: map[status] };
-      setTimeout(() => toast.value.show = false, 2000);
-      try { await salonAPI.updateDesigner(id, { status, available: d.available }); } catch(_) {}
+      const map = { active:'已設為在職', leave:'已設為休假', resigned:'已標記為離職' };
+      showToast(map[status]);
+      try { await DB.updateDesigner(id, { status, available: d.available }); } catch(e) { console.warn(e); }
     }
 
-    async function refreshCustomers() {
-      customers.value = await loadCustomersFromAPI();
-      toast.value = { show: true, msg: '顧客資料已更新' };
-      setTimeout(() => toast.value.show = false, 2000);
-    }
-
-    // ── 服務管理 ─────────────────────────────────────
+    // ── 服務管理 ─────────────────────────────────────────────
     const showServiceModal = ref(false);
     const isEditingService = ref(false);
-    const serviceForm = reactive({ id: null, name: '', category: '基礎', duration: 60, price: 0, description: '' });
+    const serviceForm = reactive({ id:null, name:'', category:'基礎', duration:60, price:0, description:'' });
 
     function openAddService() {
       isEditingService.value = false;
-      Object.assign(serviceForm, { id: null, name: '', category: '基礎', duration: 60, price: 0, description: '' });
+      Object.assign(serviceForm, { id:null, name:'', category:'基礎', duration:60, price:0, description:'' });
       showServiceModal.value = true;
     }
 
     function editService(s) {
       isEditingService.value = true;
-      Object.assign(serviceForm, { id: s.id, name: s.name, category: s.category, duration: s.duration, price: s.price, description: s.description || '' });
+      Object.assign(serviceForm, { id:s.id, name:s.name, category:s.category, duration:s.duration, price:s.price, description:s.description||'' });
       showServiceModal.value = true;
     }
 
     async function saveService() {
-      if (!serviceForm.name.trim()) {
-        toast.value = { show: true, msg: '請輸入服務名稱' }; return;
-      }
-      const payload = { name: serviceForm.name.trim(), category: serviceForm.category, duration: Number(serviceForm.duration), price: Number(serviceForm.price), description: serviceForm.description.trim() };
-
+      if (!serviceForm.name.trim()) { showToast('請輸入服務名稱'); return; }
+      const payload = { name:serviceForm.name.trim(), category:serviceForm.category, duration:Number(serviceForm.duration), price:Number(serviceForm.price), description:serviceForm.description.trim() };
       if (isEditingService.value) {
         const idx = services.value.findIndex(s => s.id === serviceForm.id);
-        if (idx !== -1) {
-          services.value[idx] = { ...services.value[idx], ...payload };
-          toast.value = { show: true, msg: '服務已更新' };
-          try { await salonAPI.updateService(serviceForm.id, payload); } catch(_) {}
-        }
+        if (idx > -1) services.value[idx] = { ...services.value[idx], ...payload };
+        showToast('服務已更新');
+        try { await DB.updateService(serviceForm.id, payload); } catch(e) { console.warn(e); }
       } else {
-        const newId = Math.max(...services.value.map(s => s.id), 0) + 1;
-        services.value.push({ id: newId, ...payload });
-        toast.value = { show: true, msg: '服務已新增' };
-        try { await salonAPI.createService(payload); } catch(_) {}
+        const ns = { id: Date.now(), ...payload };
+        services.value.push(ns);
+        showToast('服務已新增');
+        try {
+          const created = await DB.createService(payload);
+          if (created) {
+            const i = services.value.findIndex(s => s.id === ns.id);
+            if (i > -1) services.value[i] = created;
+          }
+        } catch(e) { console.warn(e); }
       }
-
       showServiceModal.value = false;
-      setTimeout(() => toast.value.show = false, 2000);
     }
 
     async function deleteService(id) {
       if (!confirm('確定要刪除此服務嗎？')) return;
-      services.value = services.value.filter(s => s.id !== id);
-      toast.value = { show: true, msg: '服務已刪除' };
-      setTimeout(() => toast.value.show = false, 2000);
-      try { await salonAPI.deleteService(id); } catch(_) {}
+      services.value = services.value.filter(s => s.id != id);
+      showToast('服務已刪除');
+      try { await DB.deleteService(id); } catch(e) { console.warn(e); }
     }
 
     return {
-      tab, tabs, bookings, designers, customers, services, search, bookingStatusFilter,
-      stats, filteredBookings, statusText, updateStatus, logout, toast, session,
+      tab, tabs, loading, bookings, designers, customers, services,
+      search, bookingStatusFilter, designerFilter,
+      stats, todayStr, topDesigners, topServices,
+      filteredBookings, filteredDesigners,
+      statusText, toast, session,
+      updateStatus, refreshCustomers, logout,
       showChangePwd, pwdForm, changePassword,
-      designerFilter, filteredDesigners,
       showDesignerModal, isEditingDesigner, designerForm, openAddDesigner, editDesigner, saveDesigner, setDesignerStatus,
-      refreshCustomers,
       showServiceModal, isEditingService, serviceForm, openAddService, editService, saveService, deleteService,
     };
   }

@@ -5,9 +5,10 @@
 <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>客戶預約 - AKB 多元化音樂發廊</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="../js/api.js"></script>
+<script src="../js/db.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
 *{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
@@ -86,31 +87,32 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         </div>
         <div v-if="n<4" :class="['h-px w-10 transition-all',n<bookingStep?'bg-gold':'bg-gray-700']"></div>
       </template>
-      <div class="ml-3 text-muted">
-        {{['選擇服務','選擇設計師','選擇時間','填寫資料'][bookingStep-1]}}
-      </div>
+      <div class="ml-3 text-muted">{{['選擇服務','選擇設計師','選擇時間','填寫資料'][bookingStep-1]}}</div>
     </div>
 
     <!-- Step 1: Service -->
     <div v-if="bookingStep===1" class="fade">
       <h2 class="text-2xl font-bold serif mb-6">選擇服務項目</h2>
-      <div v-for="cat in ['基礎','染髮','燙髮','護理']" :key="cat" class="mb-6">
-        <div class="text-xs uppercase tracking-widest text-muted mb-3">{{cat}} 服務</div>
-        <div class="space-y-2">
-          <div v-for="s in services.filter(x=>x.category===cat)" :key="s.id"
-            :class="['card p-4 cursor-pointer transition-all flex items-center justify-between',bookingForm.serviceId===s.id?'border-2 border-gold':'' ]"
-            @click="bookingForm.serviceId=s.id">
-            <div class="flex items-center gap-4">
-              <div :class="['w-2 h-2 rounded-full',bookingForm.serviceId===s.id?'bg-gold':'bg-gray-600']"></div>
-              <div>
-                <div class="font-semibold">{{s.name}}</div>
-                <div class="text-muted text-xs">{{s.en}} &middot; {{s.duration}}分鐘</div>
+      <div v-if="loadingServices" class="text-center py-12 text-muted">載入服務中...</div>
+      <template v-else>
+        <div v-for="cat in ['基礎','染髮','燙髮','護理']" :key="cat" class="mb-6">
+          <div class="text-xs uppercase tracking-widest text-muted mb-3">{{cat}} 服務</div>
+          <div class="space-y-2">
+            <div v-for="s in services.filter(x=>x.category===cat)" :key="s.id"
+              :class="['card p-4 cursor-pointer transition-all flex items-center justify-between',bookingForm.serviceId===s.id?'border-2 border-gold':'']"
+              @click="bookingForm.serviceId=s.id;bookingForm.serviceName=s.name;bookingForm.price=s.price;bookingForm.duration=s.duration">
+              <div class="flex items-center gap-4">
+                <div :class="['w-2 h-2 rounded-full',bookingForm.serviceId===s.id?'bg-gold':'bg-gray-600']"></div>
+                <div>
+                  <div class="font-semibold">{{s.name}}</div>
+                  <div class="text-muted text-xs">{{s.en||s.description||''}} &middot; {{s.duration}}分鐘</div>
+                </div>
               </div>
+              <div class="text-gold font-bold">${{s.price.toLocaleString()}}</div>
             </div>
-            <div class="text-gold font-bold">${{s.price.toLocaleString()}}</div>
           </div>
         </div>
-      </div>
+      </template>
       <div class="flex justify-end mt-6">
         <button :disabled="!bookingForm.serviceId" :class="['btn btn-gold px-8 py-3',!bookingForm.serviceId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=2">下一步 →</button>
       </div>
@@ -119,10 +121,11 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
     <!-- Step 2: Designer -->
     <div v-if="bookingStep===2" class="fade">
       <h2 class="text-2xl font-bold serif mb-6">選擇設計師</h2>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div v-if="loadingDesigners" class="text-center py-12 text-muted">載入設計師中...</div>
+      <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div v-for="d in designers" :key="d.id"
           :class="['designer-card card p-5',d.available?'':'opacity-50 cursor-not-allowed',bookingForm.designerId===d.id?'selected':'']"
-          @click="d.available&&(bookingForm.designerId=d.id)">
+          @click="d.available&&(bookingForm.designerId=d.id,bookingForm.designerName=d.name)">
           <div class="flex items-start gap-4">
             <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl flex-shrink-0">{{d.avatar}}</div>
             <div class="flex-1 min-w-0">
@@ -150,7 +153,6 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
     <!-- Step 3: Date & Time -->
     <div v-if="bookingStep===3" class="fade">
       <h2 class="text-2xl font-bold serif mb-6">選擇預約日期與時間</h2>
-      <!-- Calendar -->
       <div class="card p-5 mb-4">
         <div class="flex items-center justify-between mb-4">
           <button class="btn btn-ghost px-3 py-2" @click="prevMonth()">←</button>
@@ -167,10 +169,10 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             @click="!isDatePast(d)&&selectDate(d)">{{d}}</div>
         </div>
       </div>
-      <!-- Time slots -->
       <div v-if="bookingForm.date" class="card p-5 fade">
         <div class="text-sm font-semibold mb-3">可用時段 <span class="text-muted font-normal">{{bookingForm.date}}</span></div>
-        <div class="grid grid-cols-4 gap-2 sm:grid-cols-6">
+        <div v-if="loadingSlots" class="text-center py-4 text-muted text-sm">載入時段中...</div>
+        <div v-else class="grid grid-cols-4 gap-2 sm:grid-cols-6">
           <div v-for="t in ALL_TIMES" :key="t"
             :class="['time-slot',isTimeBooked(t)?'booked':bookingForm.time===t?'selected':'']"
             @click="!isTimeBooked(t)&&(bookingForm.time=t)">
@@ -191,10 +193,10 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
       <h2 class="text-2xl font-bold serif mb-2">填寫預約資料</h2>
       <div class="card p-5 mb-4 text-sm">
         <div class="text-muted text-xs uppercase tracking-wider mb-3">預約摘要</div>
-        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">服務</span><span class="font-semibold">{{services.find(s=>s.id===bookingForm.serviceId)?.name}}</span></div>
-        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">設計師</span><span class="font-semibold">{{designers.find(d=>d.id===bookingForm.designerId)?.name}}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">服務</span><span class="font-semibold">{{bookingForm.serviceName}}</span></div>
+        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">設計師</span><span class="font-semibold">{{bookingForm.designerName}}</span></div>
         <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">日期時間</span><span class="font-semibold">{{bookingForm.date}} {{bookingForm.time}}</span></div>
-        <div class="flex justify-between py-1"><span class="text-muted">費用</span><span class="font-bold text-gold">${{services.find(s=>s.id===bookingForm.serviceId)?.price?.toLocaleString()}}</span></div>
+        <div class="flex justify-between py-1"><span class="text-muted">費用</span><span class="font-bold text-gold">${{bookingForm.price?.toLocaleString()}}</span></div>
       </div>
       <div class="space-y-4">
         <div>
@@ -214,9 +216,12 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
           <textarea v-model="bookingForm.note" rows="3" placeholder="例如：想染玫瑰金、頭髮較細..."></textarea>
         </div>
       </div>
+      <div v-if="submitError" class="mt-3 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{submitError}}</div>
       <div class="flex justify-between mt-6">
         <button class="btn btn-ghost" @click="bookingStep=3">← 上一步</button>
-        <button :disabled="!bookingForm.name||!bookingForm.phone" :class="['btn btn-gold px-8 py-3',(!bookingForm.name||!bookingForm.phone)?'opacity-40 cursor-not-allowed':'']" @click="submitBooking()">確認預約 ✓</button>
+        <button :disabled="!bookingForm.name||!bookingForm.phone||submitting"
+          :class="['btn btn-gold px-8 py-3',(!bookingForm.name||!bookingForm.phone||submitting)?'opacity-40 cursor-not-allowed':'']"
+          @click="submitBooking()">{{submitting?'預約中...':'確認預約 ✓'}}</button>
       </div>
     </div>
 
@@ -277,8 +282,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <h3 class="text-xl font-bold serif gold">我的預約</h3>
         <button class="btn btn-ghost px-3 py-2" @click="showModal=''">✕</button>
       </div>
-      
-      <!-- 未驗證狀態 -->
+      <!-- 未驗證 -->
       <div v-if="!myBookings.verified">
         <p class="text-muted text-sm mb-4">請輸入手機號碼查詢您的預約記錄</p>
         <div class="space-y-3">
@@ -286,9 +290,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             <label class="block text-xs text-muted mb-1">手機號碼</label>
             <input v-model="myBookings.phone" placeholder="09XX-XXX-XXX" @keyup.enter="verifyPhone()"/>
           </div>
-          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
-            {{myBookings.error}}
-          </div>
+          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{myBookings.error}}</div>
           <button class="btn btn-gold w-full py-3" @click="verifyPhone()" :disabled="myBookings.loading">
             {{myBookings.loading ? '查詢中...' : '查詢預約'}}
           </button>
@@ -297,8 +299,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
           <p class="text-xs text-muted">首次查詢將自動為您創建帳號</p>
         </div>
       </div>
-      
-      <!-- 已驗證但未設置密碼 -->
+      <!-- 已驗證但未設密碼 -->
       <div v-else-if="myBookings.verified && !myBookings.hasPassword">
         <div class="text-center mb-4">
           <div class="text-4xl mb-2">🔒</div>
@@ -313,16 +314,13 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             <label class="block text-xs text-muted mb-1">確認密碼</label>
             <input v-model="myBookings.confirmPassword" type="password" placeholder="再次輸入密碼" @keyup.enter="setPassword()"/>
           </div>
-          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
-            {{myBookings.error}}
-          </div>
+          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{myBookings.error}}</div>
           <button class="btn btn-gold w-full py-3" @click="setPassword()" :disabled="myBookings.loading">
             {{myBookings.loading ? '設置中...' : '設置密碼'}}
           </button>
         </div>
       </div>
-      
-      <!-- 已驗證且已設置密碼 - 需要輸入密碼 -->
+      <!-- 已設密碼但未登入 -->
       <div v-else-if="myBookings.verified && myBookings.hasPassword && !myBookings.authenticated">
         <p class="text-muted text-sm mb-4">請輸入查詢密碼</p>
         <div class="space-y-3">
@@ -330,30 +328,24 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             <label class="block text-xs text-muted mb-1">密碼</label>
             <input v-model="myBookings.password" type="password" placeholder="請輸入密碼" @keyup.enter="loginWithPassword()"/>
           </div>
-          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
-            {{myBookings.error}}
-          </div>
+          <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{myBookings.error}}</div>
           <button class="btn btn-gold w-full py-3" @click="loginWithPassword()" :disabled="myBookings.loading">
             {{myBookings.loading ? '驗證中...' : '確認'}}
           </button>
-          <button class="btn btn-ghost w-full py-2 text-sm" @click="resetMyBookings()">使用其他手機號碼</button>
+          <button class="btn btn-ghost w-full py-2 text-sm" @click="resetMyBookingsState()">使用其他手機號碼</button>
         </div>
       </div>
-      
-      <!-- 已登入 - 顯示預約列表 -->
+      <!-- 已登入 -->
       <div v-else>
         <div class="flex items-center justify-between mb-4">
-          <div class="text-sm">
-            <span class="text-muted">手機號碼：</span>
-            <span class="font-semibold">{{myBookings.phone}}</span>
-          </div>
+          <div class="text-sm"><span class="text-muted">手機：</span><span class="font-semibold">{{myBookings.phone}}</span></div>
           <div class="flex gap-2">
             <button class="btn btn-ghost px-3 py-1 text-xs" @click="showModal='changePassword'">修改密碼</button>
             <button class="btn btn-ghost px-3 py-1 text-xs" @click="logoutMyBookings()">登出</button>
           </div>
         </div>
-        
-        <div v-if="myBookings.list.length===0" class="text-center py-8 text-muted">
+        <div v-if="myBookings.loadingList" class="text-center py-8 text-muted text-sm">載入中...</div>
+        <div v-else-if="myBookings.list.length===0" class="text-center py-8 text-muted">
           <div class="text-4xl mb-2">📋</div>
           <p>暫無預約記錄</p>
         </div>
@@ -361,7 +353,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
           <div v-for="b in myBookings.list" :key="b.id" class="card p-4">
             <div class="flex justify-between items-start mb-2">
               <div class="font-semibold">{{b.serviceName}}</div>
-              <span class="badge-status" :class="'badge-'+b.status">{{statusText[b.status]}}</span>
+              <span class="badge-status" :class="'badge-'+b.status">{{statusText[b.status]||b.status}}</span>
             </div>
             <div class="text-sm text-muted mb-1">設計師：{{b.designerName}}</div>
             <div class="text-sm text-muted mb-2">{{b.date}} {{b.time}}</div>
@@ -383,24 +375,11 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <button class="btn btn-ghost px-3 py-2" @click="showModal='myBookings'">✕</button>
       </div>
       <div class="space-y-3">
-        <div>
-          <label class="block text-xs text-muted mb-1">當前密碼</label>
-          <input v-model="changePwdForm.current" type="password" placeholder="請輸入當前密碼"/>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">新密碼（至少6位）</label>
-          <input v-model="changePwdForm.newPwd" type="password" placeholder="請輸入新密碼"/>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">確認新密碼</label>
-          <input v-model="changePwdForm.confirm" type="password" placeholder="再次輸入新密碼" @keyup.enter="changeClientPassword()"/>
-        </div>
-        <div v-if="changePwdForm.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">
-          {{changePwdForm.error}}
-        </div>
-        <div v-if="changePwdForm.success" class="p-3 rounded-lg bg-green-900/30 border border-green-700 text-green-300 text-sm">
-          {{changePwdForm.success}}
-        </div>
+        <div><label class="block text-xs text-muted mb-1">當前密碼</label><input v-model="changePwdForm.current" type="password" placeholder="請輸入當前密碼"/></div>
+        <div><label class="block text-xs text-muted mb-1">新密碼（至少6位）</label><input v-model="changePwdForm.newPwd" type="password" placeholder="請輸入新密碼"/></div>
+        <div><label class="block text-xs text-muted mb-1">確認新密碼</label><input v-model="changePwdForm.confirm" type="password" placeholder="再次輸入新密碼" @keyup.enter="changeClientPassword()"/></div>
+        <div v-if="changePwdForm.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{changePwdForm.error}}</div>
+        <div v-if="changePwdForm.success" class="p-3 rounded-lg bg-green-900/30 border border-green-700 text-green-300 text-sm">{{changePwdForm.success}}</div>
         <button class="btn btn-gold w-full py-3" @click="changeClientPassword()" :disabled="changePwdForm.loading">
           {{changePwdForm.loading ? '修改中...' : '確認修改'}}
         </button>
@@ -410,69 +389,48 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
 </div>
 
 <script>
-const { createApp, ref, reactive, computed } = Vue;
+const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
-const SERVICES = [
-  { id:1, name:'洗剪吹', en:'Wash, cut and blow-dry', price:128, duration:60, category:'基礎' },
-  { id:2, name:'單剪', en:'Single cut', price:68, duration:30, category:'基礎' },
-  { id:3, name:'洗吹', en:'Wash and blow-dry', price:88, duration:45, category:'基礎' },
-  { id:4, name:'彩色染髮', en:'Color hair dye', price:168, duration:90, category:'染髮' },
-  { id:5, name:'電髮', en:'Perm', price:268, duration:120, category:'燙髮' },
-  { id:6, name:'顏色焗油', en:'Color hair treatment', price:228, duration:60, category:'護理' },
-  { id:7, name:'水療焗油', en:'Spa hair treatment', price:188, duration:60, category:'護理' },
-  { id:8, name:'陶瓷數碼曲', en:'Ceramic digital hair treatment', price:358, duration:150, category:'燙髮' },
-  { id:9, name:'技術染髮', en:'Technical hair dye', price:228, duration:120, category:'染髮' },
-  { id:10, name:'負離子直髮', en:'Negative ion hair straightening', price:228, duration:120, category:'燙髮' },
+// 內建服務（客戶端用 - 與 db.js DEFAULT_SERVICES 保持一致但含 en 欄位）
+const BUILTIN_SERVICES = [
+  { id:1,  name:'洗剪吹',     en:'Wash, cut and blow-dry',           category:'基礎', price:128, duration:60 },
+  { id:2,  name:'單剪',       en:'Single cut',                       category:'基礎', price:68,  duration:30 },
+  { id:3,  name:'洗吹',       en:'Wash and blow-dry',                category:'基礎', price:88,  duration:45 },
+  { id:4,  name:'彩色染髮',   en:'Color hair dye',                   category:'染髮', price:168, duration:90 },
+  { id:5,  name:'電髮',       en:'Perm',                             category:'燙髮', price:268, duration:120 },
+  { id:6,  name:'顏色焗油',   en:'Color hair treatment',             category:'護理', price:228, duration:60 },
+  { id:7,  name:'水療焗油',   en:'Spa hair treatment',               category:'護理', price:188, duration:60 },
+  { id:8,  name:'陶瓷數碼曲', en:'Ceramic digital hair treatment',   category:'燙髮', price:358, duration:150 },
+  { id:9,  name:'技術染髮',   en:'Technical hair dye',               category:'染髮', price:228, duration:120 },
+  { id:10, name:'負離子直髮', en:'Negative ion hair straightening',  category:'燙髮', price:228, duration:120 },
 ];
-
-const DESIGNERS_KEY = 'akb_designers_data';
-
-// 預設設計師資料
-const DEFAULT_DESIGNERS = [
-  { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染','音樂造型'], bio:'擅長韓系潮流色彩，10年經驗，粉絲稱她為「調色魔法師」', avatar:'A', rating:4.9, reviews:142, available:true, status:'active' },
-  { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮','男士剪髮'], bio:'韓式小臉燙&歐美捲專家，留學首爾5年歸國', avatar:'K', rating:4.8, reviews:98, available:true, status:'active' },
-  { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','頭皮SPA','護髮療程'], bio:'輕柔手法，細心聆聽每位客人需求', avatar:'B', rating:4.7, reviews:63, available:true, status:'active' },
-  { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘造型','特殊造型'], bio:'婚禮造型達人，已完成超過200組新娘', avatar:'J', rating:4.9, reviews:117, available:false, status:'active' },
-  { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮','頭皮SPA'], bio:'活潑開朗，擅長與客人溝通，讓你放鬆享受', avatar:'M', rating:4.6, reviews:45, available:true, status:'active' },
-];
-
-// 從 localStorage 載入設計師資料，過濾掉已離職的設計師
-function loadDesigners() {
-  const saved = localStorage.getItem(DESIGNERS_KEY);
-  if (saved) {
-    const data = JSON.parse(saved);
-    // 過濾掉已離職的設計師，並確保舊資料有 status 欄位
-    return data
-      .filter(d => d.status !== 'resigned')
-      .map(d => ({ ...d, status: d.status || 'active' }));
-  }
-  // 首次載入，儲存預設值
-  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(DEFAULT_DESIGNERS));
-  return DEFAULT_DESIGNERS.filter(d => d.status !== 'resigned');
-}
-
-const DESIGNERS = loadDesigners();
 
 const ALL_TIMES = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
 
-// 模擬已預約的時段
-const EXISTING_BOOKINGS = [
-  { designerId:1, date:'2026-03-25', time:'10:00' },
-  { designerId:3, date:'2026-03-25', time:'14:00' },
-  { designerId:2, date:'2026-03-26', time:'11:00' },
-];
+function normalizePhone(p) { return (p||'').replace(/\D/g,''); }
 
 createApp({
   setup() {
-    const bookingStep = ref(1);
-    const bookingForm = reactive({ serviceId:null, designerId:null, date:'', time:'', name:'', phone:'', email:'', note:'' });
-    const bookingDone = ref(null);
-    const showModal = ref('');
+    const bookingStep  = ref(1);
+    const bookingForm  = reactive({ serviceId:null, serviceName:'', price:0, duration:60, designerId:null, designerName:'', date:'', time:'', name:'', phone:'', email:'', note:'' });
+    const bookingDone  = ref(null);
+    const showModal    = ref('');
+    const submitting   = ref(false);
+    const submitError  = ref('');
+
+    // 服務 & 設計師（從 DB 載入）
+    const services        = ref([...BUILTIN_SERVICES]);
+    const designers       = ref([]);
+    const loadingServices = ref(false);
+    const loadingDesigners= ref(false);
+    const loadingSlots    = ref(false);
+    // 已預約時段（從 DB 載入，用於封鎖重複預約）
+    const bookedSlots     = ref([]); // [{designerId, date, time}]
+
+    // 日曆
     const now = new Date();
     const calendarMonth = ref(now.getMonth() + 1);
-    const calendarYear = ref(now.getFullYear());
-    const services = ref(SERVICES);
-    const designers = ref(DESIGNERS);
+    const calendarYear  = ref(now.getFullYear());
 
     const calDays = computed(() => {
       const first = new Date(calendarYear.value, calendarMonth.value-1, 1).getDay();
@@ -480,318 +438,252 @@ createApp({
       return { first, total };
     });
 
-    function prevMonth() {
-      if (calendarMonth.value === 1) { calendarMonth.value = 12; calendarYear.value--; }
-      else calendarMonth.value--;
-    }
-    function nextMonth() {
-      if (calendarMonth.value === 12) { calendarMonth.value = 1; calendarYear.value++; }
-      else calendarMonth.value++;
-    }
+    function prevMonth() { if (calendarMonth.value===1){calendarMonth.value=12;calendarYear.value--;}else calendarMonth.value--; }
+    function nextMonth() { if (calendarMonth.value===12){calendarMonth.value=1;calendarYear.value++;}else calendarMonth.value++; }
+
     function selectDate(d) {
-      if(d < 1) return;
       const m = String(calendarMonth.value).padStart(2,'0');
-      const dd = String(d).padStart(2,'0');
+      const dd= String(d).padStart(2,'0');
       const dateStr = `${calendarYear.value}-${m}-${dd}`;
       const today = new Date(); today.setHours(0,0,0,0);
       if(new Date(dateStr) < today) return;
       bookingForm.date = dateStr;
       bookingForm.time = '';
+      loadSlotsForDate(dateStr);
     }
 
     function isDatePast(d) {
-      if(d < 1) return true;
       const m = String(calendarMonth.value).padStart(2,'0');
-      const dd = String(d).padStart(2,'0');
+      const dd= String(d).padStart(2,'0');
       const today = new Date(); today.setHours(0,0,0,0);
       return new Date(`${calendarYear.value}-${m}-${dd}`) < today;
     }
-
     function isTodayD(d) {
-      const now = new Date();
-      return now.getFullYear()===calendarYear.value && now.getMonth()+1===calendarMonth.value && now.getDate()===d;
+      const n = new Date();
+      return n.getFullYear()===calendarYear.value && n.getMonth()+1===calendarMonth.value && n.getDate()===d;
     }
-
     function isSelectedD(d) {
       if(!bookingForm.date) return false;
       const m = String(calendarMonth.value).padStart(2,'0');
-      const dd = String(d).padStart(2,'0');
+      const dd= String(d).padStart(2,'0');
       return bookingForm.date === `${calendarYear.value}-${m}-${dd}`;
     }
-
     function isTimeBooked(t) {
       if(!bookingForm.date || !bookingForm.designerId) return false;
-      return EXISTING_BOOKINGS.some(b => b.designerId===bookingForm.designerId && b.date===bookingForm.date && b.time===t);
+      return bookedSlots.value.some(s => s.designerId===bookingForm.designerId && s.date===bookingForm.date && s.time===t);
     }
 
-    // 標準化手機號碼（移除所有非數字字符）
-    function normalizePhone(phone) {
-      return phone.replace(/\D/g, '');
-    }
-
-    async function submitBooking() {
-      const svc = services.value.find(s=>s.id===bookingForm.serviceId);
-      const des = designers.value.find(d=>d.id===bookingForm.designerId);
-      const normalizedPhone = normalizePhone(bookingForm.phone);
-
-      const bookingData = {
-        customerName: bookingForm.name,
-        customerPhone: normalizedPhone,
-        serviceName: svc.name,
-        designerId: bookingForm.designerId,
-        designerName: des.name,
-        date: bookingForm.date,
-        time: bookingForm.time,
-        price: svc.price,
-        note: bookingForm.note
-      };
-
-      let newBooking = null;
-
+    async function loadSlotsForDate(date) {
+      loadingSlots.value = true;
       try {
-        // 嘗試使用後端 API 創建預約
-        newBooking = await salonAPI.createBooking(bookingData);
-      } catch (error) {
-        // 後端不可用，降級使用 localStorage 本地儲存
-        console.warn('後端不可用，使用本地儲存備援');
-        newBooking = {
-          id: 'BK' + Date.now().toString().slice(-6),
-          ...bookingData,
-          status: 'pending',
-          createdAt: Date.now()
-        };
+        const all = await DB.getBookings();
+        bookedSlots.value = all
+          .filter(b => b.date === date && b.status !== 'cancelled')
+          .map(b => ({ designerId: b.designerId, date: b.date, time: b.time }));
+      } catch(e) {
+        console.warn('loadSlotsForDate:', e);
+      } finally {
+        loadingSlots.value = false;
       }
+    }
 
-      // 儲存到 localStorage（後端成功或備援都要存）
-      const cached = localStorage.getItem(CLIENT_BOOKINGS_KEY);
-      const allBookings = cached ? JSON.parse(cached) : [];
-      // 避免重複
-      if (!allBookings.find(b => b.id === newBooking.id)) {
-        allBookings.push(newBooking);
+    // 訂閱即時更新（有新/更新預約時刷新時段）
+    let unsubscribeBookings = null;
+
+    onMounted(async () => {
+      // 載入設計師
+      loadingDesigners.value = true;
+      try {
+        const ds = await DB.getDesigners();
+        if (ds && ds.length) designers.value = ds.filter(d => d.status !== 'resigned');
+      } catch(e) { console.warn('loadDesigners:', e); }
+      finally { loadingDesigners.value = false; }
+
+      // 載入服務（從 DB，降級使用內建）
+      loadingServices.value = true;
+      try {
+        const svcs = await DB.getServices();
+        if (svcs && svcs.length) {
+          services.value = svcs.map(s => ({ ...s, en: s.en || s.description || '' }));
+        }
+      } catch(e) { console.warn('loadServices:', e); }
+      finally { loadingServices.value = false; }
+
+      // 訂閱即時更新
+      unsubscribeBookings = DB.subscribeBookings(({ eventType, booking }) => {
+        if (bookingForm.date) loadSlotsForDate(bookingForm.date);
+      });
+
+      // 設計師即時更新
+      DB.subscribeDesigners(({ eventType, designer: nd }) => {
+        if (!nd) return;
+        const idx = designers.value.findIndex(d => d.id === nd.id);
+        if (eventType === 'DELETE' || nd.status === 'resigned') {
+          if (idx > -1) designers.value.splice(idx, 1);
+        } else if (idx > -1) {
+          designers.value[idx] = nd;
+        } else {
+          designers.value.push(nd);
+        }
+      });
+    });
+
+    onUnmounted(() => {
+      if (unsubscribeBookings) unsubscribeBookings();
+    });
+
+    // ── 提交預約 ─────────────────────────────────────────────
+    async function submitBooking() {
+      submitError.value = '';
+      if (!bookingForm.name.trim() || !bookingForm.phone.trim()) return;
+      submitting.value = true;
+      try {
+        const nb = await DB.createBooking({
+          serviceId:    bookingForm.serviceId,
+          serviceName:  bookingForm.serviceName,
+          designerId:   bookingForm.designerId,
+          designerName: bookingForm.designerName,
+          date:         bookingForm.date,
+          time:         bookingForm.time,
+          name:         bookingForm.name.trim(),
+          phone:        normalizePhone(bookingForm.phone),
+          email:        bookingForm.email || '',
+          note:         bookingForm.note  || '',
+          price:        bookingForm.price,
+          duration:     bookingForm.duration,
+        });
+        bookingDone.value = nb;
+        bookingStep.value = 5;
+        // 更新已訂時段
+        bookedSlots.value.push({ designerId: nb.designerId, date: nb.date, time: nb.time });
+      } catch(e) {
+        submitError.value = '預約失敗，請稍後再試';
+        console.error('submitBooking:', e);
+      } finally {
+        submitting.value = false;
       }
-      localStorage.setItem(CLIENT_BOOKINGS_KEY, JSON.stringify(allBookings));
-
-      // 同步到設計師端 localStorage
-      const shared = localStorage.getItem('akb_bookings_data');
-      const sharedBookings = shared ? JSON.parse(shared) : [];
-      if (!sharedBookings.find(b => b.id === newBooking.id)) {
-        sharedBookings.push(newBooking);
-      }
-      localStorage.setItem('akb_bookings_data', JSON.stringify(sharedBookings));
-
-      bookingDone.value = newBooking;
-      bookingStep.value = 5;
     }
 
     function resetBooking() {
-      Object.assign(bookingForm, { serviceId:null, designerId:null, date:'', time:'', name:'', phone:'', email:'', note:'' });
+      Object.assign(bookingForm, { serviceId:null, serviceName:'', price:0, duration:60, designerId:null, designerName:'', date:'', time:'', name:'', phone:'', email:'', note:'' });
       bookingStep.value = 1;
       bookingDone.value = null;
+      submitError.value = '';
     }
 
-    // ========== 我的預約功能 ==========
+    // ── 我的預約 ─────────────────────────────────────────────
     const myBookings = reactive({
-      phone: '',
-      verified: false,
-      hasPassword: false,
-      authenticated: false,
-      loading: false,
-      error: '',
-      list: [],
-      newPassword: '',
-      confirmPassword: '',
-      password: ''
+      phone:'', verified:false, hasPassword:false, authenticated:false,
+      loading:false, loadingList:false, error:'', list:[],
+      newPassword:'', confirmPassword:'', password:''
     });
+    const changePwdForm = reactive({ current:'', newPwd:'', confirm:'', loading:false, error:'', success:'' });
+    const statusText = { pending:'待確認', confirmed:'已確認', cancelled:'已取消', done:'已完成' };
 
-    const changePwdForm = reactive({
-      current: '',
-      newPwd: '',
-      confirm: '',
-      loading: false,
-      error: '',
-      success: ''
-    });
-
-    const statusText = { pending: '待確認', confirmed: '已確認', cancelled: '已取消', done: '已完成' };
-
-    // 客戶帳號資料儲存
-    const CLIENT_ACCOUNTS_KEY = 'akb_client_accounts';
-    const CLIENT_BOOKINGS_KEY = 'akb_client_bookings';
-
-    function getClientAccounts() {
-      const data = localStorage.getItem(CLIENT_ACCOUNTS_KEY);
-      return data ? JSON.parse(data) : {};
-    }
-
-    function saveClientAccount(phone, password) {
-      const accounts = getClientAccounts();
-      accounts[phone] = { password, createdAt: Date.now() };
-      localStorage.setItem(CLIENT_ACCOUNTS_KEY, JSON.stringify(accounts));
-    }
-
-    // 從後端 API 獲取預約資料（後端不可用時降級到 localStorage）
-    async function getClientBookings() {
-      try {
-        const allBookings = await salonAPI.getBookings();
-        // 同步更新 localStorage 快取
-        localStorage.setItem(CLIENT_BOOKINGS_KEY, JSON.stringify(allBookings));
-        return allBookings;
-      } catch (error) {
-        // 後端不可用，使用 localStorage 快取
-        const data = localStorage.getItem(CLIENT_BOOKINGS_KEY);
-        return data ? JSON.parse(data) : [];
-      }
-    }
-
-    function openMyBookings() {
-      showModal.value = 'myBookings';
-      resetMyBookingsState();
-    }
-
+    function openMyBookings() { showModal.value = 'myBookings'; resetMyBookingsState(); }
     function resetMyBookingsState() {
-      myBookings.phone = '';
-      myBookings.verified = false;
-      myBookings.hasPassword = false;
-      myBookings.authenticated = false;
-      myBookings.error = '';
-      myBookings.list = [];
-      myBookings.newPassword = '';
-      myBookings.confirmPassword = '';
-      myBookings.password = '';
+      Object.assign(myBookings, { phone:'', verified:false, hasPassword:false, authenticated:false,
+        loading:false, loadingList:false, error:'', list:[], newPassword:'', confirmPassword:'', password:'' });
     }
 
-    function resetMyBookings() {
-      resetMyBookingsState();
-    }
-
-    function verifyPhone() {
+    async function verifyPhone() {
       myBookings.error = '';
-      const normalizedPhone = normalizePhone(myBookings.phone);
-      if (!normalizedPhone || normalizedPhone.length < 8) {
-        myBookings.error = '請輸入正確的手機號碼';
-        return;
-      }
+      const np = normalizePhone(myBookings.phone);
+      if (!np || np.length < 8) { myBookings.error = '請輸入正確的手機號碼'; return; }
       myBookings.loading = true;
-      setTimeout(() => {
-        const accounts = getClientAccounts();
-        // 查找是否有該手機號碼的帳號（支援標準化後的匹配）
-        const accountPhone = Object.keys(accounts).find(p => normalizePhone(p) === normalizedPhone);
-        myBookings.phone = accountPhone || normalizedPhone; // 使用已存在的格式或標準化格式
-        myBookings.hasPassword = !!(accountPhone && accounts[accountPhone]?.password);
+      try {
+        const account = await DB.getClientAccount(np);
+        myBookings.phone = np;
+        myBookings.hasPassword = !!(account && account.password);
         myBookings.verified = true;
+      } catch(e) {
+        myBookings.error = '查詢失敗，請稍後再試';
+      } finally {
         myBookings.loading = false;
-      }, 500);
+      }
     }
 
-    function setPassword() {
+    async function setPassword() {
       myBookings.error = '';
-      if (!myBookings.newPassword || myBookings.newPassword.length < 6) {
-        myBookings.error = '密碼長度至少6位';
-        return;
-      }
-      if (myBookings.newPassword !== myBookings.confirmPassword) {
-        myBookings.error = '兩次輸入的密碼不一致';
-        return;
-      }
+      if (!myBookings.newPassword || myBookings.newPassword.length < 6) { myBookings.error = '密碼長度至少6位'; return; }
+      if (myBookings.newPassword !== myBookings.confirmPassword) { myBookings.error = '兩次輸入的密碼不一致'; return; }
       myBookings.loading = true;
-      setTimeout(() => {
-        // 使用標準化後的手機號碼儲存帳號
-        const normalizedPhone = normalizePhone(myBookings.phone);
-        saveClientAccount(normalizedPhone, myBookings.newPassword);
-        myBookings.phone = normalizedPhone;
+      try {
+        await DB.saveClientAccount(myBookings.phone, { name: '', password: myBookings.newPassword });
         myBookings.hasPassword = true;
         myBookings.authenticated = true;
-        loadMyBookings();
+        await loadMyBookings();
+      } catch(e) {
+        myBookings.error = '設置失敗，請稍後再試';
+      } finally {
         myBookings.loading = false;
-      }, 500);
+      }
     }
 
-    function loginWithPassword() {
+    async function loginWithPassword() {
       myBookings.error = '';
-      if (!myBookings.password) {
-        myBookings.error = '請輸入密碼';
-        return;
-      }
+      if (!myBookings.password) { myBookings.error = '請輸入密碼'; return; }
       myBookings.loading = true;
-      setTimeout(() => {
-        const accounts = getClientAccounts();
-        const normalizedPhone = normalizePhone(myBookings.phone);
-        // 查找標準化後的手機號碼對應的帳號
-        const accountPhone = Object.keys(accounts).find(p => normalizePhone(p) === normalizedPhone) || normalizedPhone;
-        if (accounts[accountPhone]?.password === myBookings.password) {
-          myBookings.phone = accountPhone;
+      try {
+        const account = await DB.getClientAccount(myBookings.phone);
+        if (account && account.password === myBookings.password) {
           myBookings.authenticated = true;
-          loadMyBookings();
+          await loadMyBookings();
         } else {
           myBookings.error = '密碼不正確';
         }
+      } catch(e) {
+        myBookings.error = '驗證失敗，請稍後再試';
+      } finally {
         myBookings.loading = false;
-      }, 500);
+      }
     }
 
     async function loadMyBookings() {
-      const allBookings = await getClientBookings();
-      const normalizedPhone = normalizePhone(myBookings.phone);
-      // 使用標準化後的手機號碼進行匹配
-      myBookings.list = allBookings.filter(b => normalizePhone(b.customerPhone) === normalizedPhone);
+      myBookings.loadingList = true;
+      try {
+        const all = await DB.getBookings();
+        myBookings.list = all.filter(b => normalizePhone(b.customerPhone) === normalizePhone(myBookings.phone))
+          .sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+      } catch(e) {
+        console.warn('loadMyBookings:', e);
+        myBookings.list = [];
+      } finally {
+        myBookings.loadingList = false;
+      }
     }
 
-    function logoutMyBookings() {
-      resetMyBookingsState();
-    }
+    function logoutMyBookings() { resetMyBookingsState(); }
 
     async function cancelBooking(bookingId) {
       if (!confirm('確定要取消這個預約嗎？')) return;
-
-      // 先更新本地 localStorage
-      const cached = localStorage.getItem(CLIENT_BOOKINGS_KEY);
-      const allBookings = cached ? JSON.parse(cached) : [];
-      const idx = allBookings.findIndex(b => b.id === bookingId);
-      if (idx !== -1) {
-        allBookings[idx].status = 'cancelled';
-        localStorage.setItem(CLIENT_BOOKINGS_KEY, JSON.stringify(allBookings));
-        // 同步到設計師端
-        localStorage.setItem('akb_bookings_data', JSON.stringify(allBookings));
-      }
-
-      // 嘗試同步到後端
       try {
-        await salonAPI.updateBooking(bookingId, { status: 'cancelled' });
-      } catch (error) {
-        console.warn('後端不可用，僅更新本地資料');
+        await DB.cancelBooking(bookingId);
+        const b = myBookings.list.find(x => x.id === bookingId);
+        if (b) b.status = 'cancelled';
+      } catch(e) {
+        alert('取消失敗，請稍後再試');
       }
-
-      loadMyBookings();
     }
 
-    function changeClientPassword() {
+    async function changeClientPassword() {
       changePwdForm.error = '';
       changePwdForm.success = '';
-      
       if (!changePwdForm.current || !changePwdForm.newPwd || !changePwdForm.confirm) {
-        changePwdForm.error = '請填寫所有欄位';
-        return;
+        changePwdForm.error = '請填寫所有欄位'; return;
       }
-      if (changePwdForm.newPwd.length < 6) {
-        changePwdForm.error = '新密碼長度至少6位';
-        return;
-      }
-      if (changePwdForm.newPwd !== changePwdForm.confirm) {
-        changePwdForm.error = '兩次輸入的新密碼不一致';
-        return;
-      }
-      
+      if (changePwdForm.newPwd.length < 6) { changePwdForm.error = '新密碼長度至少6位'; return; }
+      if (changePwdForm.newPwd !== changePwdForm.confirm) { changePwdForm.error = '兩次輸入的新密碼不一致'; return; }
       changePwdForm.loading = true;
-      setTimeout(() => {
-        const accounts = getClientAccounts();
-        if (accounts[myBookings.phone]?.password !== changePwdForm.current) {
+      try {
+        const account = await DB.getClientAccount(myBookings.phone);
+        if (!account || account.password !== changePwdForm.current) {
           changePwdForm.error = '當前密碼不正確';
           changePwdForm.loading = false;
           return;
         }
-        saveClientAccount(myBookings.phone, changePwdForm.newPwd);
+        await DB.saveClientAccount(myBookings.phone, { name: account.name || '', password: changePwdForm.newPwd });
         changePwdForm.success = '密碼修改成功！';
-        changePwdForm.loading = false;
         setTimeout(() => {
           changePwdForm.current = '';
           changePwdForm.newPwd = '';
@@ -799,19 +691,23 @@ createApp({
           changePwdForm.success = '';
           showModal.value = 'myBookings';
         }, 1500);
-      }, 500);
+      } catch(e) {
+        changePwdForm.error = '修改失敗，請稍後再試';
+      } finally {
+        changePwdForm.loading = false;
+      }
     }
 
     return {
-      bookingStep, bookingForm, bookingDone, showModal, calendarMonth, calendarYear,
-      services, designers, ALL_TIMES, calDays,
+      bookingStep, bookingForm, bookingDone, showModal, submitting, submitError,
+      calendarMonth, calendarYear, services, designers,
+      loadingServices, loadingDesigners, loadingSlots,
+      ALL_TIMES, calDays,
       selectDate, isDatePast, isTodayD, isSelectedD, isTimeBooked,
-      prevMonth, nextMonth,
-      submitBooking, resetBooking,
-      // 我的預約
+      prevMonth, nextMonth, submitBooking, resetBooking,
       myBookings, changePwdForm, statusText,
-      openMyBookings, resetMyBookings, verifyPhone, setPassword,
-      loginWithPassword, logoutMyBookings, cancelBooking, changeClientPassword
+      openMyBookings, resetMyBookingsState, verifyPhone, setPassword,
+      loginWithPassword, logoutMyBookings, cancelBooking, changeClientPassword,
     };
   }
 }).mount('#app');
