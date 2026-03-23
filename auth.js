@@ -50,7 +50,7 @@ const Auth = {
     try {
       const data = JSON.parse(session);
       // 檢查是否過期（24小時）
-      if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+      if (Date.now() - data.timestamp > 7 * 24 * 60 * 60 * 1000) {
         localStorage.removeItem('akb_session');
         return false;
       }
@@ -66,7 +66,7 @@ const Auth = {
     if (!session) return null;
     try {
       const data = JSON.parse(session);
-      if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+      if (Date.now() - data.timestamp > 7 * 24 * 60 * 60 * 1000) {
         localStorage.removeItem('akb_session');
         return null;
       }
