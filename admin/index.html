@@ -10,26 +10,27 @@
 <script src="../auth.js"></script>
 <script src="../js/api.js"></script>
 <script>
-/* ── Early auth guard: hide page instantly if not logged in ──
+/* ── Early auth guard: hide page instantly, only show if authenticated ──
    Runs synchronously in <head>, before any HTML renders.
-   Eliminates the "flash of admin content" before redirect.    */
+   Sets display:none first, then only restores if session is valid.
+   This completely eliminates flash-redirect (閃退).               */
 (function() {
+  document.documentElement.style.display = 'none';
   try {
     var s = localStorage.getItem('akb_session');
-    if (!s) { document.documentElement.style.display = 'none'; window.location.replace('./login.html'); return; }
+    if (!s) { window.location.replace('./login.html'); return; }
     var d = JSON.parse(s);
     if (!d || !d.role || d.role !== 'admin' || (Date.now() - d.timestamp > 604800000)) {
       localStorage.removeItem('akb_session');
-      document.documentElement.style.display = 'none';
       window.location.replace('./login.html');
+      return;
     }
+    // ✅ Valid admin session — restore visibility
+    document.documentElement.style.display = '';
   } catch(e) {
-    document.documentElement.style.display = 'none';
     window.location.replace('./login.html');
   }
 })();
-// 驗證通過時確保頁面可見（防止殘留 display:none 黑屏）
-document.documentElement.style.display = '';
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
