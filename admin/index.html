@@ -18,7 +18,7 @@
 .bg-dark{background:#0F0F0F;}
 .bg-card{background:#1C1C1C;}
 .text-muted{color:#888;}
-input,select{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;}
+input,select{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;font-family:inherit;}
 input:focus{border-color:#C9A84C;}
 .btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;}
 .btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:10px 24px;}
@@ -29,10 +29,10 @@ input:focus{border-color:#C9A84C;}
 .fade{animation:fadeUp .3s ease;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:12px;}
-.badge-confirmed{background:rgba(34,197,94,.15);color:#86EFAC;}
-.badge-pending{background:rgba(234,179,8,.15);color:#FDE047;}
-.badge-cancelled{background:rgba(239,68,68,.15);color:#FCA5A5;}
-.badge-done{background:rgba(99,102,241,.15);color:#C4B5FD;}
+.badge-confirmed{background:rgba(34,197,94,.15);color:#86EFAC;border:1px solid rgba(34,197,94,.3);}
+.badge-pending{background:rgba(234,179,8,.15);color:#FDE047;border:1px solid rgba(234,179,8,.3);}
+.badge-cancelled{background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3);}
+.badge-done{background:rgba(99,102,241,.15);color:#C4B5FD;border:1px solid rgba(99,102,241,.3);}
 .sidebar-item{padding:10px 16px;border-radius:8px;cursor:pointer;color:#888;display:flex;align-items:center;gap:10px;}
 .sidebar-item:hover{background:#252525;color:#fff;}
 .sidebar-item.active{background:rgba(201,168,76,.12);color:#C9A84C;}
@@ -50,7 +50,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 <body class="bg-dark text-white min-h-screen">
 <div id="app" class="flex min-h-screen">
   <!-- Sidebar -->
-  <aside class="w-56 border-r border-gray-800 flex-shrink-0 hidden md:flex flex-col" style="background:#141414">
+  <aside class="w-56 border-r border-gray-800 flex-shrink-0 hidden md:flex flex-col" style="background:#121212;">
     <div class="p-5 border-b border-gray-800">
       <div class="font-bold serif text-lg text-gold">AKB 管理後台</div>
       <div class="text-muted text-xs mt-1">{{session?.name || '管理員'}}</div>
@@ -81,8 +81,11 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
         <h2 class="text-2xl font-bold serif mb-6">今日概覽</h2>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div class="stat-card stat-gold">
-            <div class="text-muted text-xs mb-2">今日預約</div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-muted text-xs">今日預約</span>
+            </div>
             <div class="text-3xl font-bold text-gold">{{stats.today}}</div>
+            <div class="text-xs text-muted mt-1">共 {{bookings.filter(b=>b.date===new Date().toISOString().slice(0,10)).length}} 筆</div>
           </div>
           <div class="stat-card stat-green">
             <div class="text-muted text-xs mb-2">本月營收
@@ -313,7 +316,7 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
   </div>
 
   <!-- Toast -->
-  <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
+  <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-5 py-3 rounded-xl text-sm fade" style="background:rgba(15,30,20,.95);border:1px solid rgba(34,197,94,.35);color:#86efac;backdrop-filter:blur(8px);max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,.4);">{{toast.msg}}</div>
 
   <!-- 服務新增/編輯 Modal -->
   <div v-if="showServiceModal" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="showServiceModal=false">
@@ -332,8 +335,10 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
             <label class="block text-xs text-muted mb-1">類別</label>
             <select v-model="serviceForm.category" class="w-full bg-gray-800 border-gray-700">
               <option value="基礎">基礎</option>
-              <option value="進階">進階</option>
+              <option value="染髮">染髮</option>
+              <option value="燙髮">燙髮</option>
               <option value="護理">護理</option>
+              <option value="進階">進階</option>
               <option value="特殊">特殊</option>
             </select>
           </div>
@@ -520,11 +525,17 @@ async function loadCustomersFromAPI() {
       const key = b.customerPhone || b.customerName || '';
       if (!key) return;
       if (!customerMap[key]) {
-        customerMap[key] = { id: key, name: b.customerName || '', phone: b.customerPhone || '', visits: 0, totalSpent: 0 };
+        customerMap[key] = { id: key, name: b.customerName || '', phone: b.customerPhone || '', visits: 0, totalSpent: 0, firstVisit: null, lastVisit: null };
       }
       if (b.status === 'confirmed' || b.status === 'done') {
         customerMap[key].visits++;
         customerMap[key].totalSpent += parseInt(b.price) || 0;
+        if (!customerMap[key].firstVisit || b.date < customerMap[key].firstVisit) {
+          customerMap[key].firstVisit = b.date;
+        }
+        if (!customerMap[key].lastVisit || b.date > customerMap[key].lastVisit) {
+          customerMap[key].lastVisit = b.date;
+        }
       }
     });
     return Object.values(customerMap);
@@ -764,56 +775,6 @@ createApp({
       designerForm.status = d.status || 'active';
       designerForm.available = d.available;
       showDesignerModal.value = true;
-    }
-
-    function saveDesigner() {
-      if (!designerForm.name.trim()) {
-        toast.value = { show: true, msg: '請輸入設計師名稱' };
-        return;
-      }
-      
-      const avatar = designerForm.avatar.trim() || designerForm.name.trim().charAt(0).toUpperCase();
-      const specialtyList = designerForm.specialty.split(',').map(s => s.trim()).filter(s => s);
-      
-      if (isEditingDesigner.value) {
-        // 編輯現有設計師
-        const idx = designers.value.findIndex(d => d.id === designerForm.id);
-        if (idx !== -1) {
-          designers.value[idx] = {
-            ...designers.value[idx],
-            name: designerForm.name.trim(),
-            role: designerForm.role,
-            level: designerForm.level,
-            specialty: specialtyList,
-            bio: designerForm.bio.trim(),
-            avatar: avatar
-          };
-          toast.value = { show: true, msg: '設計師資料已更新' };
-        }
-      } else {
-        // 新增設計師
-        const newId = Math.max(...designers.value.map(d => d.id), 0) + 1;
-        const newDesigner = {
-          id: newId,
-          name: designerForm.name.trim(),
-          role: designerForm.role,
-          level: designerForm.level,
-          specialty: specialtyList,
-          bio: designerForm.bio.trim(),
-          avatar: avatar,
-          rating: 5.0,
-          reviews: 0,
-          works: 0,
-          available: true,
-          status: 'active'
-        };
-        designers.value.push(newDesigner);
-        toast.value = { show: true, msg: '新設計師已新增' };
-      }
-      
-      saveDesigners(designers.value);
-      showDesignerModal.value = false;
-      setTimeout(() => toast.value.show = false, 2000);
     }
 
     async function saveDesigner() {

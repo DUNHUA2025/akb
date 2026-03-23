@@ -9,80 +9,162 @@
 <script src="../auth.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
-*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
+*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;margin:0;padding:0;}
+body{background:#0F0F0F;color:#fff;min-height:100vh;}
 .serif{font-family:'Noto Serif TC',serif;}
-.gold{color:#C9A84C;}
-.bg-gold{background:#C9A84C;}
-.bg-gold-grad{background:linear-gradient(135deg,#C9A84C,#E8D5A3);}
-.text-gold{color:#C9A84C;}
-.bg-dark{background:#0F0F0F;}
-.bg-card{background:#1C1C1C;}
-.text-muted{color:#888;}
-input{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:12px 16px;width:100%;outline:none;transition:border 0.2s;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+@keyframes shimmerMove{0%{background-position:0%}100%{background-position:200%}}
+.fade{animation:fadeUp .4s ease both;}
+.shimmer-text{
+  background:linear-gradient(90deg,#C9A84C 0%,#F0DFA0 40%,#C9A84C 60%,#E8D5A3 100%);
+  background-size:200% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:shimmerMove 3s linear infinite;
+}
+input{background:#252525;border:1px solid #333;color:#fff;border-radius:10px;padding:12px 16px;width:100%;outline:none;transition:border 0.2s;font-family:inherit;font-size:15px;}
 input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
-.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:8px;}
-.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:12px 24px;}
-.btn-gold:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 4px 14px rgba(201,168,76,.4);}
-.btn-ghost{background:transparent;color:#888;border:1px solid #333;padding:10px 20px;}
+.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:10px;font-family:inherit;}
+.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:13px 24px;font-size:15px;}
+.btn-gold:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,168,76,.4);}
+.btn-gold:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-ghost{background:transparent;color:#777;border:1px solid #2a2a2a;padding:10px 20px;font-size:13px;}
 .btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
-.fade{animation:fadeUp .3s ease;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:16px;}
-.shimmer{background:linear-gradient(90deg,#C9A84C,#E8D5A3,#C9A84C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200%;}
-.designer-btn{background:#252525;border:1px solid #333;border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s;text-align:left;}
-.designer-btn:hover{border-color:#C9A84C;}
-.designer-btn.selected{border-color:#C9A84C;background:rgba(201,168,76,.1);}
+.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:20px;}
+/* 設計師選項卡 */
+.designer-btn{
+  background:#1A1A1A;
+  border:1.5px solid #2A2A2A;
+  border-radius:14px;
+  padding:14px 16px;
+  cursor:pointer;
+  transition:all 0.22s cubic-bezier(.4,0,.2,1);
+  display:flex;align-items:center;gap:14px;
+  position:relative;
+  overflow:hidden;
+}
+.designer-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(201,168,76,.06),transparent);
+  opacity:0;transition:opacity .2s;
+}
+.designer-btn:hover{border-color:#C9A84C;background:#1E1E1E;}
+.designer-btn:hover::before{opacity:1;}
+.designer-btn.selected{
+  border-color:#C9A84C;
+  background:rgba(201,168,76,.08);
+  box-shadow:0 0 0 1px rgba(201,168,76,.2);
+}
+.designer-btn.selected::before{opacity:1;}
+.avatar-ring{
+  width:44px;height:44px;border-radius:50%;
+  background:linear-gradient(135deg,#C9A84C,#E8D5A3);
+  display:flex;align-items:center;justify-content:center;
+  color:#0F0F0F;font-weight:800;font-size:18px;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(201,168,76,.3);
+}
+.check-mark{
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,#C9A84C,#E8D5A3);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-left:auto;
+  font-size:12px;font-weight:700;color:#0F0F0F;
+}
+/* 密碼輸入區域過渡 */
+.pwd-area{overflow:hidden;transition:all .3s ease;}
+/* 小版本標籤 */
+.level-tag{
+  font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:12px;
+  display:inline-block;
+}
 </style>
 </head>
-<body class="bg-dark text-white min-h-screen">
+<body>
 <div id="app">
-  <div class="min-h-screen flex items-center justify-center fade" style="background:radial-gradient(ellipse at top,#1a1400 0%,#0F0F0F 60%)">
-    <div class="w-full max-w-sm px-6">
-      <a href="../index.html" class="btn btn-ghost mb-6 text-sm inline-flex">← 返回首頁</a>
+  <div class="min-h-screen flex items-center justify-center px-5 py-10"
+    style="background:radial-gradient(ellipse 80% 60% at 50% -5%,rgba(201,168,76,.12) 0%,transparent 60%),#0F0F0F">
+    
+    <div class="w-full fade" style="max-width:400px">
+      <!-- 返回 -->
+      <a href="../index.html" class="btn btn-ghost mb-6 inline-flex items-center gap-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+        返回首頁
+      </a>
       
+      <!-- 標題 -->
       <div class="text-center mb-8">
-        <div class="text-4xl font-bold serif shimmer mb-2">AKB</div>
-        <div class="text-gold text-sm tracking-wider">設計師工作台</div>
+        <div class="text-4xl font-bold serif shimmer-text mb-2">AKB</div>
+        <div class="text-sm tracking-widest" style="color:#C9A84C;">設計師工作台</div>
       </div>
       
+      <!-- 登入卡片 -->
       <div class="card p-6">
-        <div class="text-xl font-bold mb-6 text-center">選擇設計師登入</div>
+        <div class="font-bold text-lg mb-5 text-center" style="color:#ccc;">選擇設計師帳號</div>
         
-        <div v-if="error" class="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm text-center">
+        <!-- 錯誤提示 -->
+        <div v-if="error" class="mb-4 p-3 rounded-xl text-sm text-center"
+          style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;">
           {{error}}
         </div>
         
-        <div class="space-y-3 mb-6">
-          <div v-for="d in designers" :key="d.id" 
-            :class="['designer-btn flex items-center gap-3',selectedDesigner?.id===d.id?'selected':'']"
+        <!-- 設計師列表 -->
+        <div class="space-y-2 mb-5">
+          <div v-for="d in designers" :key="d.id"
+            :class="['designer-btn',selectedDesigner?.id===d.id?'selected':'']"
             @click="selectDesigner(d)">
-            <div class="w-10 h-10 rounded-full bg-gold flex items-center justify-center text-black font-bold">{{d.avatar}}</div>
-            <div class="flex-1">
-              <div class="font-semibold">{{d.name}}</div>
-              <div class="text-muted text-xs">{{d.role}}</div>
+            <div class="avatar-ring">{{d.avatar}}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm">{{d.name}}</span>
+                <span class="level-tag"
+                  :style="d.level==='A'?'background:rgba(201,168,76,.2);color:#C9A84C':d.level==='B'?'background:rgba(99,102,241,.2);color:#A78BFA':'background:rgba(34,197,94,.2);color:#86EFAC'">
+                  Lv.{{d.level||'C'}}
+                </span>
+              </div>
+              <div class="text-xs mt-0.5" style="color:#666;">{{d.role}}</div>
             </div>
-            <div v-if="selectedDesigner?.id===d.id" class="text-gold">✓</div>
+            <div v-if="selectedDesigner?.id===d.id" class="check-mark">✓</div>
           </div>
         </div>
         
+        <!-- 密碼輸入（選擇後顯示）-->
         <div v-if="selectedDesigner" class="fade">
           <div class="mb-4">
-            <label class="block text-xs text-muted mb-2">密碼</label>
-            <input v-model="password" type="password" placeholder="請輸入密碼" @keyup.enter="login"/>
+            <label class="block text-xs mb-2" style="color:#777;">
+              {{selectedDesigner.name}} 的登入密碼
+            </label>
+            <div class="relative">
+              <input
+                v-model="password"
+                :type="showPwd ? 'text' : 'password'"
+                placeholder="請輸入密碼"
+                @keyup.enter="login"
+                style="padding-right:44px;"
+              />
+              <button type="button"
+                @click="showPwd=!showPwd"
+                class="absolute right-3 top-1/2 -translate-y-1/2"
+                style="color:#555;background:none;border:none;cursor:pointer;padding:4px;">
+                <svg v-if="!showPwd" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
           </div>
-          <button class="btn btn-gold w-full py-3" @click="login" :disabled="loading">
-            {{loading ? '登入中...' : '登入'}}
+          <button class="btn btn-gold w-full" @click="login" :disabled="loading">
+            {{ loading ? '登入中...' : '進入工作台' }}
           </button>
         </div>
-        
-        <div class="mt-6 pt-4 border-t border-gray-800 text-center">
-          <div class="text-xs text-muted mb-2">預設密碼</div>
-          <div class="text-xs text-gray-500">所有設計師密碼：akb2026</div>
+
+        <!-- 底部提示 -->
+        <div class="mt-5 pt-4 border-t text-center" style="border-color:#222;">
+          <div class="text-xs" style="color:#555;">
+            預設密碼：<span style="color:#888;font-family:monospace;">akb2026</span>
+          </div>
         </div>
       </div>
       
-      <div class="mt-8 text-center text-muted text-xs">
-        <div>AKB 多元化音樂發廊 設計師系統</div>
+      <div class="mt-6 text-center text-xs" style="color:#444;">
+        AKB 多元化音樂發廊 © 2026
       </div>
     </div>
   </div>
@@ -93,23 +175,20 @@ const { createApp, ref } = Vue;
 
 const DESIGNERS_KEY = 'akb_designers_data';
 
-// 預設設計師登入資料（只包含登入需要的欄位）
 const DEFAULT_LOGIN_DATA = [
-  { id:1, name:'Aika', role:'首席設計師', avatar:'A', username:'aika' },
-  { id:2, name:'Ken', role:'資深設計師', avatar:'K', username:'ken' },
-  { id:3, name:'Bella', role:'設計師', avatar:'B', username:'bella' },
-  { id:4, name:'Jay', role:'資深設計師', avatar:'J', username:'jay' },
-  { id:5, name:'Mia', role:'設計師', avatar:'M', username:'mia' },
+  { id:1, name:'Aika', role:'首席設計師', avatar:'A', username:'aika', level:'A' },
+  { id:2, name:'Ken', role:'資深設計師', avatar:'K', username:'ken', level:'B' },
+  { id:3, name:'Bella', role:'設計師', avatar:'B', username:'bella', level:'C' },
+  { id:4, name:'Jay', role:'資深設計師', avatar:'J', username:'jay', level:'B' },
+  { id:5, name:'Mia', role:'設計師', avatar:'M', username:'mia', level:'C' },
 ];
 
-// 從 localStorage 載入設計師資料，並合併登入需要的 username
 function loadDesignersForLogin() {
   const saved = localStorage.getItem(DESIGNERS_KEY);
   if (saved) {
     const fullData = JSON.parse(saved);
-    // 只返回在職的設計師，並合併 username
     return fullData
-      .filter(d => d.status !== 'resigned') // 排除已離職
+      .filter(d => d.status !== 'resigned')
       .map(d => {
         const loginInfo = DEFAULT_LOGIN_DATA.find(l => l.id === d.id);
         return {
@@ -117,11 +196,11 @@ function loadDesignersForLogin() {
           name: d.name,
           role: d.role,
           avatar: d.avatar,
+          level: d.level || 'C',
           username: loginInfo ? loginInfo.username : d.name.toLowerCase()
         };
       });
   }
-  // 首次使用，初始化 localStorage
   const initialData = [
     { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染'], bio:'10年經驗', avatar:'A', rating:4.9, reviews:142, works:320, available:true, status:'active' },
     { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮'], bio:'首爾歸國', avatar:'K', rating:4.8, reviews:98, works:215, available:true, status:'active' },
@@ -138,10 +217,10 @@ createApp({
     const designers = ref(loadDesignersForLogin());
     const selectedDesigner = ref(null);
     const password = ref('');
+    const showPwd = ref(false);
     const error = ref('');
     const loading = ref(false);
     
-    // 如果已登入，直接進入工作台
     if (Auth.isLoggedIn() && Auth.hasPermission('designer')) {
       window.location.href = './index.html';
     }
@@ -149,28 +228,17 @@ createApp({
     function selectDesigner(d) {
       selectedDesigner.value = d;
       error.value = '';
+      password.value = '';
     }
     
     function login() {
       error.value = '';
-      
-      if (!selectedDesigner.value) {
-        error.value = '請選擇設計師';
-        return;
-      }
-      if (!password.value) {
-        error.value = '請輸入密碼';
-        return;
-      }
-      
+      if (!selectedDesigner.value) { error.value = '請選擇設計師'; return; }
+      if (!password.value) { error.value = '請輸入密碼'; return; }
       loading.value = true;
-      
-      // 使用 auth.js 進行登入
       const result = Auth.login(selectedDesigner.value.username, password.value);
-      
       setTimeout(() => {
         loading.value = false;
-        
         if (result.success) {
           if (result.role === 'designer' || result.role === 'admin') {
             window.location.href = './index.html';
@@ -179,12 +247,12 @@ createApp({
             Auth.logout();
           }
         } else {
-          error.value = result.error || '登入失敗';
+          error.value = result.error || '帳號或密碼錯誤';
         }
       }, 500);
     }
     
-    return { designers, selectedDesigner, password, error, loading, selectDesigner, login };
+    return { designers, selectedDesigner, password, showPwd, error, loading, selectDesigner, login };
   }
 }).mount('#app');
 </script>

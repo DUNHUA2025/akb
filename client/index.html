@@ -27,29 +27,35 @@
 .fade{animation:fadeUp .3s ease;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:12px;}
-.nav-tab{padding:10px 20px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;color:#888;font-weight:500;}
+.nav-tab{padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;color:#888;font-weight:500;white-space:nowrap;}
 .nav-tab:hover{color:#C9A84C;}
 .nav-tab.active{border-color:#C9A84C;color:#C9A84C;}
-.step-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;}
+.step-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
 .step-done{background:rgba(201,168,76,.2);color:#C9A84C;border:2px solid #C9A84C;}
 .step-current{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;}
 .step-todo{background:#252525;color:#555;border:2px solid #333;}
-.calendar-cell{padding:6px;text-align:center;cursor:pointer;border-radius:6px;transition:all .2s;font-size:13px;}
-.calendar-cell:hover{background:#333;color:#fff;}
+.calendar-cell{padding:6px 4px;text-align:center;cursor:pointer;border-radius:6px;transition:all .2s;font-size:13px;min-height:32px;display:flex;align-items:center;justify-content:center;}
+.calendar-cell:hover:not(.disabled){background:#333;color:#fff;}
 .calendar-cell.selected{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;font-weight:700;}
 .calendar-cell.today{border:1px solid #C9A84C;color:#C9A84C;}
-.calendar-cell.disabled{color:#444;cursor:not-allowed;}
+.calendar-cell.disabled{color:#3a3a3a;cursor:not-allowed;}
 .time-slot{padding:8px 12px;border:1px solid #333;border-radius:6px;cursor:pointer;transition:all .2s;font-size:13px;text-align:center;}
-.time-slot:hover{border-color:#C9A84C;color:#C9A84C;}
+.time-slot:hover:not(.booked){border-color:#C9A84C;color:#C9A84C;}
 .time-slot.selected{background:rgba(201,168,76,.15);border-color:#C9A84C;color:#C9A84C;font-weight:600;}
-.time-slot.booked{background:#1a1a1a;color:#444;cursor:not-allowed;border-color:#2a2a2a;}
+.time-slot.booked{background:#1a1a1a;color:#3a3a3a;cursor:not-allowed;border-color:#222;}
 .designer-card{border-radius:12px;cursor:pointer;transition:all .25s;}
 .designer-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4);}
 .designer-card.selected{border:2px solid #C9A84C!important;box-shadow:0 0 0 3px rgba(201,168,76,.2);}
-input,select,textarea{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;width:100%;outline:none;transition:border 0.2s;}
+input,select,textarea{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;width:100%;outline:none;transition:border 0.2s;font-family:inherit;}
 input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
-.modal-box{background:#1C1C1C;border:1px solid #333;border-radius:16px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;padding:28px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:#1C1C1C;border:1px solid #333;border-radius:20px;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;padding:28px;}
+.badge-status{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
+.badge-pending{background:rgba(234,179,8,.15);color:#FDE047;border:1px solid rgba(234,179,8,.3);}
+.badge-confirmed{background:rgba(34,197,94,.15);color:#86EFAC;border:1px solid rgba(34,197,94,.3);}
+.badge-cancelled{background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3);}
+.badge-done{background:rgba(99,102,241,.15);color:#C4B5FD;border:1px solid rgba(99,102,241,.3);}
+@media(max-width:480px){.nav-tab{padding:8px 10px;font-size:13px;}.modal-box{padding:20px 16px;}}
 </style>
 </head>
 <body class="bg-dark text-white min-h-screen">
@@ -61,8 +67,8 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
         <span class="font-bold serif text-lg text-white">AKB 發廊</span>
       </a>
-      <div class="flex gap-1">
-        <button :class="['nav-tab text-sm',bookingStep>0?'':'']" @click="bookingStep===5?resetBooking():null">預約服務</button>
+      <div class="flex overflow-x-auto">
+        <button :class="['nav-tab text-sm',bookingStep<5?'active':'']" @click="bookingStep===5?resetBooking():null">預約服務</button>
         <button class="nav-tab text-sm" @click="showModal='designers'">認識設計師</button>
         <button class="nav-tab text-sm" @click="openMyBookings()">我的預約</button>
       </div>
@@ -146,9 +152,9 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
       <!-- Calendar -->
       <div class="card p-5 mb-4">
         <div class="flex items-center justify-between mb-4">
-          <button class="btn btn-ghost px-3 py-2" @click="calendarMonth>1?calendarMonth--:null">←</button>
+          <button class="btn btn-ghost px-3 py-2" @click="prevMonth()">←</button>
           <div class="font-semibold">{{calendarYear}}年 {{calendarMonth}}月</div>
-          <button class="btn btn-ghost px-3 py-2" @click="calendarMonth<12?calendarMonth++:null">→</button>
+          <button class="btn btn-ghost px-3 py-2" @click="nextMonth()">→</button>
         </div>
         <div class="grid grid-cols-7 gap-1 mb-2">
           <div v-for="w in ['日','一','二','三','四','五','六']" :key="w" class="text-center text-xs text-muted py-1">{{w}}</div>
@@ -227,7 +233,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
           <div class="flex justify-between"><span class="text-muted">設計師</span><span>{{bookingDone.designerName}}</span></div>
           <div class="flex justify-between"><span class="text-muted">時間</span><span>{{bookingDone.date}} {{bookingDone.time}}</span></div>
           <div class="flex justify-between"><span class="text-muted">費用</span><span class="font-bold text-gold">${{bookingDone.price.toLocaleString()}}</span></div>
-          <div class="flex justify-between"><span class="text-muted">狀態</span><span class="badge-status badge-pending">待確認</span></div>
+          <div class="flex justify-between items-center"><span class="text-muted">狀態</span><span class="badge-status badge-pending">待確認</span></div>
         </div>
       </div>
       <div class="flex gap-3 justify-center">
@@ -354,7 +360,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
           <div v-for="b in myBookings.list" :key="b.id" class="card p-4">
             <div class="flex justify-between items-start mb-2">
               <div class="font-semibold">{{b.serviceName}}</div>
-              <span class="text-xs px-2 py-0.5 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span>
+              <span class="badge-status" :class="'badge-'+b.status">{{statusText[b.status]}}</span>
             </div>
             <div class="text-sm text-muted mb-1">設計師：{{b.designerName}}</div>
             <div class="text-sm text-muted mb-2">{{b.date}} {{b.time}}</div>
@@ -461,8 +467,9 @@ createApp({
     const bookingForm = reactive({ serviceId:null, designerId:null, date:'', time:'', name:'', phone:'', email:'', note:'' });
     const bookingDone = ref(null);
     const showModal = ref('');
-    const calendarMonth = ref(3);
-    const calendarYear = ref(2026);
+    const now = new Date();
+    const calendarMonth = ref(now.getMonth() + 1);
+    const calendarYear = ref(now.getFullYear());
     const services = ref(SERVICES);
     const designers = ref(DESIGNERS);
 
@@ -472,6 +479,14 @@ createApp({
       return { first, total };
     });
 
+    function prevMonth() {
+      if (calendarMonth.value === 1) { calendarMonth.value = 12; calendarYear.value--; }
+      else calendarMonth.value--;
+    }
+    function nextMonth() {
+      if (calendarMonth.value === 12) { calendarMonth.value = 1; calendarYear.value++; }
+      else calendarMonth.value++;
+    }
     function selectDate(d) {
       if(d < 1) return;
       const m = String(calendarMonth.value).padStart(2,'0');
@@ -790,6 +805,7 @@ createApp({
       bookingStep, bookingForm, bookingDone, showModal, calendarMonth, calendarYear,
       services, designers, ALL_TIMES, calDays,
       selectDate, isDatePast, isTodayD, isSelectedD, isTimeBooked,
+      prevMonth, nextMonth,
       submitBooking, resetBooking,
       // 我的預約
       myBookings, changePwdForm, statusText,
