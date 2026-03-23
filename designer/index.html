@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="../auth.js"></script>
+<script src="../js/api.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
 *{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
@@ -380,6 +381,33 @@ createApp({
     const toast = ref({ show:false, msg:'' });
     const designer = computed(() => DESIGNERS.find(d => d.id === designerId) || DESIGNERS[0]);
     const myBookings = computed(() => bookings.value.filter(b => b.designerId === designerId).sort((a,b) => a.date.localeCompare(b.date)));
+
+    // 從後端初始化資料
+    salonAPI.getBookings().then(list => {
+      bookings.value = list;
+      saveBookings(list);
+    }).catch(() => {/* 已有本地資料，不做處理 */});
+
+    // WebSocket 即時監聽
+    salonAPI.on('INIT', ({ bookings: list }) => {
+      if (list && list.length) { bookings.value = list; saveBookings(list); }
+    });
+    salonAPI.on('NEW_BOOKING', (b) => {
+      if (!bookings.value.find(x => x.id === b.id)) bookings.value.push(b);
+      if (b.designerId === designerId) {
+        toast.value = { show: true, msg: `新預約：${b.customerName} ${b.date} ${b.time}` };
+        setTimeout(() => toast.value.show = false, 4000);
+      }
+    });
+    salonAPI.on('UPDATE_BOOKING', (b) => {
+      const idx = bookings.value.findIndex(x => x.id === b.id);
+      if (idx !== -1) bookings.value[idx] = b;
+      saveBookings(bookings.value);
+    });
+    salonAPI.on('DELETE_BOOKING', ({ id }) => {
+      bookings.value = bookings.value.filter(b => b.id !== id);
+      saveBookings(bookings.value);
+    });
     
     const weekSchedule = computed(() => {
       const days = [];
@@ -397,14 +425,16 @@ createApp({
 
     const statusText = { confirmed: '已確認', pending: '待確認', cancelled: '已取消', done: '已完成' };
 
-    function updateStatus(id, status) {
+    async function updateStatus(id, status) {
       const b = bookings.value.find(x => x.id === id);
-      if (b) {
-        b.status = status;
-        saveBookings(bookings.value); // 同步到 localStorage
-        toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
-        setTimeout(() => toast.value.show = false, 2000);
-      }
+      if (!b) return;
+      b.status = status;
+      // 先更新本地 localStorage
+      saveBookings(bookings.value);
+      toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
+      setTimeout(() => toast.value.show = false, 2000);
+      // 嘗試同步後端
+      try { await salonAPI.updateBooking(id, { status }); } catch(_) {}
     }
 
     function logout() {

@@ -1,111 +1,138 @@
-// AKB Salon API Service
-const API_BASE_URL = 'http://localhost:3001/api';
-const WS_URL = 'ws://localhost:3001';
+// AKB Salon — 前端 API 服務層 v2
+// 後端可用時使用 REST + WebSocket；後端不可用時自動降級 localStorage
+
+const API_BASE = 'http://localhost:3001/api';
+const WS_URL   = 'ws://localhost:3001';
 
 class SalonAPI {
   constructor() {
-    this.ws = null;
-    this.listeners = new Map();
-    this.reconnectInterval = 3000;
-    this.connect();
+    this.isOnline    = false;
+    this.listeners   = new Map();
+    this.ws          = null;
+    this._wsRetryMs  = 5000;
+    setTimeout(() => this._wsConnect(), 800);
   }
 
-  // WebSocket 連線
-  connect() {
+  // ── WebSocket ─────────────────────────────────────
+  _wsConnect() {
     try {
       this.ws = new WebSocket(WS_URL);
-
-      this.ws.onopen = () => {
-        console.log('WebSocket connected');
+      this.ws.onopen    = () => { this.isOnline = true;  console.log('[API] WS connected'); };
+      this.ws.onclose   = () => { this.isOnline = false; setTimeout(() => this._wsConnect(), this._wsRetryMs); };
+      this.ws.onerror   = () => { this.isOnline = false; };
+      this.ws.onmessage = (e) => {
+        try { this._dispatch(JSON.parse(e.data)); } catch(_) {}
       };
+    } catch(_) { this.isOnline = false; }
+  }
 
-      this.ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        this.handleMessage(message);
-      };
+  _dispatch({ type, data }) {
+    (this.listeners.get(type) || []).forEach(cb => cb(data));
+    (this.listeners.get('*')   || []).forEach(cb => cb({ type, data }));
+  }
 
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected, reconnecting...');
-        setTimeout(() => this.connect(), this.reconnectInterval);
-      };
+  on(type, cb) {
+    if (!this.listeners.has(type)) this.listeners.set(type, []);
+    this.listeners.get(type).push(cb);
+    return () => this.off(type, cb);
+  }
+  off(type, cb) {
+    const arr = this.listeners.get(type) || [];
+    const i = arr.indexOf(cb);
+    if (i > -1) arr.splice(i, 1);
+  }
 
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-    } catch (error) {
-      console.error('Failed to connect WebSocket:', error);
+  // ── HTTP 核心（3 秒超時，失敗拋錯） ───────────────
+  async req(path, opts = {}) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+    try {
+      const res = await fetch(API_BASE + path, {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
+        ...opts
+      });
+      clearTimeout(t);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      this.isOnline = true;
+      return res.json();
+    } catch (err) {
+      clearTimeout(t);
+      this.isOnline = false;
+      throw err;
     }
   }
 
-  // 處理 WebSocket 訊息
-  handleMessage(message) {
-    const { type, data } = message;
-    const callbacks = this.listeners.get(type) || [];
-    callbacks.forEach(cb => cb(data));
+  get(path)            { return this.req(path); }
+  post(path, data)     { return this.req(path, { method: 'POST',   body: JSON.stringify(data) }); }
+  patch(path, data)    { return this.req(path, { method: 'PATCH',  body: JSON.stringify(data) }); }
+  del(path)            { return this.req(path, { method: 'DELETE' }); }
+
+  // ── 健康檢查 ───────────────────────────────────────
+  health() { return this.get('/health'); }
+
+  // ── 預約 ──────────────────────────────────────────
+  getBookings(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get('/bookings' + (qs ? '?' + qs : ''));
+  }
+  getBooking(id)          { return this.get(`/bookings/${id}`); }
+  createBooking(data)     { return this.post('/bookings', data); }
+  updateBooking(id, data) { return this.patch(`/bookings/${id}`, data); }
+  deleteBooking(id)       { return this.del(`/bookings/${id}`); }
+
+  // ── 設計師 ────────────────────────────────────────
+  getDesigners(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.get('/designers' + (qs ? '?' + qs : ''));
+  }
+  getDesigner(id)          { return this.get(`/designers/${id}`); }
+  createDesigner(data)     { return this.post('/designers', data); }
+  updateDesigner(id, data) { return this.patch(`/designers/${id}`, data); }
+  deleteDesigner(id)       { return this.del(`/designers/${id}`); }
+
+  // ── 服務項目 ──────────────────────────────────────
+  getServices()              { return this.get('/services'); }
+  createService(data)        { return this.post('/services', data); }
+  updateService(id, data)    { return this.patch(`/services/${id}`, data); }
+  deleteService(id)          { return this.del(`/services/${id}`); }
+
+  // ── 客戶 ──────────────────────────────────────────
+  getCustomers() { return this.get('/customers'); }
+
+  // ── 統計 ──────────────────────────────────────────
+  getStats() { return this.get('/stats'); }
+
+  // ── 認證 ──────────────────────────────────────────
+  login(username, password) {
+    return this.post('/auth/login', { username, password });
+  }
+  changePassword(username, currentPassword, newPassword) {
+    return this.patch('/auth/password', { username, currentPassword, newPassword });
   }
 
-  // 註冊事件監聽
-  on(eventType, callback) {
-    if (!this.listeners.has(eventType)) {
-      this.listeners.set(eventType, []);
-    }
-    this.listeners.get(eventType).push(callback);
-  }
-
-  // 取消註冊
-  off(eventType, callback) {
-    const callbacks = this.listeners.get(eventType) || [];
-    const index = callbacks.indexOf(callback);
-    if (index > -1) callbacks.splice(index, 1);
-  }
-
-  // HTTP 請求輔助函數
-  async request(url, options = {}) {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
-  }
-
-  // ========== 預約 API ==========
-  
-  async getBookings() {
-    return this.request('/bookings');
-  }
-
-  async createBooking(bookingData) {
-    return this.request('/bookings', {
-      method: 'POST',
-      body: JSON.stringify(bookingData)
-    });
-  }
-
-  async updateBooking(id, updates) {
-    return this.request(`/bookings/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates)
-    });
-  }
-
-  async deleteBooking(id) {
-    return this.request(`/bookings/${id}`, { method: 'DELETE' });
-  }
-
-  // ========== 客戶 API ==========
-  
-  async getCustomers() {
-    return this.request('/customers');
-  }
-
-  async saveAccount(phone, accountData) {
-    return this.request(`/accounts/${phone}`, {
-      method: 'POST',
-      body: JSON.stringify(accountData)
-    });
-  }
+  // ── 客戶帳號 ──────────────────────────────────────
+  saveClientAccount(phone, data) { return this.post(`/accounts/${phone}`, data); }
 }
 
-// 建立全域實例
+// 全域單例
 const salonAPI = new SalonAPI();
+
+// ── localStorage 降級工具函數 ────────────────────────
+const LS = {
+  BOOKINGS:  'akb_bookings_data',
+  BOOKINGS2: 'akb_client_bookings',
+  DESIGNERS: 'akb_designers',
+  SERVICES:  'akb_services',
+  ACCOUNTS:  'akb_auth_config',
+
+  get(key)        { try { return JSON.parse(localStorage.getItem(key)); } catch(_) { return null; } },
+  set(key, val)   { localStorage.setItem(key, JSON.stringify(val)); },
+  getBookings()   { return this.get(this.BOOKINGS) || this.get(this.BOOKINGS2) || []; },
+  setBookings(v)  { this.set(this.BOOKINGS, v); this.set(this.BOOKINGS2, v); },
+  getDesigners()  { return this.get(this.DESIGNERS); },
+  getServices()   { return this.get(this.SERVICES); },
+};

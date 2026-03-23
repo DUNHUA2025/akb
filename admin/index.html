@@ -85,58 +85,120 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
             <div class="text-3xl font-bold text-gold">{{stats.today}}</div>
           </div>
           <div class="stat-card stat-green">
-            <div class="text-muted text-xs mb-2">本月營收</div>
-            <div class="text-3xl font-bold text-green-400">{{(stats.revenue/1000).toFixed(0)}}K</div>
+            <div class="text-muted text-xs mb-2">本月營收
+              <span v-if="stats.revenueGrowth!==null" class="ml-1" :class="stats.revenueGrowth>=0?'text-green-400':'text-red-400'">
+                {{stats.revenueGrowth>=0?'↑':'↓'}}{{Math.abs(stats.revenueGrowth)}}%
+              </span>
+            </div>
+            <div class="text-3xl font-bold text-green-400">${{(stats.revenue/1000).toFixed(1)}}K</div>
           </div>
           <div class="stat-card stat-blue">
             <div class="text-muted text-xs mb-2">顧客總數</div>
-            <div class="text-3xl font-bold text-blue-400">{{customers.length}}</div>
+            <div class="text-3xl font-bold text-blue-400">{{stats.totalCustomers||customers.length}}</div>
           </div>
           <div class="stat-card stat-purple">
             <div class="text-muted text-xs mb-2">待確認</div>
             <div class="text-3xl font-bold text-purple-400">{{stats.pending}}</div>
           </div>
         </div>
-        <h3 class="text-lg font-bold mb-4">近期預約</h3>
-        <div class="card overflow-hidden">
-          <table>
-            <thead><tr><th>顧客</th><th>設計師</th><th>服務</th><th>時間</th><th>狀態</th></tr></thead>
-            <tbody>
-              <tr v-for="b in bookings.slice(0,5)" :key="b.id">
-                <td class="font-semibold">{{b.customerName}}</td>
-                <td class="text-muted">{{b.designerName}}</td>
-                <td>{{b.serviceName}}</td>
-                <td class="text-muted text-sm">{{b.date}} {{b.time}}</td>
-                <td><span class="text-xs px-2 py-1 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
-              </tr>
-            </tbody>
-          </table>
+
+        <div class="grid lg:grid-cols-2 gap-6 mb-6">
+          <!-- 近期預約 -->
+          <div>
+            <h3 class="text-lg font-bold mb-4">近期預約</h3>
+            <div class="card overflow-hidden">
+              <table>
+                <thead><tr><th>顧客</th><th>設計師</th><th>服務</th><th>時間</th><th>狀態</th></tr></thead>
+                <tbody>
+                  <tr v-for="b in bookings.slice().sort((a,bb)=>(a.date+a.time).localeCompare(b.date+bb.time)).slice(0,6)" :key="b.id">
+                    <td class="font-semibold">{{b.customerName}}</td>
+                    <td class="text-muted">{{b.designerName}}</td>
+                    <td>{{b.serviceName}}</td>
+                    <td class="text-muted text-xs">{{b.date}}<br>{{b.time}}</td>
+                    <td><span class="text-xs px-2 py-0.5 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
+                  </tr>
+                  <tr v-if="bookings.length===0">
+                    <td colspan="5" class="text-center text-muted py-6">暫無預約</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 本月設計師業績 -->
+          <div>
+            <h3 class="text-lg font-bold mb-4">本月設計師業績</h3>
+            <div class="card p-4 space-y-3">
+              <div v-if="stats.topDesigners && stats.topDesigners.length" v-for="(d,i) in stats.topDesigners" :key="d.name" class="flex items-center gap-3">
+                <div class="text-muted text-sm w-4">{{i+1}}</div>
+                <div class="flex-1">
+                  <div class="flex justify-between text-sm mb-1">
+                    <span class="font-medium">{{d.name}}</span>
+                    <span class="text-gold">${{d.revenue.toLocaleString()}}</span>
+                  </div>
+                  <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-gold rounded-full" :style="{width: (d.revenue / (stats.topDesigners[0].revenue||1) * 100) + '%'}"></div>
+                  </div>
+                </div>
+              </div>
+              <div v-if="!stats.topDesigners || !stats.topDesigners.length" class="text-muted text-center py-6 text-sm">本月尚無業績資料</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 熱門服務 -->
+        <div v-if="stats.topServices && stats.topServices.length">
+          <h3 class="text-lg font-bold mb-4">熱門服務排行</h3>
+          <div class="card p-4 flex flex-wrap gap-3">
+            <div v-for="(s,i) in stats.topServices" :key="s.name" class="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800">
+              <span class="text-gold font-bold text-sm">{{i+1}}</span>
+              <span class="text-sm">{{s.name}}</span>
+              <span class="text-muted text-xs">{{s.count}} 次</span>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Bookings -->
       <div v-if="tab==='bookings'" class="fade">
-        <div class="flex items-center justify-between mb-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <h2 class="text-2xl font-bold serif">預約管理</h2>
-          <input v-model="search" class="max-w-xs" placeholder="搜尋..." style="width:200px">
+          <div class="flex gap-2">
+            <select v-model="bookingStatusFilter" class="bg-gray-800 border-gray-700 text-sm rounded px-2 py-1">
+              <option value="all">全部狀態</option>
+              <option value="pending">待確認</option>
+              <option value="confirmed">已確認</option>
+              <option value="done">已完成</option>
+              <option value="cancelled">已取消</option>
+            </select>
+            <input v-model="search" class="max-w-xs" placeholder="搜尋顧客/設計師..." style="width:180px">
+          </div>
         </div>
         <div class="card overflow-x-auto">
           <table>
-            <thead><tr><th>顧客</th><th>設計師</th><th>服務</th><th>時間</th><th>金額</th><th>狀態</th><th>操作</th></tr></thead>
+            <thead><tr><th>顧客</th><th>設計師</th><th>服務</th><th>時間</th><th>金額</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="b in filteredBookings" :key="b.id">
-                <td class="font-semibold">{{b.customerName}}</td>
+                <td class="font-semibold">
+                  <div>{{b.customerName}}</div>
+                  <div class="text-xs text-muted">{{b.customerPhone}}</div>
+                </td>
                 <td>{{b.designerName}}</td>
                 <td>{{b.serviceName}}</td>
-                <td class="text-sm text-muted">{{b.date}} {{b.time}}</td>
-                <td class="text-gold font-semibold">{{b.price.toLocaleString()}}</td>
-                <td><span class="text-xs px-2 py-1 rounded-full" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
+                <td class="text-sm text-muted whitespace-nowrap">{{b.date}}<br/>{{b.time}}</td>
+                <td class="text-gold font-semibold whitespace-nowrap">${{(b.price||0).toLocaleString()}}</td>
+                <td class="text-xs text-muted max-w-24 truncate" :title="b.note">{{b.note||'—'}}</td>
+                <td><span class="text-xs px-2 py-1 rounded-full whitespace-nowrap" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
                 <td>
-                  <div class="flex gap-1">
-                    <button v-if="b.status==='pending'" class="btn btn-gold text-xs px-2 py-1" @click="updateStatus(b.id,'confirmed')">確認</button>
-                    <button v-if="b.status==='pending'" class="btn btn-danger text-xs px-2 py-1" @click="updateStatus(b.id,'cancelled')">取消</button>
+                  <div class="flex gap-1 flex-wrap">
+                    <button v-if="b.status==='pending'"    class="btn btn-gold text-xs px-2 py-1"    @click="updateStatus(b.id,'confirmed')">確認</button>
+                    <button v-if="b.status==='confirmed'"  class="btn btn-primary text-xs px-2 py-1" @click="updateStatus(b.id,'done')">完成</button>
+                    <button v-if="b.status==='pending'||b.status==='confirmed'" class="btn btn-danger text-xs px-2 py-1" @click="updateStatus(b.id,'cancelled')">取消</button>
                   </div>
                 </td>
+              </tr>
+              <tr v-if="filteredBookings.length===0">
+                <td colspan="8" class="text-center text-muted py-8">暫無預約資料</td>
               </tr>
             </tbody>
           </table>
@@ -195,20 +257,22 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
       <div v-if="tab==='customers'" class="fade">
         <div class="flex justify-between items-center mb-5">
           <h2 class="text-2xl font-bold serif">顧客資料</h2>
-          <button @click="refreshCustomers" class="btn btn-primary">🔄 刷新資料</button>
+          <button @click="refreshCustomers" class="btn btn-gold text-sm">↺ 刷新資料</button>
         </div>
         <div class="card overflow-x-auto">
           <table>
-            <thead><tr><th>姓名</th><th>手機</th><th>來訪次數</th><th>累計消費</th></tr></thead>
+            <thead><tr><th>姓名</th><th>手機</th><th>來訪次數</th><th>累計消費</th><th>首次來訪</th><th>最近來訪</th></tr></thead>
             <tbody>
               <tr v-for="c in customers" :key="c.id">
                 <td class="font-semibold">{{c.name}}</td>
                 <td class="text-muted">{{c.phone}}</td>
                 <td class="text-gold font-bold">{{c.visits}}</td>
-                <td class="font-semibold text-green-400">${{c.totalSpent.toLocaleString()}}</td>
+                <td class="font-semibold text-green-400">${{(c.totalSpent||0).toLocaleString()}}</td>
+                <td class="text-muted text-xs">{{c.firstVisit||'—'}}</td>
+                <td class="text-muted text-xs">{{c.lastVisit||'—'}}</td>
               </tr>
               <tr v-if="customers.length === 0">
-                <td colspan="4" class="text-center text-muted py-8">暫無顧客資料</td>
+                <td colspan="6" class="text-center text-muted py-8">暫無顧客資料</td>
               </tr>
             </tbody>
           </table>
@@ -217,16 +281,29 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 
       <!-- Services -->
       <div v-if="tab==='services'" class="fade">
-        <h2 class="text-2xl font-bold serif mb-5">服務項目</h2>
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-2xl font-bold serif">服務項目</h2>
+          <button class="btn btn-gold" @click="openAddService()">+ 新增服務</button>
+        </div>
         <div class="card overflow-x-auto">
           <table>
-            <thead><tr><th>服務名稱</th><th>類別</th><th>時長</th><th>定價</th></tr></thead>
+            <thead><tr><th>服務名稱</th><th>類別</th><th>時長</th><th>定價</th><th>說明</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="s in services" :key="s.id">
                 <td class="font-semibold">{{s.name}}</td>
                 <td><span class="text-xs px-2 py-0.5 rounded-full bg-gray-800">{{s.category}}</span></td>
-                <td class="text-muted">{{s.duration}} 分鐘</td>
-                <td class="text-gold font-bold">${{s.price.toLocaleString()}}</td>
+                <td class="text-muted">{{s.duration}} 分</td>
+                <td class="text-gold font-bold">${{(s.price||0).toLocaleString()}}</td>
+                <td class="text-xs text-muted max-w-32 truncate" :title="s.description">{{s.description||'—'}}</td>
+                <td>
+                  <div class="flex gap-1">
+                    <button class="btn btn-ghost text-xs px-2 py-1" @click="editService(s)">編輯</button>
+                    <button class="btn btn-danger text-xs px-2 py-1" @click="deleteService(s.id)">刪除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="services.length===0">
+                <td colspan="6" class="text-center text-muted py-8">暫無服務項目</td>
               </tr>
             </tbody>
           </table>
@@ -237,6 +314,49 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
 
   <!-- Toast -->
   <div v-if="toast.show" class="fixed top-5 right-5 z-50 px-4 py-2 rounded-lg bg-green-900 text-green-300 text-sm fade">{{toast.msg}}</div>
+
+  <!-- 服務新增/編輯 Modal -->
+  <div v-if="showServiceModal" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="showServiceModal=false">
+    <div class="card p-7 w-full max-w-md fade">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold serif gold">{{isEditingService?'編輯服務':'新增服務'}}</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="showServiceModal=false">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-muted mb-1">服務名稱 *</label>
+          <input v-model="serviceForm.name" placeholder="例：剪髮造型" class="w-full"/>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-muted mb-1">類別</label>
+            <select v-model="serviceForm.category" class="w-full bg-gray-800 border-gray-700">
+              <option value="基礎">基礎</option>
+              <option value="進階">進階</option>
+              <option value="護理">護理</option>
+              <option value="特殊">特殊</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">時長（分鐘）</label>
+            <input v-model.number="serviceForm.duration" type="number" min="15" step="15" class="w-full"/>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">定價（NT$）</label>
+          <input v-model.number="serviceForm.price" type="number" min="0" class="w-full"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">說明</label>
+          <textarea v-model="serviceForm.description" rows="2" class="w-full" placeholder="服務說明..."></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button class="btn btn-ghost flex-1" @click="showServiceModal=false">取消</button>
+        <button class="btn btn-gold flex-1" @click="saveService()">{{isEditingService?'儲存':'新增'}}</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 設計師編輯/新增 Modal -->
   <div v-if="showDesignerModal" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="showDesignerModal=false">
@@ -331,14 +451,18 @@ if (!Auth.isLoggedIn() || !Auth.hasPermission('admin')) {
 
 const session = Auth.getSession();
 
-// 從後端 API 載入預約資料
+// 從後端 API 載入預約資料（降級使用 localStorage）
 async function loadBookingsFromAPI() {
   try {
     const bookings = await salonAPI.getBookings();
+    // 快取到 localStorage
+    localStorage.setItem('akb_bookings_data', JSON.stringify(bookings));
+    localStorage.setItem('akb_client_bookings', JSON.stringify(bookings));
     return bookings;
   } catch (error) {
-    console.error('Failed to load bookings:', error);
-    return [];
+    console.warn('後端不可用，使用本地資料');
+    const data = localStorage.getItem('akb_bookings_data') || localStorage.getItem('akb_client_bookings');
+    return data ? JSON.parse(data) : [];
   }
 }
 
@@ -382,14 +506,28 @@ function saveDesigners(designers) {
   localStorage.setItem(DESIGNERS_KEY, JSON.stringify(designers));
 }
 
-// 從後端 API 獲取客戶列表
+// 從後端 API 獲取客戶列表（降級從 localStorage 統計）
 async function loadCustomersFromAPI() {
   try {
     const customers = await salonAPI.getCustomers();
     return customers;
   } catch (error) {
-    console.error('Failed to load customers:', error);
-    return [];
+    console.warn('後端不可用，從本地預約資料統計客戶');
+    const data = localStorage.getItem('akb_client_bookings') || localStorage.getItem('akb_bookings_data');
+    const bookings = data ? JSON.parse(data) : [];
+    const customerMap = {};
+    bookings.forEach(b => {
+      const key = b.customerPhone || b.customerName || '';
+      if (!key) return;
+      if (!customerMap[key]) {
+        customerMap[key] = { id: key, name: b.customerName || '', phone: b.customerPhone || '', visits: 0, totalSpent: 0 };
+      }
+      if (b.status === 'confirmed' || b.status === 'done') {
+        customerMap[key].visits++;
+        customerMap[key].totalSpent += parseInt(b.price) || 0;
+      }
+    });
+    return Object.values(customerMap);
   }
 }
 
@@ -401,84 +539,138 @@ async function loadCustomersFromBookings() {
 const CUSTOMERS = loadCustomersFromBookings();
 
 const SERVICES = [
-  { id:1, name:'剪髮造型', category:'基礎', duration:60, price:600 },
-  { id:2, name:'燙髮', category:'進階', duration:150, price:2800 },
-  { id:3, name:'染髮', category:'進階', duration:120, price:2200 },
+  { id:1, name:'剪髮造型', category:'基礎', duration:60,  price:600,  description:'專業剪髮造型，修飾臉型輪廓。' },
+  { id:2, name:'燙髮',     category:'進階', duration:150, price:2800, description:'多種燙髮技術，創造理想捲度。' },
+  { id:3, name:'染髮',     category:'進階', duration:120, price:2200, description:'時尚髮色，多色可選，持久顯色。' },
+  { id:4, name:'挑染',     category:'進階', duration:150, price:3200, description:'手工挑染，打造自然漸層感。' },
+  { id:5, name:'護髮療程', category:'護理', duration:60,  price:1200, description:'深層護髮，修復受損髮質。' },
 ];
 
 createApp({
   setup() {
     const tab = ref('dashboard');
     const tabs = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'}];
-    const bookings = ref([...BOOKINGS]);
+    const bookings  = ref([...BOOKINGS]);
     const designers = ref(loadDesigners());
     const customers = ref([]);
-    const services = ref([...SERVICES]);
-    const search = ref('');
-    const toast = ref({ show:false, msg:'' });
+    const services  = ref([...SERVICES]);
+    const search    = ref('');
+    const bookingStatusFilter = ref('all');
+    const toast     = ref({ show:false, msg:'' });
     const statusText = { confirmed: '已確認', pending: '待確認', cancelled: '已取消', done: '已完成' };
     const designerFilter = ref('all');
-    
-    // 初始化：從後端載入資料
+
+    // ── 後端 stats（含成長率/設計師業績/熱門服務）
+    const stats = ref({
+      today: 0, pending: 0, revenue: 0, revenueGrowth: null,
+      totalCustomers: 0, topServices: [], topDesigners: []
+    });
+
+    // 本地計算備援
+    function calcLocalStats() {
+      const today    = new Date().toISOString().slice(0,10);
+      const thisMonth = today.slice(0,7);
+      stats.value.today   = bookings.value.filter(b => b.date === today && b.status !== 'cancelled').length;
+      stats.value.pending = bookings.value.filter(b => b.status === 'pending').length;
+      stats.value.revenue = bookings.value.filter(b => b.date.startsWith(thisMonth) && (b.status==='confirmed'||b.status==='done'))
+                              .reduce((s,b) => s + (Number(b.price)||0), 0);
+    }
+
+    // 初始化：從後端載入全部資料
     async function initData() {
-      bookings.value = await loadBookingsFromAPI();
+      bookings.value  = await loadBookingsFromAPI();
       customers.value = await loadCustomersFromAPI();
+      // 嘗試拉後端統計
+      try {
+        const s = await salonAPI.getStats();
+        stats.value = { ...stats.value, ...s };
+      } catch(_) { calcLocalStats(); }
+      // 嘗試拉服務
+      try {
+        const svcs = await salonAPI.getServices();
+        if (svcs && svcs.length) services.value = svcs;
+      } catch(_) {}
+      // 嘗試拉設計師
+      try {
+        const ds = await salonAPI.getDesigners();
+        if (ds && ds.length) { designers.value = ds; saveDesigners(ds); }
+      } catch(_) {}
     }
     initData();
-    
-    // 監聽 WebSocket 即時更新
-    salonAPI.on('NEW_BOOKING', (booking) => {
-      bookings.value.push(booking);
-      toast.value = { show: true, msg: '收到新預約！' };
-      setTimeout(() => toast.value.show = false, 3000);
+
+    // WebSocket 即時更新
+    salonAPI.on('INIT', ({ bookings: list, designers: ds, services: svcs }) => {
+      if (list && list.length)  { bookings.value  = list; LS.setBookings(list); }
+      if (ds   && ds.length)    { designers.value = ds;   saveDesigners(ds); }
+      if (svcs && svcs.length)  { services.value  = svcs; }
+      calcLocalStats();
     });
-    
-    salonAPI.on('UPDATE_BOOKING', (booking) => {
-      const idx = bookings.value.findIndex(b => b.id === booking.id);
-      if (idx !== -1) {
-        bookings.value[idx] = booking;
-      }
+    salonAPI.on('NEW_BOOKING', (b) => {
+      if (!bookings.value.find(x => x.id === b.id)) bookings.value.push(b);
+      toast.value = { show: true, msg: `收到新預約！${b.customerName} ${b.date} ${b.time}` };
+      setTimeout(() => toast.value.show = false, 4000);
+      calcLocalStats();
     });
-    
+    salonAPI.on('UPDATE_BOOKING', (b) => {
+      const idx = bookings.value.findIndex(x => x.id === b.id);
+      if (idx !== -1) bookings.value[idx] = b;
+      calcLocalStats();
+    });
+    salonAPI.on('DELETE_BOOKING', ({ id }) => {
+      bookings.value = bookings.value.filter(b => b.id !== id);
+      calcLocalStats();
+    });
+    salonAPI.on('NEW_DESIGNER', (d) => {
+      if (!designers.value.find(x => x.id === d.id)) designers.value.push(d);
+    });
+    salonAPI.on('UPDATE_DESIGNER', (d) => {
+      const idx = designers.value.findIndex(x => x.id === d.id);
+      if (idx !== -1) designers.value[idx] = d;
+      saveDesigners(designers.value);
+    });
+    salonAPI.on('UPDATE_SERVICES', (svcs) => {
+      if (svcs) services.value = svcs;
+    });
+
     // 設計師篩選
     const filteredDesigners = computed(() => {
       if (designerFilter.value === 'all') return designers.value;
-      if (designerFilter.value === 'active') return designers.value.filter(d => d.status === 'active');
-      if (designerFilter.value === 'leave') return designers.value.filter(d => d.status === 'leave');
-      if (designerFilter.value === 'resigned') return designers.value.filter(d => d.status === 'resigned');
-      return designers.value;
+      return designers.value.filter(d => d.status === designerFilter.value);
     });
 
-    const today = new Date().toISOString().slice(0,10);
-    const thisMonth = today.slice(0,7);
-
-    const stats = computed(() => ({
-      today: bookings.value.filter(b => b.date === today && b.status !== 'cancelled').length,
-      revenue: bookings.value.filter(b => b.date.startsWith(thisMonth) && (b.status === 'confirmed' || b.status === 'done')).reduce((a,c) => a + c.price, 0),
-      pending: bookings.value.filter(b => b.status === 'pending').length
-    }));
-
+    // 預約篩選（狀態 + 搜尋）
     const filteredBookings = computed(() => {
-      if (!search.value) return bookings.value;
-      const q = search.value.toLowerCase();
-      return bookings.value.filter(b => b.customerName.toLowerCase().includes(q) || b.designerName.toLowerCase().includes(q));
+      let list = bookings.value;
+      if (bookingStatusFilter.value !== 'all') list = list.filter(b => b.status === bookingStatusFilter.value);
+      if (search.value) {
+        const q = search.value.toLowerCase();
+        list = list.filter(b =>
+          (b.customerName||'').toLowerCase().includes(q) ||
+          (b.designerName||'').toLowerCase().includes(q) ||
+          (b.customerPhone||'').includes(q)
+        );
+      }
+      return list.slice().sort((a, b) => (b.date+b.time).localeCompare(a.date+a.time));
     });
 
     async function updateStatus(id, status) {
-      try {
-        // 使用後端 API 更新狀態
-        await salonAPI.updateBooking(id, { status });
-        
-        const b = bookings.value.find(x => x.id === id);
-        if (b) {
-          b.status = status;
-          toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
-          setTimeout(() => toast.value.show = false, 2000);
-        }
-      } catch (error) {
-        console.error('Failed to update status:', error);
-        toast.value = { show:true, msg: '更新失敗，請重試' };
+      // 先更新本地
+      const b = bookings.value.find(x => x.id === id);
+      if (b) {
+        b.status = status;
+        toast.value = { show:true, msg: `已更新為「${statusText[status]}」` };
         setTimeout(() => toast.value.show = false, 2000);
+
+        // 同步到兩個 localStorage key
+        localStorage.setItem('akb_bookings_data', JSON.stringify(bookings.value));
+        localStorage.setItem('akb_client_bookings', JSON.stringify(bookings.value));
+      }
+
+      // 嘗試同步到後端
+      try {
+        await salonAPI.updateBooking(id, { status });
+      } catch (error) {
+        console.warn('後端不可用，僅更新本地資料');
       }
     }
 
@@ -624,22 +816,48 @@ createApp({
       setTimeout(() => toast.value.show = false, 2000);
     }
 
-    function setDesignerStatus(id, status) {
-      const d = designers.value.find(x => x.id === id);
-      if (d) {
-        d.status = status;
-        if (status === 'resigned') {
-          d.available = false;
-        } else if (status === 'active') {
-          d.available = true;
-        } else if (status === 'leave') {
-          d.available = false;
-        }
-        saveDesigners(designers.value);
-        const statusMap = { active: '已設為在職', leave: '已設為休假', resigned: '已標記為離職' };
-        toast.value = { show: true, msg: statusMap[status] };
-        setTimeout(() => toast.value.show = false, 2000);
+    async function saveDesigner() {
+      if (!designerForm.name.trim()) {
+        toast.value = { show: true, msg: '請輸入設計師名稱' }; return;
       }
+      const avatar = designerForm.avatar.trim() || designerForm.name.trim().charAt(0).toUpperCase();
+      const specialtyList = designerForm.specialty.split(',').map(s => s.trim()).filter(s => s);
+      const payload = {
+        name: designerForm.name.trim(), role: designerForm.role,
+        level: designerForm.level, specialty: specialtyList,
+        bio: designerForm.bio.trim(), avatar
+      };
+
+      if (isEditingDesigner.value) {
+        const idx = designers.value.findIndex(d => d.id === designerForm.id);
+        if (idx !== -1) {
+          designers.value[idx] = { ...designers.value[idx], ...payload };
+          toast.value = { show: true, msg: '設計師資料已更新' };
+          try { await salonAPI.updateDesigner(designerForm.id, payload); } catch(_) {}
+        }
+      } else {
+        const newId = Math.max(...designers.value.map(d => d.id), 0) + 1;
+        const newD  = { id: newId, rating:5.0, reviews:0, works:0, available:true, status:'active', ...payload };
+        designers.value.push(newD);
+        toast.value = { show: true, msg: '新設計師已新增' };
+        try { await salonAPI.createDesigner(payload); } catch(_) {}
+      }
+
+      saveDesigners(designers.value);
+      showDesignerModal.value = false;
+      setTimeout(() => toast.value.show = false, 2000);
+    }
+
+    async function setDesignerStatus(id, status) {
+      const d = designers.value.find(x => x.id === id);
+      if (!d) return;
+      d.status    = status;
+      d.available = status === 'active';
+      saveDesigners(designers.value);
+      const map = { active: '已設為在職', leave: '已設為休假', resigned: '已標記為離職' };
+      toast.value = { show: true, msg: map[status] };
+      setTimeout(() => toast.value.show = false, 2000);
+      try { await salonAPI.updateDesigner(id, { status, available: d.available }); } catch(_) {}
     }
 
     async function refreshCustomers() {
@@ -648,7 +866,64 @@ createApp({
       setTimeout(() => toast.value.show = false, 2000);
     }
 
-    return { tab, tabs, bookings, designers, customers, services, search, stats, filteredBookings, statusText, updateStatus, logout, toast, session, showChangePwd, pwdForm, changePassword, designerFilter, filteredDesigners, showDesignerModal, isEditingDesigner, designerForm, openAddDesigner, editDesigner, saveDesigner, setDesignerStatus, refreshCustomers };
+    // ── 服務管理 ─────────────────────────────────────
+    const showServiceModal = ref(false);
+    const isEditingService = ref(false);
+    const serviceForm = reactive({ id: null, name: '', category: '基礎', duration: 60, price: 0, description: '' });
+
+    function openAddService() {
+      isEditingService.value = false;
+      Object.assign(serviceForm, { id: null, name: '', category: '基礎', duration: 60, price: 0, description: '' });
+      showServiceModal.value = true;
+    }
+
+    function editService(s) {
+      isEditingService.value = true;
+      Object.assign(serviceForm, { id: s.id, name: s.name, category: s.category, duration: s.duration, price: s.price, description: s.description || '' });
+      showServiceModal.value = true;
+    }
+
+    async function saveService() {
+      if (!serviceForm.name.trim()) {
+        toast.value = { show: true, msg: '請輸入服務名稱' }; return;
+      }
+      const payload = { name: serviceForm.name.trim(), category: serviceForm.category, duration: Number(serviceForm.duration), price: Number(serviceForm.price), description: serviceForm.description.trim() };
+
+      if (isEditingService.value) {
+        const idx = services.value.findIndex(s => s.id === serviceForm.id);
+        if (idx !== -1) {
+          services.value[idx] = { ...services.value[idx], ...payload };
+          toast.value = { show: true, msg: '服務已更新' };
+          try { await salonAPI.updateService(serviceForm.id, payload); } catch(_) {}
+        }
+      } else {
+        const newId = Math.max(...services.value.map(s => s.id), 0) + 1;
+        services.value.push({ id: newId, ...payload });
+        toast.value = { show: true, msg: '服務已新增' };
+        try { await salonAPI.createService(payload); } catch(_) {}
+      }
+
+      showServiceModal.value = false;
+      setTimeout(() => toast.value.show = false, 2000);
+    }
+
+    async function deleteService(id) {
+      if (!confirm('確定要刪除此服務嗎？')) return;
+      services.value = services.value.filter(s => s.id !== id);
+      toast.value = { show: true, msg: '服務已刪除' };
+      setTimeout(() => toast.value.show = false, 2000);
+      try { await salonAPI.deleteService(id); } catch(_) {}
+    }
+
+    return {
+      tab, tabs, bookings, designers, customers, services, search, bookingStatusFilter,
+      stats, filteredBookings, statusText, updateStatus, logout, toast, session,
+      showChangePwd, pwdForm, changePassword,
+      designerFilter, filteredDesigners,
+      showDesignerModal, isEditingDesigner, designerForm, openAddDesigner, editDesigner, saveDesigner, setDesignerStatus,
+      refreshCustomers,
+      showServiceModal, isEditingService, serviceForm, openAddService, editService, saveService, deleteService,
+    };
   }
 }).mount('#app');
 </script>
