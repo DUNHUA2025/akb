@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AKB Supabase 連線診斷</title>
+<title>AKB 後端連線診斷</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   body { font-family: 'Noto Sans TC', sans-serif; background: #0f172a; color: #e2e8f0; }
   .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin: 12px 0; }
@@ -15,304 +14,273 @@
   .info { color: #60a5fa; }
   pre   { background: #0f172a; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
   .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
-  .badge-ok  { background: #166534; color: #4ade80; }
-  .badge-err { background: #7f1d1d; color: #f87171; }
+  .badge-ok      { background: #166534; color: #4ade80; }
+  .badge-err     { background: #7f1d1d; color: #f87171; }
+  .badge-warn    { background: #713f12; color: #facc15; }
   .badge-pending { background: #1e3a5f; color: #60a5fa; }
+  input { background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 8px 12px; color: #e2e8f0; width: 100%; }
+  button { background: #1d4ed8; color: white; border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; font-size: 14px; }
+  button:hover { background: #2563eb; }
 </style>
 </head>
 <body class="p-6">
-
 <div class="max-w-3xl mx-auto">
-  <h1 class="text-2xl font-bold mb-2">🔍 AKB Supabase 連線診斷</h1>
-  <p class="text-slate-400 mb-6 text-sm">自動測試 Supabase 專案連線、資料表存在性與實時訂閱</p>
 
-  <!-- 專案資訊 -->
+  <h1 class="text-2xl font-bold mb-1">🔍 AKB 後端連線診斷</h1>
+  <p class="text-slate-400 mb-5 text-sm">測試 Node/Express/WebSocket 後端連線狀態</p>
+
+  <!-- 設定後端地址 -->
   <div class="card">
-    <h2 class="font-semibold text-slate-300 mb-3">📋 專案設定</h2>
-    <div class="text-sm space-y-1">
-      <div><span class="text-slate-400">URL：</span><span class="info font-mono" id="show-url"></span></div>
-      <div><span class="text-slate-400">Project ID：</span><span class="info font-mono" id="show-id"></span></div>
-      <div><span class="text-slate-400">Anon Key：</span><span class="info font-mono" id="show-key"></span></div>
+    <h2 class="font-semibold text-slate-300 mb-3">⚙️ 後端地址設定</h2>
+    <div class="flex gap-3">
+      <input type="text" id="api-url" placeholder="http://localhost:3001 或 https://你的後端域名" value="">
+      <button onclick="runDiag()">開始診斷</button>
     </div>
+    <p class="text-slate-500 text-xs mt-2">💡 若後端在本機，輸入 <code>http://localhost:3001</code>；若已部署，輸入完整 URL（如 https://akb-server.railway.app）</p>
   </div>
 
-  <!-- 測試結果 -->
-  <div class="card" id="results">
+  <!-- 結果列表 -->
+  <div class="card" id="results" style="display:none">
     <h2 class="font-semibold text-slate-300 mb-3">🧪 測試結果</h2>
     <div id="test-list" class="space-y-3 text-sm"></div>
   </div>
 
-  <!-- 詳細 log -->
-  <div class="card">
+  <!-- 日誌 -->
+  <div class="card" id="log-card" style="display:none">
     <h2 class="font-semibold text-slate-300 mb-2">📝 詳細日誌</h2>
-    <pre id="log" class="text-xs text-slate-300 min-h-[80px]">正在初始化...</pre>
+    <pre id="log" class="text-xs text-slate-300 min-h-[60px]"></pre>
   </div>
 
   <!-- 總結 -->
   <div class="card" id="summary" style="display:none">
-    <h2 class="font-semibold text-slate-300 mb-2">✅ 診斷總結</h2>
+    <h2 class="font-semibold text-slate-300 mb-2">📋 診斷總結</h2>
     <div id="summary-content" class="text-sm"></div>
   </div>
+
+  <!-- 部署指引 -->
+  <div class="card">
+    <h2 class="font-semibold text-slate-300 mb-3">🚀 後端部署方式（免費）</h2>
+    <div class="space-y-4 text-sm text-slate-300">
+
+      <div class="bg-slate-800 rounded-lg p-4">
+        <div class="font-semibold text-green-400 mb-1">✅ 方法一：Railway（推薦，最簡單）</div>
+        <ol class="list-decimal list-inside space-y-1 text-slate-400">
+          <li>前往 <a href="https://railway.app" target="_blank" class="info underline">railway.app</a>，用 GitHub 帳號登入</li>
+          <li>點「New Project」→「Deploy from GitHub repo」</li>
+          <li>選擇 <code>DUNHUA2025/akb</code> repo</li>
+          <li>Root Directory 設為 <code>server</code></li>
+          <li>部署完成後取得 URL（如 <code>https://akb-xxx.railway.app</code>）</li>
+          <li>在各 HTML 頁面 <code>&lt;head&gt;</code> 最頂部加入：<br>
+            <code class="text-yellow-300">&lt;script&gt;window.AKB_API_URL='https://akb-xxx.railway.app';&lt;/script&gt;</code>
+          </li>
+        </ol>
+      </div>
+
+      <div class="bg-slate-800 rounded-lg p-4">
+        <div class="font-semibold text-blue-400 mb-1">方法二：Render</div>
+        <ol class="list-decimal list-inside space-y-1 text-slate-400">
+          <li>前往 <a href="https://render.com" target="_blank" class="info underline">render.com</a>，用 GitHub 登入</li>
+          <li>New → Web Service → 選 <code>DUNHUA2025/akb</code></li>
+          <li>Root Directory: <code>server</code>，Build Command: <code>npm install</code>，Start Command: <code>node server.js</code></li>
+          <li>取得 URL 後同上設定 <code>window.AKB_API_URL</code></li>
+        </ol>
+      </div>
+
+      <div class="bg-slate-800 rounded-lg p-4">
+        <div class="font-semibold text-purple-400 mb-1">方法三：本機測試</div>
+        <ol class="list-decimal list-inside space-y-1 text-slate-400">
+          <li>電腦需安裝 Node.js（<a href="https://nodejs.org" target="_blank" class="info underline">下載</a>）</li>
+          <li>終端機執行：<code>cd akb/server && npm install && npm start</code></li>
+          <li>在此頁輸入 <code>http://localhost:3001</code> 即可測試</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-const SUPABASE_URL     = 'https://jxoiwlutzrtaawifdsib.supabase.co';
-const SUPABASE_ANON_KEY= 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4b2l3bHV0enJ0YWF3aWZkc2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3MjkwMjMsImV4cCI6MjA1ODMwNTAyM30.EaHCHGLBsJh3S5dxnNQ9BqmTrHCHCYaOH00RA5eLMBM';
-const TABLES           = ['bookings', 'designers', 'services', 'customers'];
-
-// 顯示基本資訊
-const projectId = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '未知';
-document.getElementById('show-url').textContent = SUPABASE_URL;
-document.getElementById('show-id').textContent  = projectId;
-document.getElementById('show-key').textContent = SUPABASE_ANON_KEY.slice(0,40) + '…';
-
+let logText = '';
 const logEl  = document.getElementById('log');
 const listEl = document.getElementById('test-list');
-let logText  = '';
 
-function log(msg, type='info') {
+function log(msg) {
   const ts = new Date().toLocaleTimeString('zh-TW');
   logText += `[${ts}] ${msg}\n`;
-  logEl.textContent = logText;
-  logEl.scrollTop = logEl.scrollHeight;
-  console.log(`[${type.toUpperCase()}]`, msg);
+  if (logEl) logEl.textContent = logText;
 }
 
 function addResult(label, status, detail='') {
+  const badgeClass = { ok:'badge-ok', err:'badge-err', warn:'badge-warn', pending:'badge-pending' }[status] || 'badge-pending';
+  const badgeText  = { ok:'✓ 成功', err:'✗ 失敗', warn:'⚠ 警告', pending:'⟳ 等待' }[status] || status;
+  const colorClass = { ok:'ok', err:'err', warn:'warn', pending:'info' }[status] || '';
   const div = document.createElement('div');
-  const badgeClass = status === 'ok' ? 'badge-ok' : status === 'err' ? 'badge-err' : 'badge-pending';
-  const badgeText  = status === 'ok' ? '✓ 成功' : status === 'err' ? '✗ 失敗' : '⟳ 等待';
-  div.innerHTML = `
-    <div class="flex items-start gap-3">
-      <span class="badge ${badgeClass} mt-0.5 shrink-0">${badgeText}</span>
-      <div>
-        <div class="font-medium ${status==='ok'?'ok':status==='err'?'err':'info'}">${label}</div>
-        ${detail ? `<div class="text-slate-400 text-xs mt-0.5">${detail}</div>` : ''}
-      </div>
-    </div>`;
+  div.innerHTML = `<div class="flex items-start gap-3">
+    <span class="badge ${badgeClass} mt-0.5 shrink-0">${badgeText}</span>
+    <div>
+      <div class="font-medium ${colorClass}">${label}</div>
+      ${detail ? `<div class="text-slate-400 text-xs mt-0.5">${detail}</div>` : ''}
+    </div>
+  </div>`;
   listEl.appendChild(div);
-  return div;
 }
 
-async function runDiagnostics() {
-  log('=== 開始 Supabase 診斷 ===');
-  const results = { pass: 0, fail: 0, tables: {} };
+async function runDiag() {
+  const apiUrl = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+  if (!apiUrl) { alert('請輸入後端地址'); return; }
 
-  // ── 1. DNS / 網路連線 ────────────────────────────────────
-  log('測試 1/5：DNS 解析與網路連線...');
+  // 重置
+  listEl.innerHTML = '';
+  logText = '';
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('log-card').style.display = 'block';
+  document.getElementById('summary').style.display  = 'none';
+
+  const results = { pass: 0, fail: 0, warn: 0 };
+
+  // ── 1. Health Check ─────────────────────────────────────
+  log(`測試後端地址：${apiUrl}`);
+  log('測試 1/4：Health Check...');
   try {
     const t0 = Date.now();
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      }
-    });
-    const ms = Date.now() - t0;
-    if (res.ok || res.status === 200) {
-      addResult('網路連線 & DNS 解析', 'ok', `HTTP ${res.status}，回應時間 ${ms}ms`);
-      log(`✓ 連線成功，HTTP ${res.status}，${ms}ms`);
-      results.pass++;
-    } else if (res.status === 404) {
-      // 404 from root is normal for Supabase
-      addResult('網路連線 & DNS 解析', 'ok', `HTTP ${res.status}（根路徑 404 屬正常），${ms}ms`);
-      log(`✓ 連線成功（404 for root is normal），${ms}ms`);
+    const res = await fetch(`${apiUrl}/api/health`);
+    const ms  = Date.now() - t0;
+    if (res.ok) {
+      const data = await res.json();
+      addResult('後端健康檢查 /api/health', 'ok',
+        `回應 ${ms}ms｜預約 ${data.bookings} 筆｜設計師 ${data.designers} 位｜WebSocket 客戶端 ${data.clients} 個`);
+      log(`✓ 健康檢查通過，${ms}ms，bookings:${data.bookings}`);
       results.pass++;
     } else {
-      addResult('網路連線 & DNS 解析', 'err', `HTTP ${res.status} - ${res.statusText}`);
-      log(`✗ 連線異常：HTTP ${res.status}`, 'error');
-      results.fail++;
+      addResult('後端健康檢查 /api/health', 'err', `HTTP ${res.status}`);
+      log(`✗ HTTP ${res.status}`); results.fail++;
     }
   } catch(e) {
-    addResult('網路連線 & DNS 解析', 'err', `${e.message}（專案可能已暫停或 URL 錯誤）`);
-    log(`✗ 連線失敗：${e.message}`, 'error');
-    results.fail++;
-    showSummary(results, true);
-    return;
+    addResult('後端健康檢查 /api/health', 'err', `${e.message}（後端未啟動或地址錯誤）`);
+    log(`✗ ${e.message}`); results.fail++;
+    showSummary(results, apiUrl, true); return;
   }
 
-  // ── 2. 初始化 Supabase 客戶端 ───────────────────────────
-  log('測試 2/5：初始化 Supabase 客戶端...');
-  let sb;
-  try {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    addResult('Supabase 客戶端初始化', 'ok', 'supabase-js v2 客戶端建立成功');
-    log('✓ 客戶端建立成功');
-    results.pass++;
-  } catch(e) {
-    addResult('Supabase 客戶端初始化', 'err', e.message);
-    log(`✗ 客戶端建立失敗：${e.message}`, 'error');
-    results.fail++;
-    showSummary(results, true);
-    return;
-  }
-
-  // ── 3. 資料表存在性 ──────────────────────────────────────
-  log('測試 3/5：檢查資料表是否存在...');
-  for (const tbl of TABLES) {
+  // ── 2. API 路由測試 ──────────────────────────────────────
+  log('測試 2/4：API 路由...');
+  const apis = [
+    { path: '/api/bookings',  label: '預約列表 GET /api/bookings' },
+    { path: '/api/designers', label: '設計師列表 GET /api/designers' },
+    { path: '/api/services',  label: '服務列表 GET /api/services' },
+  ];
+  for (const { path, label } of apis) {
     try {
-      const { data, error, count } = await sb.from(tbl).select('*', { count: 'exact', head: true });
-      if (error) {
-        if (error.code === '42P01') {
-          addResult(`資料表 \`${tbl}\``, 'err', `資料表不存在（尚未執行 SQL Schema）`);
-          log(`✗ ${tbl}：資料表不存在 (42P01)`, 'error');
-          results.fail++;
-          results.tables[tbl] = 'missing';
-        } else {
-          addResult(`資料表 \`${tbl}\``, 'err', `${error.code}：${error.message}`);
-          log(`✗ ${tbl}：${error.message}`, 'error');
-          results.fail++;
-          results.tables[tbl] = 'error';
-        }
+      const res  = await fetch(`${apiUrl}${path}`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        addResult(label, 'ok', `${data.length} 筆資料`);
+        log(`✓ ${path}：${data.length} 筆`); results.pass++;
       } else {
-        addResult(`資料表 \`${tbl}\``, 'ok', `存在，目前 ${count ?? '?'} 筆記錄`);
-        log(`✓ ${tbl}：存在（${count ?? '?'} 筆）`);
-        results.pass++;
-        results.tables[tbl] = 'ok';
+        addResult(label, 'err', `HTTP ${res.status}`);
+        log(`✗ ${path} HTTP ${res.status}`); results.fail++;
       }
     } catch(e) {
-      addResult(`資料表 \`${tbl}\``, 'err', e.message);
-      log(`✗ ${tbl}：${e.message}`, 'error');
-      results.fail++;
-      results.tables[tbl] = 'error';
+      addResult(label, 'err', e.message);
+      log(`✗ ${path}：${e.message}`); results.fail++;
     }
   }
 
-  // ── 4. 資料讀寫測試 ──────────────────────────────────────
-  log('測試 4/5：資料讀寫測試（bookings 表）...');
-  if (results.tables['bookings'] === 'ok') {
-    try {
-      const testRecord = {
-        service_name:   '[診斷測試] 請忽略',
-        designer_name:  'DIAG',
-        date:           '2099-01-01',
-        time:           '00:00',
-        customer_name:  'DiagBot',
-        customer_phone: '00000000000',
-        status:         'cancelled',
-        price:          0,
-        duration:       1,
-      };
-      const { data: ins, error: insErr } = await sb.from('bookings').insert([testRecord]).select().single();
-      if (insErr) throw insErr;
-      log(`✓ INSERT 成功，ID=${ins.id}`);
-
-      // 刪除測試資料
-      const { error: delErr } = await sb.from('bookings').delete().eq('id', ins.id);
-      if (delErr) log(`⚠ DELETE 失敗（無傷大雅）：${delErr.message}`, 'warn');
-      else log(`✓ DELETE 清理完成`);
-
-      addResult('資料讀寫（INSERT/DELETE）', 'ok', `成功寫入並清理，ID=${ins.id}`);
+  // ── 3. 讀寫測試（建立+刪除 booking）────────────────────
+  log('測試 3/4：讀寫測試...');
+  try {
+    const testBooking = {
+      serviceName: '[診斷測試]', designerName: 'DIAG', designerId: 1,
+      date: '2099-01-01', time: '00:00',
+      customerName: 'DiagBot', customerPhone: '00000000000',
+      price: 0, duration: 1
+    };
+    const cRes  = await fetch(`${apiUrl}/api/bookings`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(testBooking) });
+    const created = await cRes.json();
+    if (cRes.ok && created.id) {
+      log(`✓ INSERT 成功，ID=${created.id}`);
+      // 刪除
+      const dRes = await fetch(`${apiUrl}/api/bookings/${created.id}`, { method:'DELETE' });
+      if (dRes.ok) log(`✓ DELETE 清理完成`);
+      addResult('資料讀寫（POST/DELETE bookings）', 'ok', `成功寫入並清理，ID=${created.id}`);
       results.pass++;
-    } catch(e) {
-      addResult('資料讀寫（INSERT/DELETE）', 'err', e.message);
-      log(`✗ 讀寫失敗：${e.message}`, 'error');
+    } else {
+      addResult('資料讀寫（POST/DELETE bookings）', 'err', `${cRes.status}: ${JSON.stringify(created)}`);
       results.fail++;
     }
-  } else {
-    addResult('資料讀寫（INSERT/DELETE）', 'err', '跳過（bookings 表不存在）');
-    log('⚠ 跳過讀寫測試（表不存在）', 'warn');
-    results.fail++;
+  } catch(e) {
+    addResult('資料讀寫（POST/DELETE bookings）', 'err', e.message);
+    log(`✗ ${e.message}`); results.fail++;
   }
 
-  // ── 5. Realtime 訂閱測試 ─────────────────────────────────
-  log('測試 5/5：Realtime WebSocket 訂閱...');
+  // ── 4. WebSocket 測試 ────────────────────────────────────
+  log('測試 4/4：WebSocket 實時連線...');
+  const wsUrl = apiUrl.replace(/^http/, 'ws');
   await new Promise(resolve => {
     let done = false;
     const timeout = setTimeout(() => {
       if (!done) {
         done = true;
-        addResult('Realtime WebSocket 訂閱', 'err', '連線逾時（5 秒內未收到狀態回調）');
-        log('✗ Realtime 訂閱逾時', 'error');
-        results.fail++;
-        resolve();
+        addResult('WebSocket 實時連線', 'err', `連線逾時（5秒）- 確認後端已啟動且 PORT 正確`);
+        log('✗ WebSocket 逾時'); results.fail++; resolve();
       }
     }, 5000);
 
-    const ch = sb.channel('diag-test')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {})
-      .subscribe(status => {
+    try {
+      const ws = new WebSocket(wsUrl);
+      ws.onopen = () => log('WS 已連線，等待 INIT 訊息...');
+      ws.onmessage = (e) => {
         if (done) return;
-        log(`Realtime 狀態：${status}`);
-        if (status === 'SUBSCRIBED') {
-          done = true;
-          clearTimeout(timeout);
-          addResult('Realtime WebSocket 訂閱', 'ok', `成功訂閱，狀態：${status}`);
-          log('✓ Realtime 訂閱成功');
-          results.pass++;
-          sb.removeChannel(ch);
-          resolve();
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          done = true;
-          clearTimeout(timeout);
-          addResult('Realtime WebSocket 訂閱', 'err', `連線失敗，狀態：${status}（請確認 Realtime 已在 Supabase 後台啟用）`);
-          log(`✗ Realtime 失敗：${status}`, 'error');
-          results.fail++;
-          resolve();
-        }
-      });
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'INIT') {
+            done = true; clearTimeout(timeout);
+            addResult('WebSocket 實時連線', 'ok',
+              `收到 INIT 快照：${msg.data?.bookings?.length||0} 筆預約，${msg.data?.designers?.length||0} 位設計師`);
+            log(`✓ WebSocket INIT 收到，bookings:${msg.data?.bookings?.length}`);
+            results.pass++;
+            ws.close(); resolve();
+          }
+        } catch(e) {}
+      };
+      ws.onerror = () => {
+        if (!done) { done=true; clearTimeout(timeout);
+          addResult('WebSocket 實時連線', 'err', `連線失敗 (${wsUrl})`);
+          log(`✗ WS 錯誤`); results.fail++; resolve(); }
+      };
+    } catch(e) {
+      if (!done) { done=true; clearTimeout(timeout);
+        addResult('WebSocket 實時連線', 'err', e.message);
+        log(`✗ ${e.message}`); results.fail++; resolve(); }
+    }
   });
 
-  showSummary(results, false);
+  showSummary(results, apiUrl, false);
 }
 
-function showSummary(results, earlyExit) {
+function showSummary(results, apiUrl, earlyExit) {
   const el = document.getElementById('summary');
   const ct = document.getElementById('summary-content');
   el.style.display = 'block';
-
-  const allTablesOk = TABLES.every(t => results.tables[t] === 'ok');
-  const totalTests  = results.pass + results.fail;
-
-  let html = `<div class="mb-3">
-    <span class="text-lg font-bold ${results.fail===0?'ok':'err'}">
-      ${results.fail === 0 ? '🎉 全部通過！數據同步已就緒' : `⚠️ ${results.fail}/${totalTests} 項測試失敗`}
-    </span>
+  const total = results.pass + results.fail;
+  let html = `<div class="mb-3 text-base font-bold ${results.fail===0?'ok':'err'}">
+    ${results.fail===0 ? '🎉 全部通過！三端數據同步已完全就緒' : `⚠️ ${results.fail}/${total} 項測試失敗`}
   </div>`;
 
-  if (earlyExit || !allTablesOk) {
-    const missingTables = TABLES.filter(t => results.tables[t] === 'missing' || !results.tables[t]);
-    if (missingTables.length > 0 || earlyExit) {
-      html += `<div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-3">
-        <p class="font-semibold warn mb-2">📋 需要執行 SQL Schema</p>
-        <ol class="text-slate-300 space-y-1 text-xs list-decimal list-inside">
-          <li>前往 <a href="https://supabase.com/dashboard/project/${projectId}/sql/new" target="_blank" class="info underline">Supabase SQL Editor</a></li>
-          <li>貼上 <code>supabase_schema.sql</code> 的完整內容</li>
-          <li>點擊「Run」執行</li>
-          <li>重新整理此診斷頁面確認</li>
-        </ol>
-        ${missingTables.length > 0 ? `<p class="text-xs text-slate-400 mt-2">缺少資料表：${missingTables.join(', ')}</p>` : ''}
-      </div>`;
-    }
-    if (earlyExit) {
-      html += `<div class="bg-red-900/30 border border-red-700 rounded-lg p-4">
-        <p class="font-semibold err mb-1">🔴 Supabase 專案無法連線</p>
-        <p class="text-slate-300 text-xs">DNS 無法解析 <code>${projectId}.supabase.co</code>。<br>
-        可能原因：<br>
-        1. 免費方案超過 7 天未使用被自動暫停 → <a href="https://supabase.com/dashboard/project/${projectId}" target="_blank" class="info underline">點此恢復專案</a><br>
-        2. 專案 URL 錯誤（請在 Supabase 後台確認）<br>
-        3. 網路防火牆阻擋</p>
-      </div>`;
-    }
+  if (earlyExit || results.fail > 0) {
+    html += `<div class="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-3 text-xs">
+      <p class="font-semibold err mb-2">🔴 後端無法連線 - 三端同步將退化為 localStorage 模式</p>
+      <p class="text-slate-300">目前網站使用 localStorage 作為回退，資料只存在於各自瀏覽器，無法跨端同步。</p>
+      <p class="text-slate-300 mt-2">請按右方部署指引，將 <code>server/</code> 目錄部署到 Railway 或 Render，取得後端 URL 後填入各頁面。</p>
+    </div>`;
   } else {
-    html += `<div class="bg-green-900/30 border border-green-700 rounded-lg p-4">
-      <p class="font-semibold ok mb-2">✅ Supabase 連線正常，三端數據同步已就緒！</p>
-      <ul class="text-slate-300 text-xs space-y-1">
-        <li>• 客戶端預約 → 立即同步至 Admin 與 Designer</li>
-        <li>• Admin 更改預約狀態 → 立即推送至 Designer</li>
-        <li>• Designer 更新接單狀態 → 立即反映在客戶端</li>
-      </ul>
+    html += `<div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-3 text-xs">
+      <p class="font-semibold ok mb-2">✅ 後端正常！下一步：將後端 URL 寫入各頁面</p>
+      <p class="text-slate-300 mb-2">在 <code>client/index.html</code>、<code>admin/index.html</code>、<code>designer/index.html</code> 的 <code>&lt;head&gt;</code> 最頂部各加一行：</p>
+      <pre class="text-yellow-300">&lt;script&gt;window.AKB_API_URL = '${apiUrl}';&lt;/script&gt;</pre>
     </div>`;
   }
-
-  html += `<div class="mt-3 text-xs text-slate-500">測試時間：${new Date().toLocaleString('zh-TW')}</div>`;
   ct.innerHTML = html;
 }
-
-// 啟動診斷
-runDiagnostics().catch(e => {
-  log(`診斷發生未預期錯誤：${e.message}`, 'error');
-});
 </script>
 </body>
 </html>
