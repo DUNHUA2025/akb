@@ -10,7 +10,16 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // 中間件
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://akbmusicsalon.top',
+    'https://www.akbmusicsalon.top',
+    'http://localhost:3000',
+    'http://localhost:8080',
+    /\.github\.io$/,
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 
 // ========== 資料層 ==========
