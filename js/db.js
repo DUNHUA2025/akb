@@ -1,24 +1,30 @@
 // ============================================================
-// AKB Salon — 統一實時數據庫層 (Supabase)
-// 替換 localStorage 分散存儲，實現三端實時同步
+// AKB Salon — 統一數據庫層
+// 後端：Node/Express REST API + WebSocket 實時推送
+// 回退：localStorage（後端不可用時）
 // ============================================================
 
-// ── Supabase 配置 ────────────────────────────────────────────
-const SUPABASE_URL = 'https://jxoiwlutzrtaawifdsib.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4b2l3bHV0enJ0YWF3aWZkc2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3MjkwMjMsImV4cCI6MjA1ODMwNTAyM30.EaHCHGLBsJh3S5dxnNQ9BqmTrHCHCYaOH00RA5eLMBM';
-
-// ── Supabase 客戶端（單例）────────────────────────────────────
-let _supabase = null;
-function getSupabase() {
-  if (_supabase) return _supabase;
-  if (typeof window !== 'undefined' && window.supabase) {
-    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      realtime: { params: { eventsPerSecond: 10 } }
-    });
-    return _supabase;
+// ── 後端伺服器地址（部署時修改此處）────────────────────────
+// 本地開發: 'http://localhost:3001'
+// 生產環境: 換成你的 Railway / Render / VPS 地址
+const API_BASE = (() => {
+  // 若 window.AKB_API_URL 有設定（可在各 HTML 頁面頂部覆蓋），優先使用
+  if (typeof window !== 'undefined' && window.AKB_API_URL) return window.AKB_API_URL;
+  // 其次嘗試同域 /api（適合 nginx 反代場景）
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    // GitHub Pages 靜態站：嘗試環境變數配置的後端
+    return window.AKB_API_URL || null;
   }
-  return null; // 沒有 Supabase CDN 時返回 null，降級使用 localStorage
-}
+  return 'http://localhost:3001';
+})();
+
+const WS_BASE = (() => {
+  if (typeof window !== 'undefined' && window.AKB_WS_URL) return window.AKB_WS_URL;
+  if (API_BASE && API_BASE.startsWith('http')) {
+    return API_BASE.replace(/^http/, 'ws');
+  }
+  return null;
+})();
 
 // ── 預設資料 ─────────────────────────────────────────────────
 const DEFAULT_DESIGNERS = [
@@ -42,494 +48,497 @@ const DEFAULT_SERVICES = [
   { id: 10, name: '負離子直髮', category: '燙髮', price: 228, duration: 120, description: '離子燙直髮' },
 ];
 
-// ── 欄位正規化（snake_case ↔ camelCase）─────────────────────
-function normalizeBooking(b) {
-  if (!b) return null;
-  return {
-    id:            b.id,
-    serviceId:     b.service_id     ?? b.serviceId     ?? null,
-    serviceName:   b.service_name   ?? b.serviceName   ?? '',
-    designerId:    b.designer_id    ?? b.designerId    ?? null,
-    designerName:  b.designer_name  ?? b.designerName  ?? '',
-    date:          b.date           ?? '',
-    time:          b.time           ?? '',
-    customerName:  b.customer_name  ?? b.customerName  ?? '',
-    customerPhone: b.customer_phone ?? b.customerPhone ?? '',
-    customerEmail: b.customer_email ?? b.customerEmail ?? '',
-    note:          b.note           ?? '',
-    status:        b.status         ?? 'pending',
-    price:         Number(b.price)  || 0,
-    duration:      Number(b.duration) || 60,
-    createdAt:     b.created_at     ?? b.createdAt     ?? new Date().toISOString(),
-  };
-}
-
-function normalizeDesigner(d) {
-  if (!d) return null;
-  // specialty 可能是 JSON 字串或陣列
-  let specialty = d.specialty || [];
-  if (typeof specialty === 'string') {
-    try { specialty = JSON.parse(specialty); } catch { specialty = specialty.split(',').map(s => s.trim()).filter(Boolean); }
-  }
-  return {
-    id:        d.id,
-    name:      d.name      ?? '',
-    role:      d.role      ?? '設計師',
-    level:     d.level     ?? 'C',
-    specialty: Array.isArray(specialty) ? specialty : [],
-    bio:       d.bio       ?? '',
-    avatar:    d.avatar    ?? (d.name ? d.name[0].toUpperCase() : '?'),
-    rating:    Number(d.rating)  || 5.0,
-    reviews:   Number(d.reviews) || 0,
-    works:     Number(d.works)   || 0,
-    available: d.available !== false,
-    status:    d.status    ?? 'active',
-  };
-}
-
-// ── localStorage 降級快取 ────────────────────────────────────
+// ── localStorage 快取 ───────────────────────────────────────
 const CACHE = {
-  get(k)    { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
-  del(k)    { try { localStorage.removeItem(k); } catch {} },
-  // 鍵名常數
   BOOKINGS:  'akb_bookings_data',
-  BOOKINGS2: 'akb_client_bookings',
+  BOOKINGS2: 'salonBookings',
   DESIGNERS: 'akb_designers_data',
   SERVICES:  'akb_services_data',
-  CUSTOMERS: 'akb_customers_data',
-  ACCOUNTS:  'akb_client_accounts',
+  ACCOUNTS:  'akb_accounts',
+  get(key)       { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
+  set(key, val)  { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} },
+  remove(key)    { try { localStorage.removeItem(key); } catch {} },
 };
 
-// ── 事件總線（跨頁面實時更新通知）──────────────────────────
+// ── EventBus（頁面內事件匯流排）────────────────────────────
 const EventBus = {
-  _h: {},
-  on(ev, fn)   { (this._h[ev] = this._h[ev] || []).push(fn); },
-  off(ev, fn)  { this._h[ev] = (this._h[ev] || []).filter(h => h !== fn); },
-  emit(ev, d)  { (this._h[ev] || []).forEach(fn => { try { fn(d); } catch(e) { console.error('[EventBus]', e); } }); },
+  _handlers: {},
+  on(evt, fn)   { (this._handlers[evt] = this._handlers[evt] || []).push(fn); },
+  off(evt, fn)  { this._handlers[evt] = (this._handlers[evt] || []).filter(h => h !== fn); },
+  emit(evt, d)  { (this._handlers[evt] || []).forEach(fn => { try { fn(d); } catch(e) { console.warn('EventBus error:', e); } }); },
 };
 
-// ── 主資料庫物件 ─────────────────────────────────────────────
-const DB = {
+// ── WebSocket 管理 ──────────────────────────────────────────
+const WS = {
+  _ws:           null,
+  _reconnectTimer: null,
+  _listeners:    [],          // { eventType, table, callback }
+  _connected:    false,
+  _reconnectDelay: 3000,
 
-  // ─── 初始化 & 種子 ───────────────────────────────────────
-  async init() {
-    const sb = getSupabase();
-    if (!sb) { console.warn('[DB] Supabase 未載入，使用 localStorage 模式'); return; }
+  connect() {
+    if (!WS_BASE) {
+      console.info('[DB] 未設定後端地址，跳過 WebSocket 連線（使用 localStorage 模式）');
+      return;
+    }
+    if (this._ws && (this._ws.readyState === WebSocket.CONNECTING || this._ws.readyState === WebSocket.OPEN)) return;
+
     try {
-      // 植入預設設計師（若表為空）
-      const { count: dc } = await sb.from('designers').select('id', { count: 'exact', head: true });
-      if (dc === 0) {
-        await sb.from('designers').insert(DEFAULT_DESIGNERS.map(d => ({
-          id: d.id, name: d.name, role: d.role, level: d.level,
-          specialty: JSON.stringify(d.specialty), bio: d.bio, avatar: d.avatar,
-          rating: d.rating, reviews: d.reviews, works: d.works,
-          available: d.available, status: d.status
-        })));
-        console.log('[DB] 已植入預設設計師');
-      }
-      // 植入預設服務（若表為空）
-      const { count: sc } = await sb.from('services').select('id', { count: 'exact', head: true });
-      if (sc === 0) {
-        await sb.from('services').insert(DEFAULT_SERVICES);
-        console.log('[DB] 已植入預設服務');
-      }
-    } catch(e) { console.warn('[DB] init 失敗:', e.message); }
+      this._ws = new WebSocket(WS_BASE);
+
+      this._ws.onopen = () => {
+        this._connected = true;
+        console.info('[DB] WebSocket 已連線');
+        clearTimeout(this._reconnectTimer);
+        EventBus.emit('ws_connected', {});
+      };
+
+      this._ws.onmessage = ({ data }) => {
+        try {
+          const msg = JSON.parse(data);
+          this._dispatch(msg);
+        } catch(e) { console.warn('[DB] WS 解析失敗:', e); }
+      };
+
+      this._ws.onerror = (e) => {
+        console.warn('[DB] WebSocket 錯誤');
+      };
+
+      this._ws.onclose = () => {
+        this._connected = false;
+        console.info('[DB] WebSocket 已斷線，將在', this._reconnectDelay / 1000, '秒後重連...');
+        EventBus.emit('ws_disconnected', {});
+        this._reconnectTimer = setTimeout(() => this.connect(), this._reconnectDelay);
+      };
+    } catch(e) {
+      console.warn('[DB] WebSocket 初始化失敗:', e.message);
+    }
   },
 
-  // ─── 預約管理 ────────────────────────────────────────────
+  _dispatch(msg) {
+    // msg.type: INIT | NEW_BOOKING | UPDATE_BOOKING | DELETE_BOOKING | NEW_DESIGNER | UPDATE_DESIGNER | UPDATE_SERVICES
+    const type = msg.type;
+    const data = msg.data;
+
+    if (type === 'INIT') {
+      // 伺服器推送完整快照，更新快取
+      if (data.bookings)  { CACHE.set(CACHE.BOOKINGS, data.bookings); CACHE.set(CACHE.BOOKINGS2, data.bookings); }
+      if (data.designers) { CACHE.set(CACHE.DESIGNERS, data.designers); }
+      if (data.services)  { CACHE.set(CACHE.SERVICES,  data.services); }
+      EventBus.emit('INIT', data);
+      return;
+    }
+
+    // 局部更新快取
+    if (type === 'NEW_BOOKING') {
+      const list = CACHE.get(CACHE.BOOKINGS) || [];
+      list.unshift(data);
+      CACHE.set(CACHE.BOOKINGS, list); CACHE.set(CACHE.BOOKINGS2, list);
+      EventBus.emit('NEW_BOOKING', data);
+    } else if (type === 'UPDATE_BOOKING') {
+      _patchCacheBooking(data);
+      EventBus.emit('UPDATE_BOOKING', data);
+    } else if (type === 'DELETE_BOOKING') {
+      _deleteCacheBooking(data.id);
+      EventBus.emit('DELETE_BOOKING', data);
+    } else if (type === 'NEW_DESIGNER' || type === 'UPDATE_DESIGNER') {
+      _patchCacheDesigner(data);
+      EventBus.emit(type, data);
+    } else if (type === 'UPDATE_SERVICES') {
+      CACHE.set(CACHE.SERVICES, Array.isArray(data) ? data : []);
+      EventBus.emit('UPDATE_SERVICES', data);
+    } else if (type === 'UPDATE_ACCOUNT') {
+      EventBus.emit('UPDATE_ACCOUNT', data);
+    }
+
+    // 通知所有對應的訂閱回調
+    this._listeners.forEach(l => {
+      if (!l.eventType || l.eventType === type || l.eventType === '*') {
+        try { l.callback({ eventType: type, data }); } catch(e) {}
+      }
+    });
+  },
+
+  subscribe(eventType, callback) {
+    const listener = { eventType, callback };
+    this._listeners.push(listener);
+    return () => { this._listeners = this._listeners.filter(l => l !== listener); };
+  },
+
+  isConnected() { return this._connected; },
+};
+
+// ── 快取輔助函數 ────────────────────────────────────────────
+function _patchCacheBooking(b) {
+  for (const key of [CACHE.BOOKINGS, CACHE.BOOKINGS2]) {
+    const list = CACHE.get(key) || [];
+    const idx  = list.findIndex(x => String(x.id) === String(b.id));
+    if (idx > -1) list[idx] = b; else list.unshift(b);
+    CACHE.set(key, list);
+  }
+}
+
+function _deleteCacheBooking(id) {
+  for (const key of [CACHE.BOOKINGS, CACHE.BOOKINGS2]) {
+    const list = (CACHE.get(key) || []).filter(x => String(x.id) !== String(id));
+    CACHE.set(key, list);
+  }
+}
+
+function _patchCacheDesigner(d) {
+  const list = CACHE.get(CACHE.DESIGNERS) || DEFAULT_DESIGNERS;
+  const idx  = list.findIndex(x => x.id === d.id);
+  if (idx > -1) list[idx] = d; else list.push(d);
+  CACHE.set(CACHE.DESIGNERS, list);
+}
+
+// ── HTTP 請求輔助 ────────────────────────────────────────────
+async function apiRequest(method, path, body) {
+  if (!API_BASE) throw new Error('未設定後端地址');
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API_BASE}${path}`, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── 主 DB 物件 ───────────────────────────────────────────────
+const DB = {
+
+  // ── 初始化（建立 WS 連線）─────────────────────────────────
+  init() {
+    WS.connect();
+  },
+
+  // ── 預約管理 ──────────────────────────────────────────────
 
   async getBookings() {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('bookings').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        const list = data.map(normalizeBooking);
-        CACHE.set(CACHE.BOOKINGS,  list);
-        CACHE.set(CACHE.BOOKINGS2, list);
-        return list;
-      } catch(e) { console.warn('[DB] getBookings 降級:', e.message); }
+    try {
+      const data = await apiRequest('GET', '/api/bookings');
+      CACHE.set(CACHE.BOOKINGS,  data);
+      CACHE.set(CACHE.BOOKINGS2, data);
+      return data;
+    } catch(e) {
+      console.warn('[DB] getBookings 降級:', e.message);
+      return CACHE.get(CACHE.BOOKINGS) || CACHE.get(CACHE.BOOKINGS2) || [];
     }
-    // 降級：localStorage
-    return CACHE.get(CACHE.BOOKINGS) || CACHE.get(CACHE.BOOKINGS2) || [];
   },
 
   async createBooking(booking) {
     const record = {
-      service_id:    booking.serviceId   || null,
-      service_name:  booking.serviceName || '',
-      designer_id:   booking.designerId  || null,
-      designer_name: booking.designerName|| '',
-      date:          booking.date        || '',
-      time:          booking.time        || '',
-      customer_name: booking.name        || booking.customerName  || '',
-      customer_phone:booking.phone       || booking.customerPhone || '',
-      customer_email:booking.email       || booking.customerEmail || '',
-      note:          booking.note        || '',
-      status:        'pending',
-      price:         Number(booking.price)    || 0,
-      duration:      Number(booking.duration) || 60,
+      serviceId:      booking.serviceId    || null,
+      serviceName:    booking.serviceName  || '',
+      designerId:     booking.designerId   || null,
+      designerName:   booking.designerName || '',
+      date:           booking.date         || '',
+      time:           booking.time         || '',
+      customerName:   booking.name         || booking.customerName  || '',
+      customerPhone:  booking.phone        || booking.customerPhone || '',
+      customerEmail:  booking.email        || booking.customerEmail || '',
+      note:           booking.note         || '',
+      price:          Number(booking.price)    || 0,
+      duration:       Number(booking.duration) || 60,
     };
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('bookings').insert([record]).select().single();
-        if (error) throw error;
-        const nb = normalizeBooking(data);
-        // 更新快取
-        const list = CACHE.get(CACHE.BOOKINGS) || [];
-        list.unshift(nb);
-        CACHE.set(CACHE.BOOKINGS,  list);
-        CACHE.set(CACHE.BOOKINGS2, list);
-        EventBus.emit('booking_created', nb);
-        return nb;
-      } catch(e) { console.warn('[DB] createBooking 降級:', e.message); }
+    try {
+      const nb = await apiRequest('POST', '/api/bookings', record);
+      const list = CACHE.get(CACHE.BOOKINGS) || [];
+      list.unshift(nb);
+      CACHE.set(CACHE.BOOKINGS,  list);
+      CACHE.set(CACHE.BOOKINGS2, list);
+      EventBus.emit('booking_created', nb);
+      return nb;
+    } catch(e) {
+      console.warn('[DB] createBooking 降級:', e.message);
+      // 本地回退
+      const nb = { ...record, id: 'local_' + Date.now(), status: 'pending', createdAt: Date.now() };
+      const list = CACHE.get(CACHE.BOOKINGS) || [];
+      list.unshift(nb);
+      CACHE.set(CACHE.BOOKINGS,  list);
+      CACHE.set(CACHE.BOOKINGS2, list);
+      EventBus.emit('booking_created', nb);
+      return nb;
     }
-    // 降級：localStorage
-    const nb = normalizeBooking({ ...record, id: 'local_' + Date.now(), created_at: new Date().toISOString() });
-    const list = CACHE.get(CACHE.BOOKINGS) || [];
-    list.unshift(nb);
-    CACHE.set(CACHE.BOOKINGS,  list);
-    CACHE.set(CACHE.BOOKINGS2, list);
-    EventBus.emit('booking_created', nb);
-    return nb;
   },
 
   async updateBookingStatus(id, status) {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('bookings')
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('id', id).select().single();
-        if (error) throw error;
-        const nb = normalizeBooking(data);
-        this._updateCacheBooking(nb);
-        EventBus.emit('booking_updated', nb);
-        return nb;
-      } catch(e) { console.warn('[DB] updateBookingStatus 降級:', e.message); }
+    try {
+      const nb = await apiRequest('PATCH', `/api/bookings/${id}`, { status });
+      _patchCacheBooking(nb);
+      EventBus.emit('booking_updated', nb);
+      return nb;
+    } catch(e) {
+      console.warn('[DB] updateBookingStatus 降級:', e.message);
+      return this._localUpdateStatus(id, status);
     }
-    // 降級
-    return this._localUpdateBookingStatus(id, status);
   },
 
   async cancelBooking(id) {
     return this.updateBookingStatus(id, 'cancelled');
   },
 
-  _updateCacheBooking(nb) {
+  _localUpdateStatus(id, status) {
     for (const key of [CACHE.BOOKINGS, CACHE.BOOKINGS2]) {
       const list = CACHE.get(key) || [];
-      const idx = list.findIndex(b => b.id == nb.id);
-      if (idx > -1) list[idx] = nb; else list.unshift(nb);
-      CACHE.set(key, list);
+      const idx  = list.findIndex(b => String(b.id) === String(id));
+      if (idx > -1) {
+        list[idx] = { ...list[idx], status, updatedAt: Date.now() };
+        CACHE.set(key, list);
+        EventBus.emit('booking_updated', list[idx]);
+        return list[idx];
+      }
     }
-  },
-
-  _localUpdateBookingStatus(id, status) {
-    let result = null;
-    for (const key of [CACHE.BOOKINGS, CACHE.BOOKINGS2]) {
-      const list = CACHE.get(key) || [];
-      const idx = list.findIndex(b => b.id == id);
-      if (idx > -1) { list[idx] = { ...list[idx], status }; CACHE.set(key, list); result = list[idx]; }
-    }
-    if (result) EventBus.emit('booking_updated', result);
-    return result;
-  },
-
-  // ─── 設計師管理 ──────────────────────────────────────────
-
-  async getDesigners() {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('designers').select('*').neq('status', 'resigned').order('id');
-        if (error) throw error;
-        const list = data.map(normalizeDesigner);
-        CACHE.set(CACHE.DESIGNERS, list);
-        return list;
-      } catch(e) { console.warn('[DB] getDesigners 降級:', e.message); }
-    }
-    return CACHE.get(CACHE.DESIGNERS) || DEFAULT_DESIGNERS.map(normalizeDesigner);
-  },
-
-  async updateDesigner(id, updates) {
-    // specialty 陣列需轉 JSON 存 Supabase
-    const dbUpdates = { ...updates, updated_at: new Date().toISOString() };
-    if (Array.isArray(dbUpdates.specialty)) {
-      dbUpdates.specialty = JSON.stringify(dbUpdates.specialty);
-    }
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('designers').update(dbUpdates).eq('id', id).select().single();
-        if (error) throw error;
-        const nd = normalizeDesigner(data);
-        this._updateCacheDesigner(nd);
-        EventBus.emit('designer_updated', nd);
-        return nd;
-      } catch(e) { console.warn('[DB] updateDesigner 降級:', e.message); }
-    }
-    // 降級
-    const list = CACHE.get(CACHE.DESIGNERS) || DEFAULT_DESIGNERS.map(normalizeDesigner);
-    const idx = list.findIndex(d => d.id == id);
-    const nd = normalizeDesigner({ ...(list[idx] || {}), ...updates, id });
-    if (idx > -1) list[idx] = nd; else list.push(nd);
-    CACHE.set(CACHE.DESIGNERS, list);
-    EventBus.emit('designer_updated', nd);
-    return nd;
-  },
-
-  async createDesigner(designer) {
-    const record = {
-      name:      designer.name,
-      role:      designer.role      || '設計師',
-      level:     designer.level     || 'C',
-      specialty: JSON.stringify(Array.isArray(designer.specialty) ? designer.specialty : []),
-      bio:       designer.bio       || '',
-      avatar:    designer.avatar    || (designer.name ? designer.name[0].toUpperCase() : 'D'),
-      rating:    designer.rating    || 5.0,
-      reviews:   designer.reviews   || 0,
-      works:     designer.works     || 0,
-      available: designer.available !== false,
-      status:    designer.status    || 'active',
-    };
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('designers').insert([record]).select().single();
-        if (error) throw error;
-        const nd = normalizeDesigner(data);
-        const list = CACHE.get(CACHE.DESIGNERS) || [];
-        list.push(nd);
-        CACHE.set(CACHE.DESIGNERS, list);
-        EventBus.emit('designer_created', nd);
-        return nd;
-      } catch(e) { console.warn('[DB] createDesigner 降級:', e.message); }
-    }
-    // 降級
-    const list = CACHE.get(CACHE.DESIGNERS) || DEFAULT_DESIGNERS.map(normalizeDesigner);
-    const nd = normalizeDesigner({ ...record, id: Math.max(...list.map(d => d.id), 0) + 1, specialty: designer.specialty || [] });
-    list.push(nd);
-    CACHE.set(CACHE.DESIGNERS, list);
-    EventBus.emit('designer_created', nd);
-    return nd;
-  },
-
-  _updateCacheDesigner(nd) {
-    const list = CACHE.get(CACHE.DESIGNERS) || [];
-    const idx = list.findIndex(d => d.id == nd.id);
-    if (idx > -1) list[idx] = nd; else list.push(nd);
-    CACHE.set(CACHE.DESIGNERS, list);
-  },
-
-  // ─── 服務項目管理 ────────────────────────────────────────
-
-  async getServices() {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('services').select('*').order('id');
-        if (error) throw error;
-        CACHE.set(CACHE.SERVICES, data);
-        return data;
-      } catch(e) { console.warn('[DB] getServices 降級:', e.message); }
-    }
-    return CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
-  },
-
-  async createService(service) {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('services').insert([service]).select().single();
-        if (error) throw error;
-        const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
-        list.push(data);
-        CACHE.set(CACHE.SERVICES, list);
-        return data;
-      } catch(e) { console.warn('[DB] createService 降級:', e.message); }
-    }
-    const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
-    const ns = { ...service, id: Math.max(...list.map(s => s.id), 0) + 1 };
-    list.push(ns);
-    CACHE.set(CACHE.SERVICES, list);
-    return ns;
-  },
-
-  async updateService(id, updates) {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('services').update(updates).eq('id', id).select().single();
-        if (error) throw error;
-        const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
-        const idx = list.findIndex(s => s.id == id);
-        if (idx > -1) list[idx] = data;
-        CACHE.set(CACHE.SERVICES, list);
-        return data;
-      } catch(e) { console.warn('[DB] updateService 降級:', e.message); }
-    }
-    const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
-    const idx = list.findIndex(s => s.id == id);
-    if (idx > -1) { list[idx] = { ...list[idx], ...updates }; CACHE.set(CACHE.SERVICES, list); return list[idx]; }
     return null;
   },
 
+  // ── 設計師管理 ────────────────────────────────────────────
+
+  async getDesigners() {
+    try {
+      const data = await apiRequest('GET', '/api/designers');
+      CACHE.set(CACHE.DESIGNERS, data);
+      return data;
+    } catch(e) {
+      console.warn('[DB] getDesigners 降級:', e.message);
+      return CACHE.get(CACHE.DESIGNERS) || DEFAULT_DESIGNERS;
+    }
+  },
+
+  async updateDesigner(id, updates) {
+    try {
+      const nd = await apiRequest('PATCH', `/api/designers/${id}`, updates);
+      _patchCacheDesigner(nd);
+      EventBus.emit('designer_updated', nd);
+      return nd;
+    } catch(e) {
+      console.warn('[DB] updateDesigner 降級:', e.message);
+      const list = CACHE.get(CACHE.DESIGNERS) || DEFAULT_DESIGNERS;
+      const idx  = list.findIndex(d => d.id === id);
+      if (idx > -1) { list[idx] = { ...list[idx], ...updates }; CACHE.set(CACHE.DESIGNERS, list); }
+      return list[idx] || null;
+    }
+  },
+
+  async createDesigner(data) {
+    try {
+      const nd = await apiRequest('POST', '/api/designers', data);
+      _patchCacheDesigner(nd);
+      return nd;
+    } catch(e) {
+      console.warn('[DB] createDesigner 降級:', e.message);
+      const list = CACHE.get(CACHE.DESIGNERS) || DEFAULT_DESIGNERS;
+      const nd   = { ...data, id: Math.max(...list.map(d => d.id), 0) + 1, status: 'active', available: true };
+      list.push(nd);
+      CACHE.set(CACHE.DESIGNERS, list);
+      return nd;
+    }
+  },
+
+  // ── 服務管理 ──────────────────────────────────────────────
+
+  async getServices() {
+    try {
+      const data = await apiRequest('GET', '/api/services');
+      CACHE.set(CACHE.SERVICES, data);
+      return data;
+    } catch(e) {
+      console.warn('[DB] getServices 降級:', e.message);
+      return CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
+    }
+  },
+
+  async createService(data) {
+    try {
+      const ns = await apiRequest('POST', '/api/services', data);
+      const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
+      list.push(ns);
+      CACHE.set(CACHE.SERVICES, list);
+      return ns;
+    } catch(e) {
+      console.warn('[DB] createService 降級:', e.message);
+      const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
+      const ns   = { ...data, id: Math.max(...list.map(s => s.id), 0) + 1 };
+      list.push(ns);
+      CACHE.set(CACHE.SERVICES, list);
+      return ns;
+    }
+  },
+
+  async updateService(id, updates) {
+    try {
+      const ns = await apiRequest('PATCH', `/api/services/${id}`, updates);
+      const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
+      const idx  = list.findIndex(s => s.id === id);
+      if (idx > -1) { list[idx] = ns; CACHE.set(CACHE.SERVICES, list); }
+      return ns;
+    } catch(e) {
+      console.warn('[DB] updateService 降級:', e.message);
+      const list = CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES;
+      const idx  = list.findIndex(s => s.id === id);
+      if (idx > -1) { list[idx] = { ...list[idx], ...updates }; CACHE.set(CACHE.SERVICES, list); }
+      return list[idx] || null;
+    }
+  },
+
   async deleteService(id) {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { error } = await sb.from('services').delete().eq('id', id);
-        if (error) throw error;
-        const list = (CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES).filter(s => s.id != id);
-        CACHE.set(CACHE.SERVICES, list);
-        return true;
-      } catch(e) { console.warn('[DB] deleteService 降級:', e.message); }
+    try {
+      await apiRequest('DELETE', `/api/services/${id}`);
+      const list = (CACHE.get(CACHE.SERVICES) || []).filter(s => s.id !== id);
+      CACHE.set(CACHE.SERVICES, list);
+    } catch(e) {
+      console.warn('[DB] deleteService 降級:', e.message);
+      const list = (CACHE.get(CACHE.SERVICES) || []).filter(s => s.id !== id);
+      CACHE.set(CACHE.SERVICES, list);
     }
-    CACHE.set(CACHE.SERVICES, (CACHE.get(CACHE.SERVICES) || DEFAULT_SERVICES).filter(s => s.id != id));
-    return true;
   },
 
-  // ─── 顧客帳號管理 ────────────────────────────────────────
-
-  async getClientAccount(phone) {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data } = await sb.from('customers').select('name,phone,password_hash').eq('phone', phone).maybeSingle();
-        if (data) return { name: data.name, phone: data.phone, password: data.password_hash };
-      } catch(e) { console.warn('[DB] getClientAccount 降級:', e.message); }
-    }
-    const accounts = CACHE.get(CACHE.ACCOUNTS) || {};
-    return accounts[phone] || null;
-  },
-
-  async saveClientAccount(phone, accountData) {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const payload = {
-          phone,
-          name:          accountData.name     || '',
-          password_hash: accountData.password || '',
-          last_visit:    new Date().toISOString(),
-        };
-        const { data: existing } = await sb.from('customers').select('id').eq('phone', phone).maybeSingle();
-        if (existing) {
-          await sb.from('customers').update(payload).eq('phone', phone);
-        } else {
-          payload.first_visit = new Date().toISOString();
-          await sb.from('customers').insert([payload]);
-        }
-        return true;
-      } catch(e) { console.warn('[DB] saveClientAccount 降級:', e.message); }
-    }
-    const accounts = CACHE.get(CACHE.ACCOUNTS) || {};
-    accounts[phone] = { ...accountData, updatedAt: Date.now() };
-    CACHE.set(CACHE.ACCOUNTS, accounts);
-    return true;
-  },
+  // ── 客戶管理 ──────────────────────────────────────────────
 
   async getCustomers() {
-    const sb = getSupabase();
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('customers').select('*').order('last_visit', { ascending: false });
-        if (error) throw error;
-        CACHE.set(CACHE.CUSTOMERS, data);
-        return data;
-      } catch(e) { console.warn('[DB] getCustomers 降級:', e.message); }
+    try {
+      return await apiRequest('GET', '/api/customers');
+    } catch(e) {
+      console.warn('[DB] getCustomers 降級:', e.message);
+      // 從本地 bookings 推導
+      const bookings = CACHE.get(CACHE.BOOKINGS) || [];
+      const map = {};
+      bookings.forEach(b => {
+        const key = (b.customerPhone || '').replace(/\D/g, '') || b.customerName || '';
+        if (!key) return;
+        if (!map[key]) map[key] = { id: key, name: b.customerName || '', phone: b.customerPhone || '', visits: 0, totalSpent: 0 };
+        if (b.status === 'confirmed' || b.status === 'done') {
+          map[key].visits++;
+          map[key].totalSpent += Number(b.price) || 0;
+        }
+      });
+      return Object.values(map);
     }
-    return CACHE.get(CACHE.CUSTOMERS) || [];
   },
 
-  // ─── 統計 ────────────────────────────────────────────────
+  async getClientAccount(phone) {
+    try {
+      const accounts = CACHE.get(CACHE.ACCOUNTS) || {};
+      return accounts[phone] || null;
+    } catch(e) { return null; }
+  },
+
+  async saveClientAccount(phone, data) {
+    try {
+      await apiRequest('POST', `/api/accounts/${phone}`, data);
+    } catch(e) {
+      console.warn('[DB] saveClientAccount 降級:', e.message);
+    }
+    // 不論成功失敗，同步本地
+    const accounts = CACHE.get(CACHE.ACCOUNTS) || {};
+    accounts[phone] = { ...(accounts[phone] || {}), ...data };
+    CACHE.set(CACHE.ACCOUNTS, accounts);
+  },
+
+  // ── 統計 ──────────────────────────────────────────────────
 
   async getStats() {
-    const sb = getSupabase();
-    const today = new Date().toISOString().split('T')[0];
-    const monthPrefix = today.slice(0, 7);
-    if (sb) {
-      try {
-        const [
-          { count: todayCount },
-          { count: pendingCount },
-          { data: monthRevData },
-          { count: customerCount }
-        ] = await Promise.all([
-          sb.from('bookings').select('id', { count: 'exact', head: true }).eq('date', today).neq('status', 'cancelled'),
-          sb.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-          sb.from('bookings').select('price').like('date', monthPrefix + '%').in('status', ['confirmed','done']),
-          sb.from('customers').select('id', { count: 'exact', head: true }),
-        ]);
-        const revenue = (monthRevData || []).reduce((s, b) => s + (Number(b.price) || 0), 0);
-        return { today: todayCount || 0, pending: pendingCount || 0, revenue, totalCustomers: customerCount || 0 };
-      } catch(e) { console.warn('[DB] getStats 降級:', e.message); }
+    try {
+      return await apiRequest('GET', '/api/stats');
+    } catch(e) {
+      console.warn('[DB] getStats 降級:', e.message);
+      const bookings = CACHE.get(CACHE.BOOKINGS) || [];
+      const today    = new Date().toISOString().slice(0, 10);
+      return {
+        today:         bookings.filter(b => b.date === today && b.status !== 'cancelled').length,
+        pending:       bookings.filter(b => b.status === 'pending').length,
+        monthRevenue:  0,
+        totalCustomers: new Set(bookings.map(b => b.customerPhone).filter(Boolean)).size,
+        totalBookings: bookings.filter(b => b.status !== 'cancelled').length,
+        topServices:   [],
+        topDesigners:  [],
+      };
     }
-    // 降級
-    const bookings = CACHE.get(CACHE.BOOKINGS) || [];
-    return {
-      today:          bookings.filter(b => b.date === today && b.status !== 'cancelled').length,
-      pending:        bookings.filter(b => b.status === 'pending').length,
-      revenue:        bookings.filter(b => b.date.startsWith(monthPrefix) && (b.status==='confirmed'||b.status==='done')).reduce((s,b) => s+(Number(b.price)||0), 0),
-      totalCustomers: 0,
+  },
+
+  // ── 實時訂閱 ──────────────────────────────────────────────
+
+  /**
+   * 訂閱預約變更
+   * onChange({ eventType: 'NEW_BOOKING'|'UPDATE_BOOKING'|'DELETE_BOOKING', booking })
+   * 返回取消訂閱函數
+   */
+  subscribeBookings(onChange) {
+    const types = ['NEW_BOOKING', 'UPDATE_BOOKING', 'DELETE_BOOKING'];
+
+    // 若 WebSocket 已連，等 INIT 後的推送會自動觸發；也訂閱 EventBus 本地事件
+    const handlers = types.map(type => {
+      const fn = (data) => onChange({ eventType: type, booking: data });
+      EventBus.on(type, fn);
+      return { type, fn };
+    });
+
+    // 同時訂閱 WS 原始事件（確保即使 EventBus 未觸發也能收到）
+    const unsub = WS.subscribe('*', ({ eventType, data }) => {
+      if (types.includes(eventType)) {
+        onChange({ eventType, booking: data });
+      }
+    });
+
+    return () => {
+      handlers.forEach(({ type, fn }) => EventBus.off(type, fn));
+      unsub();
     };
   },
 
-  // ─── 實時訂閱 ────────────────────────────────────────────
-
   /**
-   * 訂閱預約表變更（INSERT / UPDATE / DELETE）
-   * @param {function} onChange - 回呼，參數 { eventType, new: normalized, old }
-   * @returns {function} unsubscribe 函數
-   */
-  subscribeBookings(onChange) {
-    const sb = getSupabase();
-    if (!sb) return () => {};
-    try {
-      const channel = sb.channel('akb-bookings-' + Date.now())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, payload => {
-          const nb = payload.new ? normalizeBooking(payload.new) : null;
-          if (nb) this._updateCacheBooking(nb);
-          EventBus.emit('booking_realtime', { eventType: payload.eventType, booking: nb, old: payload.old });
-          onChange && onChange({ eventType: payload.eventType, booking: nb, old: payload.old });
-        })
-        .subscribe(status => console.log('[DB] 預約訂閱:', status));
-      return () => sb.removeChannel(channel);
-    } catch(e) { console.warn('[DB] subscribeBookings 失敗:', e.message); return () => {}; }
-  },
-
-  /**
-   * 訂閱設計師表變更
-   * @param {function} onChange
-   * @returns {function} unsubscribe 函數
+   * 訂閱設計師變更
+   * onChange({ eventType: 'NEW_DESIGNER'|'UPDATE_DESIGNER', designer })
+   * 返回取消訂閱函數
    */
   subscribeDesigners(onChange) {
-    const sb = getSupabase();
-    if (!sb) return () => {};
+    const types = ['NEW_DESIGNER', 'UPDATE_DESIGNER'];
+
+    const handlers = types.map(type => {
+      const fn = (data) => onChange({ eventType: type, designer: data });
+      EventBus.on(type, fn);
+      return { type, fn };
+    });
+
+    const unsub = WS.subscribe('*', ({ eventType, data }) => {
+      if (types.includes(eventType)) {
+        onChange({ eventType, designer: data });
+      }
+    });
+
+    return () => {
+      handlers.forEach(({ type, fn }) => EventBus.off(type, fn));
+      unsub();
+    };
+  },
+
+  // ── 後端狀態 ─────────────────────────────────────────────
+
+  isBackendConnected() { return WS.isConnected(); },
+
+  async checkBackend() {
     try {
-      const channel = sb.channel('akb-designers-' + Date.now())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'designers' }, payload => {
-          const nd = payload.new ? normalizeDesigner(payload.new) : null;
-          if (nd) this._updateCacheDesigner(nd);
-          EventBus.emit('designer_realtime', { eventType: payload.eventType, designer: nd });
-          onChange && onChange({ eventType: payload.eventType, designer: nd });
-        })
-        .subscribe(status => console.log('[DB] 設計師訂閱:', status));
-      return () => sb.removeChannel(channel);
-    } catch(e) { console.warn('[DB] subscribeDesigners 失敗:', e.message); return () => {}; }
+      const data = await apiRequest('GET', '/api/health');
+      return { ok: true, ...data };
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
   },
 };
 
-// ── 全域掛載 ─────────────────────────────────────────────────
+// ── 全局掛載 ─────────────────────────────────────────────────
 window.DB        = DB;
 window.EventBus  = EventBus;
-window.DBCache   = CACHE;
-window.DBDefaults = { designers: DEFAULT_DESIGNERS, services: DEFAULT_SERVICES };
+window.WS        = WS;
+window.CACHE     = CACHE;
+window.DEFAULT_DESIGNERS = DEFAULT_DESIGNERS;
+window.DEFAULT_SERVICES  = DEFAULT_SERVICES;
 
-// 自動初始化種子資料
-DB.init().catch(() => {});
+// 自動初始化（建立 WebSocket）
+DB.init();
 
-console.log('[DB] AKB Salon 實時數據庫層已載入 ✓');
+console.info('[DB] AKB Salon 數據庫層已載入 ✓', API_BASE ? `後端: ${API_BASE}` : '（純離線模式）');
