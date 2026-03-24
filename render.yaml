@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: akb-salon-server
+    env: node
+    buildCommand: npm install
+    startCommand: node server_app.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true
