@@ -95,7 +95,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
       <h2 class="text-2xl font-bold serif mb-6">選擇服務項目</h2>
       <div v-if="loadingServices" class="text-center py-12 text-muted">載入服務中...</div>
       <template v-else>
-        <div v-for="cat in ['基礎','染髮','燙髮','護理']" :key="cat" class="mb-6">
+        <div v-for="cat in serviceCategories" :key="cat" class="mb-6">
           <div class="text-xs uppercase tracking-widest text-muted mb-3">{{cat}} 服務</div>
           <div class="space-y-2">
             <div v-for="s in services.filter(x=>x.category===cat)" :key="s.id"
@@ -391,15 +391,15 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
 <script>
 const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
-// 內建服務（客戶端用 - 與 db.js DEFAULT_SERVICES 保持一致但含 en 欄位）
+// 內建服務（客戶端離線回退 - 與後端 DEFAULT_SERVICES 保持一致）
 const BUILTIN_SERVICES = [
-  { id:1,  name:'洗剪吹',     en:'Wash, cut and blow-dry',           category:'基礎', price:128, duration:60 },
-  { id:2,  name:'單剪',       en:'Single cut',                       category:'基礎', price:68,  duration:30 },
-  { id:3,  name:'洗吹',       en:'Wash and blow-dry',                category:'基礎', price:88,  duration:45 },
-  { id:4,  name:'彩色染髮',   en:'Color hair dye',                   category:'染髮', price:168, duration:90 },
+  { id:1,  name:'洗剪吹',     en:'Wash, cut and blow-dry',           category:'基礎', price:128, duration:60  },
+  { id:2,  name:'單剪',       en:'Single cut',                       category:'基礎', price:68,  duration:30  },
+  { id:3,  name:'洗吹',       en:'Wash and blow-dry',                category:'基礎', price:88,  duration:45  },
+  { id:4,  name:'彩色染髮',   en:'Color hair dye',                   category:'染髮', price:168, duration:90  },
   { id:5,  name:'電髮',       en:'Perm',                             category:'燙髮', price:268, duration:120 },
-  { id:6,  name:'顏色焗油',   en:'Color hair treatment',             category:'護理', price:228, duration:60 },
-  { id:7,  name:'水療焗油',   en:'Spa hair treatment',               category:'護理', price:188, duration:60 },
+  { id:6,  name:'顏色焗油',   en:'Color hair treatment',             category:'護理', price:228, duration:60  },
+  { id:7,  name:'水療焗油',   en:'Spa hair treatment',               category:'護理', price:188, duration:60  },
   { id:8,  name:'陶瓷數碼曲', en:'Ceramic digital hair treatment',   category:'燙髮', price:358, duration:150 },
   { id:9,  name:'技術染髮',   en:'Technical hair dye',               category:'染髮', price:228, duration:120 },
   { id:10, name:'負離子直髮', en:'Negative ion hair straightening',  category:'燙髮', price:228, duration:120 },
@@ -436,6 +436,14 @@ createApp({
       const first = new Date(calendarYear.value, calendarMonth.value-1, 1).getDay();
       const total = new Date(calendarYear.value, calendarMonth.value, 0).getDate();
       return { first, total };
+    });
+
+    // 動態從服務資料提取分類（保持固定順序）
+    const CATEGORY_ORDER = ['基礎','染髮','燙髮','護理','進階'];
+    const serviceCategories = computed(() => {
+      const cats = [...new Set(services.value.map(s => s.category))];
+      return CATEGORY_ORDER.filter(c => cats.includes(c))
+        .concat(cats.filter(c => !CATEGORY_ORDER.includes(c)));
     });
 
     function prevMonth() { if (calendarMonth.value===1){calendarMonth.value=12;calendarYear.value--;}else calendarMonth.value--; }
@@ -702,7 +710,7 @@ createApp({
       bookingStep, bookingForm, bookingDone, showModal, submitting, submitError,
       calendarMonth, calendarYear, services, designers,
       loadingServices, loadingDesigners, loadingSlots,
-      ALL_TIMES, calDays,
+      ALL_TIMES, calDays, serviceCategories,
       selectDate, isDatePast, isTodayD, isSelectedD, isTimeBooked,
       prevMonth, nextMonth, submitBooking, resetBooking,
       myBookings, changePwdForm, statusText,
