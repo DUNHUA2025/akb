@@ -11,15 +11,27 @@ const wss = new WebSocket.Server({ server });
 
 // 中間件
 app.use(cors({
-  origin: [
-    'https://akbmusicsalon.top',
-    'https://www.akbmusicsalon.top',
-    'http://localhost:3000',
-    'http://localhost:8080',
-    /\.github\.io$/,
-  ],
-  credentials: true,
+  origin: function(origin, callback) {
+    // 允許無 origin（curl / 伺服端）、指定域名、本機開發
+    const allowed = [
+      'https://akbmusicsalon.top',
+      'https://www.akbmusicsalon.top',
+      'http://localhost:3000',
+      'http://localhost:8080',
+      'http://127.0.0.1:8080',
+      'http://127.0.0.1:3000',
+    ];
+    if (!origin || allowed.includes(origin) || /\.github\.io$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // 開發期間放行所有來源，上線後可改為 callback(new Error('Not allowed'))
+    }
+  },
+  methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: false,
 }));
+app.options('*', cors()); // 預先回應 preflight
 app.use(express.json());
 
 // ========== 資料層 ==========
