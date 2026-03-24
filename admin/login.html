@@ -109,10 +109,8 @@ createApp({
       
       loading.value = true;
       
-      // 使用 auth.js 進行登入
-      const result = Auth.login(username.value, password.value);
-      
-      setTimeout(() => {
+      // 使用後端 API 登入，確保密碼同步（loginAsync 優先呼叫後端）
+      Auth.loginAsync(username.value, password.value).then(result => {
         loading.value = false;
         
         if (result.success) {
@@ -125,7 +123,7 @@ createApp({
         } else {
           error.value = result.error || '登入失敗';
         }
-      }, 500);
+      });
     }
     
     function goHome() {

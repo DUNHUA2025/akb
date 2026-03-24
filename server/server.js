@@ -401,6 +401,9 @@ app.patch('/api/auth/password', (req, res) => {
   account.updatedAt = Date.now();
   saveData(FILES.accounts, accounts);
 
+  // 廣播密碼修改事件，讓所有連線的前端知道帳號已更新
+  broadcast('UPDATE_ACCOUNT', { username: username.toLowerCase(), role: account.role, name: account.name });
+
   res.json({ success: true });
 });
 

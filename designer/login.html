@@ -237,8 +237,8 @@ createApp({
       if (!selectedDesigner.value) { error.value = '請選擇設計師'; return; }
       if (!password.value) { error.value = '請輸入密碼'; return; }
       loading.value = true;
-      const result = Auth.login(selectedDesigner.value.username, password.value);
-      setTimeout(() => {
+      // 使用後端 API 登入，確保密碼同步（loginAsync 優先呼叫後端）
+      Auth.loginAsync(selectedDesigner.value.username, password.value).then(result => {
         loading.value = false;
         if (result.success) {
           if (result.role === 'designer' || result.role === 'admin') {
@@ -250,7 +250,7 @@ createApp({
         } else {
           error.value = result.error || '帳號或密碼錯誤';
         }
-      }, 500);
+      });
     }
     
     return { designers, selectedDesigner, password, showPwd, error, loading, selectDesigner, login };

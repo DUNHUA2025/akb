@@ -431,6 +431,15 @@ createApp({
         if (data.bookings)  allBookings.value  = data.bookings;
         if (data.designers) allDesigners.value = data.designers;
       });
+
+      // 監聽密碼修改廣播（其他設備修改密碼後強制重新登入）
+      EventBus.on('UPDATE_ACCOUNT', (data) => {
+        const session = Auth.getSession();
+        if (session && data.username === session.username) {
+          showToast('⚠️ 帳號密碼已在其他設備變更，請重新登入');
+          setTimeout(() => { Auth.logout(); window.location.href = './login.html'; }, 2000);
+        }
+      });
     }
 
     onMounted(async () => { await initData(); setupSubscriptions(); });
@@ -458,22 +467,21 @@ createApp({
     const showChangePwd = ref(false);
     const pwdForm = reactive({ current:'', newPwd:'', confirm:'', loading:false, error:'', success:'' });
 
-    function changePassword() {
+    async function changePassword() {
       pwdForm.error = ''; pwdForm.success = '';
       if (!pwdForm.current||!pwdForm.newPwd||!pwdForm.confirm) { pwdForm.error='請填寫所有欄位'; return; }
       if (pwdForm.newPwd.length < 6) { pwdForm.error='新密碼長度至少6位'; return; }
       if (pwdForm.newPwd !== pwdForm.confirm) { pwdForm.error='兩次輸入的新密碼不一致'; return; }
       pwdForm.loading = true;
-      setTimeout(() => {
-        const r = Auth.changePassword(pwdForm.current, pwdForm.newPwd);
-        if (r.success) {
-          pwdForm.success = '密碼修改成功！請使用新密碼重新登入';
-          setTimeout(() => { Auth.logout(); window.location.href='./login.html'; }, 1500);
-        } else {
-          pwdForm.error = r.error || '修改失敗';
-        }
-        pwdForm.loading = false;
-      }, 500);
+      // 呼叫後端 API，確保密碼同步到所有設備
+      const r = await Auth.changePasswordAsync(pwdForm.current, pwdForm.newPwd);
+      if (r.success) {
+        pwdForm.success = '密碼修改成功！請使用新密碼重新登入';
+        setTimeout(() => { Auth.logout(); window.location.href='./login.html'; }, 1500);
+      } else {
+        pwdForm.error = r.error || '修改失敗';
+      }
+      pwdForm.loading = false;
     }
 
     // ── 工作狀態切換 ─────────────────────────────────────────
