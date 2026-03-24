@@ -71,13 +71,19 @@ const DEFAULT_DESIGNERS = [
 ];
 
 const DEFAULT_SERVICES = [
-  { id:1, name:'剪髮造型', category:'基礎', duration:60,  price:600,  description:'專業剪髮造型，修飾臉型輪廓。' },
-  { id:2, name:'燙髮',     category:'進階', duration:150, price:2800, description:'多種燙髮技術，創造理想捲度。' },
-  { id:3, name:'染髮',     category:'進階', duration:120, price:2200, description:'時尚髮色，多色可選，持久顯色。' },
-  { id:4, name:'挑染',     category:'進階', duration:150, price:3200, description:'手工挑染，打造自然漸層感。' },
-  { id:5, name:'護髮療程', category:'護理', duration:60,  price:1200, description:'深層護髮，修復受損髮質。' },
-  { id:6, name:'頭皮護理', category:'護理', duration:45,  price:900,  description:'頭皮深層清潔，改善髮根健康。' },
+  { id:1,  name:'洗剪吹',     category:'基礎', duration:60,  price:128, description:'Wash, cut and blow-dry',                en:'Wash, cut and blow-dry'                },
+  { id:2,  name:'單剪',       category:'基礎', duration:30,  price:68,  description:'Single cut',                            en:'Single cut'                            },
+  { id:3,  name:'洗吹',       category:'基礎', duration:45,  price:88,  description:'Wash and blow-dry',                     en:'Wash and blow-dry'                     },
+  { id:4,  name:'彩色染髮',   category:'染髮', duration:90,  price:168, description:'Color hair dye',                        en:'Color hair dye'                        },
+  { id:5,  name:'電髮',       category:'燙髮', duration:120, price:268, description:'Perm',                                  en:'Perm'                                  },
+  { id:6,  name:'顏色焗油',   category:'護理', duration:60,  price:228, description:'Color hair treatment',                  en:'Color hair treatment'                  },
+  { id:7,  name:'水療焗油',   category:'護理', duration:60,  price:188, description:'Spa hair treatment',                    en:'Spa hair treatment'                    },
+  { id:8,  name:'陶瓷數碼曲', category:'燙髮', duration:150, price:358, description:'Ceramic digital hair treatment',        en:'Ceramic digital hair treatment'        },
+  { id:9,  name:'技術染髮',   category:'染髮', duration:120, price:228, description:'Technical hair dye',                    en:'Technical hair dye'                    },
+  { id:10, name:'負離子直髮', category:'燙髮', duration:120, price:228, description:'Negative ion hair straightening',       en:'Negative ion hair straightening'       },
 ];
+// 版本號：當 DEFAULT_SERVICES 更新時遞增此值，強制重新植入
+const SERVICES_VERSION = 2;
 
 // 預設帳號（密碼加簡單前綴）
 const DEFAULT_ACCOUNTS = {
@@ -92,8 +98,20 @@ const DEFAULT_ACCOUNTS = {
 // 記憶體資料
 let bookings  = loadData(FILES.bookings,  []);
 let designers = loadData(FILES.designers, DEFAULT_DESIGNERS);
-let services  = loadData(FILES.services,  DEFAULT_SERVICES);
 let accounts  = loadData(FILES.accounts,  DEFAULT_ACCOUNTS);
+
+// 服務資料：版本檢查，舊版本強制重新植入
+let services  = loadData(FILES.services,  DEFAULT_SERVICES);
+const needReseed = !services.length
+  || !services[0]
+  || services[0].id !== DEFAULT_SERVICES[0].id
+  || services.length !== DEFAULT_SERVICES.length
+  || (services[0].price !== DEFAULT_SERVICES[0].price);  // 若價格不符則重新植入
+if (needReseed) {
+  console.log('[Server] 重新植入服務資料 v' + SERVICES_VERSION);
+  services = DEFAULT_SERVICES;
+  saveData(FILES.services, services);
+}
 
 // 首次執行確保預設資料存檔
 if (!fs.existsSync(FILES.designers)) saveData(FILES.designers, designers);
