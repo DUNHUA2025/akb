@@ -95,28 +95,49 @@ const DEFAULT_ACCOUNTS = {
   luna:     { role: 'designer', passwordHash: 'plain:luna123',   name: 'Luna',  designerId: 5 },
 };
 
-// 記憶體資料
+// ========== 資料初始化（保留已有資料，不覆蓋）==========
 let bookings  = loadData(FILES.bookings,  []);
-let designers = loadData(FILES.designers, DEFAULT_DESIGNERS);
-let accounts  = loadData(FILES.accounts,  DEFAULT_ACCOUNTS);
+let designers = loadData(FILES.designers, null);
+let services  = loadData(FILES.services,  null);
+let accounts  = loadData(FILES.accounts,  null);
 
-// 服務資料：版本檢查，舊版本強制重新植入
-let services  = loadData(FILES.services,  DEFAULT_SERVICES);
-const needReseed = !services.length
-  || !services[0]
-  || services[0].id !== DEFAULT_SERVICES[0].id
-  || services.length !== DEFAULT_SERVICES.length
-  || (services[0].price !== DEFAULT_SERVICES[0].price);  // 若價格不符則重新植入
-if (needReseed) {
-  console.log('[Server] 重新植入服務資料 v' + SERVICES_VERSION);
-  services = DEFAULT_SERVICES;
-  saveData(FILES.services, services);
+// 設計師：只在沒有資料時使用預設
+if (!designers || !designers.length) {
+  console.log('[Server] 首次啟動：建立預設設計師資料');
+  designers = DEFAULT_DESIGNERS;
+  saveData(FILES.designers, designers);
+} else {
+  console.log('[Server] 載入已有設計師資料，共', designers.length, '位');
 }
 
-// 首次執行確保預設資料存檔
-if (!fs.existsSync(FILES.designers)) saveData(FILES.designers, designers);
-if (!fs.existsSync(FILES.services))  saveData(FILES.services,  services);
-if (!fs.existsSync(FILES.accounts))  saveData(FILES.accounts,  accounts);
+// 服務：只在沒有資料時使用預設
+if (!services || !services.length) {
+  console.log('[Server] 首次啟動：建立預設服務資料 v' + SERVICES_VERSION);
+  services = DEFAULT_SERVICES;
+  saveData(FILES.services, services);
+} else {
+  console.log('[Server] 載入已有服務資料，共', services.length, '項');
+}
+
+// 帳號：保留已有帳號（含已改密碼），只補充缺少的預設帳號
+if (!accounts) {
+  console.log('[Server] 首次啟動：建立預設帳號');
+  accounts = DEFAULT_ACCOUNTS;
+  saveData(FILES.accounts, accounts);
+} else {
+  let changed = false;
+  Object.entries(DEFAULT_ACCOUNTS).forEach(([key, def]) => {
+    if (!accounts[key]) {
+      console.log('[Server] 補充缺少的帳號:', key);
+      accounts[key] = def;
+      changed = true;
+    }
+  });
+  if (changed) saveData(FILES.accounts, accounts);
+  console.log('[Server] 載入已有帳號資料，共', Object.keys(accounts).length, '個');
+}
+
+if (!fs.existsSync(FILES.bookings)) saveData(FILES.bookings, bookings);
 
 // ========== WebSocket 廣播 ==========
 const clients = new Set();

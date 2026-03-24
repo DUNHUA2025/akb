@@ -8,4 +8,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # ─────────────────────────────────────────────────────────────────
+      # Supabase 持久化儲存（強烈建議設定，否則重啟後資料會消失）
+      # 步驟：
+      #   1. 前往 https://supabase.com 建立免費專案
+      #   2. 在 SQL Editor 執行下方的建表語句（見 supabase_schema.sql）
+      #   3. 在 Project Settings > API 頁面複製以下兩個值
+      #   4. 在 Render Dashboard > Environment Variables 中填入
+      # ─────────────────────────────────────────────────────────────────
+      - key: SUPABASE_URL
+        sync: false   # 請在 Render Dashboard 手動填入，格式：https://xxxxxxxxxxxx.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false   # 請在 Render Dashboard 手動填入（anon public key）
     autoDeploy: true
