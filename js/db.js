@@ -211,9 +211,17 @@ async function apiRequest(method, path, body) {
 // ── 主 DB 物件 ───────────────────────────────────────────────
 const DB = {
 
-  // ── 初始化（建立 WS 連線）─────────────────────────────────
+  // ── 初始化（建立 WS 連線 + 定期心跳防止 Render sleep）─────
   init() {
     WS.connect();
+    // 每 10 分鐘 ping 後端，防止 Render 免費層進入 sleep 並確保數據同步
+    if (API_BASE) {
+      setInterval(async () => {
+        try {
+          await fetch(`${API_BASE}/api/health`);
+        } catch(e) { /* silent */ }
+      }, 10 * 60 * 1000); // 10 minutes
+    }
   },
 
   // ── 預約管理 ──────────────────────────────────────────────
@@ -421,6 +429,20 @@ const DB = {
   },
 
   async getClientAccount(phone) {
+    if (!phone) return null;
+    try {
+      // 優先從後端取得（跨設備同步）
+      const data = await apiRequest('GET', `/api/accounts/${phone}`);
+      if (data) {
+        // 同步到本地快取
+        const accounts = CACHE.get(CACHE.ACCOUNTS) || {};
+        accounts[phone] = data;
+        CACHE.set(CACHE.ACCOUNTS, accounts);
+        return data;
+      }
+    } catch(e) {
+      // 後端不可用時回退本地
+    }
     try {
       const accounts = CACHE.get(CACHE.ACCOUNTS) || {};
       return accounts[phone] || null;
