@@ -397,19 +397,21 @@ createApp({
     let unsubDesigners = null;
 
     function setupSubscriptions() {
+      // 訂閱預約變更（事件名稱對應 db.js broadcast: NEW_BOOKING / UPDATE_BOOKING / DELETE_BOOKING）
       unsubBookings = DB.subscribeBookings(({ eventType, booking: nb }) => {
         if (!nb) return;
-        if (eventType === 'INSERT') {
+        if (eventType === 'NEW_BOOKING') {
           if (!allBookings.value.find(x => x.id === nb.id)) {
             allBookings.value.unshift(nb);
             if (Number(nb.designerId) === designerId) {
               showToast(`新預約：${nb.customerName} ${nb.date} ${nb.time}`, 5000);
             }
           }
-        } else if (eventType === 'UPDATE') {
+        } else if (eventType === 'UPDATE_BOOKING') {
           const idx = allBookings.value.findIndex(x => x.id === nb.id);
           if (idx > -1) allBookings.value[idx] = nb;
-        } else if (eventType === 'DELETE') {
+          else allBookings.value.unshift(nb);
+        } else if (eventType === 'DELETE_BOOKING') {
           allBookings.value = allBookings.value.filter(x => x.id !== nb.id);
         }
       });
@@ -417,9 +419,17 @@ createApp({
       unsubDesigners = DB.subscribeDesigners(({ eventType, designer: nd }) => {
         if (!nd) return;
         const idx = allDesigners.value.findIndex(x => x.id === nd.id);
-        if (eventType === 'INSERT' && idx === -1) allDesigners.value.push(nd);
-        else if (eventType === 'UPDATE' && idx > -1) allDesigners.value[idx] = nd;
-        else if (eventType === 'DELETE' && idx > -1) allDesigners.value.splice(idx, 1);
+        if (eventType === 'NEW_DESIGNER' && idx === -1) allDesigners.value.push(nd);
+        else if (eventType === 'UPDATE_DESIGNER') {
+          if (idx > -1) allDesigners.value[idx] = nd;
+          else allDesigners.value.push(nd);
+        }
+      });
+
+      // 監聽 INIT 事件（WS 重連後伺服器推送完整快照）
+      EventBus.on('INIT', (data) => {
+        if (data.bookings)  allBookings.value  = data.bookings;
+        if (data.designers) allDesigners.value = data.designers;
       });
     }
 

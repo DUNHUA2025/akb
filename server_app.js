@@ -414,9 +414,18 @@ app.get('/api/accounts', (req, res) => {
 });
 
 // 客戶帳號（手機為 key）
+app.get('/api/accounts/:phone', (req, res) => {
+  const { phone } = req.params;
+  const account = accounts[phone];
+  if (!account) return res.status(404).json({ error: '帳號不存在' });
+  // 不回傳密碼 hash
+  const { passwordHash, ...safe } = account;
+  res.json(safe);
+});
+
 app.post('/api/accounts/:phone', (req, res) => {
   const { phone } = req.params;
-  accounts[phone] = { ...req.body, updatedAt: Date.now() };
+  accounts[phone] = { ...accounts[phone], ...req.body, updatedAt: Date.now() };
   saveData(FILES.accounts, accounts);
   broadcast('UPDATE_ACCOUNT', { phone, ...accounts[phone] });
   res.json(accounts[phone]);
