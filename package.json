@@ -2,11 +2,10 @@
   "name": "akb-salon",
   "version": "1.0.0",
   "description": "AKB 多元化音樂發廊 - 後端伺服器",
-  "main": "server/server.js",
+  "main": "server_app.js",
   "scripts": {
-    "start": "node server/server.js",
-    "build": "cd server && npm install",
-    "dev": "node server/server.js"
+    "start": "node server_app.js",
+    "dev": "node server_app.js"
   },
   "engines": {
     "node": ">=18.0.0"
