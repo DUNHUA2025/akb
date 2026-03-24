@@ -1,0 +1,19 @@
+{
+  "name": "akb-salon",
+  "version": "1.0.0",
+  "description": "AKB 多元化音樂發廊 - 後端伺服器",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "ws": "^8.14.2",
+    "uuid": "^9.0.0"
+  }
+}
