@@ -498,20 +498,24 @@ app.delete('/api/services/:id', async (req, res) => {
 app.get('/api/customers', (req, res) => {
   const customerMap = {};
   bookings.forEach(b => {
+    if (b.status === 'cancelled') return; // 已取消不計入
     const key = (b.customerPhone || '').replace(/\D/g, '') || b.customerName || '';
     if (!key) return;
     if (!customerMap[key]) {
       customerMap[key] = { id: key, name: b.customerName||'未知', phone: b.customerPhone||'',
-        visits: 0, totalSpent: 0, lastVisit: '', firstVisit: b.date||'' };
+        visits: 0, totalSpent: 0, pendingCount: 0, lastVisit: '', firstVisit: b.date||'' };
     }
     if (b.status === 'confirmed' || b.status === 'done') {
       customerMap[key].visits++;
       customerMap[key].totalSpent += Number(b.price) || 0;
       if (!customerMap[key].lastVisit || b.date > customerMap[key].lastVisit) customerMap[key].lastVisit = b.date;
       if (b.date < customerMap[key].firstVisit) customerMap[key].firstVisit = b.date;
+    } else if (b.status === 'pending') {
+      customerMap[key].pendingCount++; // 待確認預約也顯示顧客
+      if (b.date < customerMap[key].firstVisit || !customerMap[key].firstVisit) customerMap[key].firstVisit = b.date;
     }
   });
-  res.json(Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent));
+  res.json(Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent || b.visits - a.visits));
 });
 
 // ─── 帳號 & 認證 ──────────────────────────────────────
