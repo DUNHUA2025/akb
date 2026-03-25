@@ -11,7 +11,21 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // 中間件
-// ── Gzip 壓縮（減少約 70% 傳輸大小）──────────────────────
+// ── CORS（必須最先，確保所有響應都帶 CORS 頭）──────────────
+const corsOptions = {
+  origin: function(origin, callback) {
+    // 允許所有來源（包括 akbmusicsalon.top、GitHub Pages）
+    callback(null, true);
+  },
+  methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: false,
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use(express.json());
+
+// ── Gzip 壓縮（在 CORS 之後，確保 CORS 頭已設置）──────────
 app.use((req, res, next) => {
   const ae = req.headers['accept-encoding'] || '';
   if (!ae.includes('gzip')) return next();
@@ -28,29 +42,6 @@ app.use((req, res, next) => {
   };
   next();
 });
-
-app.use(cors({
-  origin: function(origin, callback) {
-    const allowed = [
-      'https://akbmusicsalon.top',
-      'https://www.akbmusicsalon.top',
-      'http://localhost:3000',
-      'http://localhost:8080',
-      'http://127.0.0.1:8080',
-      'http://127.0.0.1:3000',
-    ];
-    if (!origin || allowed.includes(origin) || /\.github\.io$/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true);
-    }
-  },
-  methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization'],
-  credentials: false,
-}));
-app.options('*', cors());
-app.use(express.json());
 
 // ========== 資料層：優先 Supabase，否則本地 JSON ==========
 const SUPABASE_URL  = process.env.SUPABASE_URL  || '';
