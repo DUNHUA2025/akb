@@ -545,6 +545,22 @@ app.patch('/api/auth/password', async (req, res) => {
   res.json({ success: true });
 });
 
+// 緊急密碼重設（需要 RESET_SECRET 環境變數，預設為 akb-reset-2026）
+app.post('/api/auth/reset', async (req, res) => {
+  const { secret, username, newPassword } = req.body;
+  const RESET_SECRET = process.env.RESET_SECRET || 'akb-reset-2026';
+  if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
+  if (!username || !newPassword) return res.status(400).json({ error: '缺少欄位' });
+  if (newPassword.length < 6) return res.status(400).json({ error: '密碼至少6位' });
+  if (!accounts[username.toLowerCase()]) return res.status(404).json({ error: '帳號不存在' });
+  accounts[username.toLowerCase()].passwordHash = 'plain:' + newPassword;
+  accounts[username.toLowerCase()].updatedAt = Date.now();
+  await DB.saveAccounts();
+  await DB.upsertAccount(username.toLowerCase(), { passwordHash: 'plain:' + newPassword, updatedAt: accounts[username.toLowerCase()].updatedAt });
+  broadcast('UPDATE_ACCOUNT', { username: username.toLowerCase() });
+  res.json({ success: true, message: `${username} 密碼已重設` });
+});
+
 app.get('/api/accounts', (req, res) => {
   const safe = {};
   Object.entries(accounts).forEach(([k, v]) => {
