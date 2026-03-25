@@ -7,13 +7,17 @@ const SESSION_KEY      = 'akb_session';
 const SESSION_TTL      = 7 * 24 * 60 * 60 * 1000; // 7 天
 
 // ── 取得後端 API 地址 ────────────────────────────────────────
+const RENDER_API = 'https://akb-salon-server.onrender.com';
+
 function getApiBase() {
   if (typeof window !== 'undefined' && window.AKB_API_URL) return window.AKB_API_URL;
   if (typeof window !== 'undefined') {
     const h = window.location.hostname;
-    if (h !== 'localhost' && h !== '127.0.0.1') return null; // GitHub Pages — 需要 AKB_API_URL
+    if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:3001';
+    // GitHub Pages 或其他部署：使用 Render 後端
+    return RENDER_API;
   }
-  return 'http://localhost:3001';
+  return RENDER_API;
 }
 
 // ── HTTP 輔助 ────────────────────────────────────────────────
