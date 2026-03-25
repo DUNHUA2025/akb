@@ -5,7 +5,9 @@
 <meta charset="UTF-8"/>
 <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#0F0F0F"/>
 <title>客戶預約 - AKB 多元化音樂發廊</title>
+<meta name="description" content="AKB 多元化音樂發廊線上預約系統，輕鬆預約洗剪吹、染髮、燙髮等專業造型服務。"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="../js/db.js"></script>
@@ -50,6 +52,7 @@
 .designer-card.selected{border:2px solid #C9A84C!important;box-shadow:0 0 0 3px rgba(201,168,76,.2);}
 input,select,textarea{background:#252525;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 14px;width:100%;outline:none;transition:border 0.2s;font-family:inherit;}
 input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
+input.error-field{border-color:#EF4444!important;box-shadow:0 0 0 3px rgba(239,68,68,.1)!important;}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;}
 .modal-box{background:#1C1C1C;border:1px solid #333;border-radius:20px;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;padding:28px;}
 .badge-status{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
@@ -57,11 +60,28 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
 .badge-confirmed{background:rgba(34,197,94,.15);color:#86EFAC;border:1px solid rgba(34,197,94,.3);}
 .badge-cancelled{background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3);}
 .badge-done{background:rgba(99,102,241,.15);color:#C4B5FD;border:1px solid rgba(99,102,241,.3);}
+/* 骨架屏 */
+.skeleton{background:linear-gradient(90deg,#1c1c1c 25%,#282828 50%,#1c1c1c 75%);background-size:200% 100%;animation:skeleton-shimmer 1.4s infinite;}
+@keyframes skeleton-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+/* 密碼顯示切換按鈕 */
+.pwd-wrap{position:relative;}
+.pwd-wrap input{padding-right:44px;}
+.pwd-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#666;padding:4px;transition:color .2s;}
+.pwd-toggle:hover{color:#C9A84C;}
+/* 進度條 */
+.progress-bar{height:3px;background:linear-gradient(90deg,#C9A84C,#E8D5A3);border-radius:2px;transition:width .4s ease;}
+/* 服務選擇選中後的計時器標籤 */
+.duration-badge{font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(201,168,76,.12);color:#C9A84C;border:1px solid rgba(201,168,76,.25);}
 @media(max-width:480px){.nav-tab{padding:8px 10px;font-size:13px;}.modal-box{padding:20px 16px;}}
 </style>
 </head>
 <body class="bg-dark text-white min-h-screen">
 <div id="app">
+  <!-- 頂部進度條 -->
+  <div class="fixed top-0 left-0 right-0 z-[200]" style="height:3px;background:#111;">
+    <div class="progress-bar" :style="{width: bookingStep>=5?'100%':(bookingStep-1)*25+'%'}"></div>
+  </div>
+
   <!-- Header -->
   <header class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(15,15,15,.95);backdrop-filter:blur(12px)">
     <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -93,35 +113,50 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
     <!-- Step 1: Service -->
     <div v-if="bookingStep===1" class="fade">
       <h2 class="text-2xl font-bold serif mb-6">選擇服務項目</h2>
-      <div v-if="loadingServices" class="text-center py-12 text-muted">載入服務中...</div>
+      <!-- 骨架屏 -->
+      <div v-if="loadingServices" class="space-y-3">
+        <div v-for="i in 4" :key="i" class="skeleton rounded-xl" style="height:64px;"></div>
+      </div>
       <template v-else>
         <div v-for="cat in serviceCategories" :key="cat" class="mb-6">
-          <div class="text-xs uppercase tracking-widest text-muted mb-3">{{cat}} 服務</div>
+          <div class="text-xs uppercase tracking-widest text-muted mb-3 flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full" :style="catColor(cat)"></span>
+            {{cat}} 服務
+          </div>
           <div class="space-y-2">
             <div v-for="s in services.filter(x=>x.category===cat)" :key="s.id"
-              :class="['card p-4 cursor-pointer transition-all flex items-center justify-between',bookingForm.serviceId===s.id?'border-2 border-gold':'']"
+              :class="['card p-4 cursor-pointer transition-all flex items-center justify-between',bookingForm.serviceId===s.id?'border-2 border-gold':'hover:border-gray-600']"
               @click="bookingForm.serviceId=s.id;bookingForm.serviceName=s.name;bookingForm.price=s.price;bookingForm.duration=s.duration">
               <div class="flex items-center gap-4">
-                <div :class="['w-2 h-2 rounded-full',bookingForm.serviceId===s.id?'bg-gold':'bg-gray-600']"></div>
+                <div :class="['w-2 h-2 rounded-full flex-shrink-0',bookingForm.serviceId===s.id?'bg-gold':'bg-gray-600']"></div>
                 <div>
                   <div class="font-semibold">{{s.name}}</div>
-                  <div class="text-muted text-xs">{{s.en||s.description||''}} &middot; {{s.duration}}分鐘</div>
+                  <div class="text-muted text-xs mt-0.5">{{s.en||s.description||''}}</div>
                 </div>
               </div>
-              <div class="text-gold font-bold">${{s.price.toLocaleString()}}</div>
+              <div class="flex flex-col items-end gap-1 ml-3">
+                <div class="text-gold font-bold">${{s.price.toLocaleString()}}</div>
+                <span class="duration-badge">{{s.duration}}分鐘</span>
+              </div>
             </div>
           </div>
         </div>
       </template>
       <div class="flex justify-end mt-6">
-        <button :disabled="!bookingForm.serviceId" :class="['btn btn-gold px-8 py-3',!bookingForm.serviceId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=2">下一步 →</button>
+        <button :disabled="!bookingForm.serviceId" :class="['btn btn-gold px-8 py-3 text-base',!bookingForm.serviceId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=2">
+          下一步
+          <svg class="inline ml-1 -mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
       </div>
     </div>
 
     <!-- Step 2: Designer -->
     <div v-if="bookingStep===2" class="fade">
       <h2 class="text-2xl font-bold serif mb-6">選擇設計師</h2>
-      <div v-if="loadingDesigners" class="text-center py-12 text-muted">載入設計師中...</div>
+      <!-- 骨架屏 -->
+      <div v-if="loadingDesigners" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div v-for="i in 4" :key="i" class="skeleton rounded-xl" style="height:160px;"></div>
+      </div>
       <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div v-for="d in designers" :key="d.id"
           :class="['designer-card card p-5',d.available?'':'opacity-50 cursor-not-allowed',bookingForm.designerId===d.id?'selected':'']"
@@ -131,22 +166,31 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
                 <div class="font-bold text-lg">{{d.name}}</div>
-                <span class="text-xs px-2 py-0.5 rounded-full font-bold" :style="d.level==='A'?'background:rgba(201,168,76,.2);color:#C9A84C':d.level==='B'?'background:rgba(99,102,241,.2);color:#A78BFA':'background:rgba(34,197,94,.2);color:#86EFAC'">Lv.{{d.level}}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full font-bold" :style="levelStyle(d.level)">Lv.{{d.level}}</span>
               </div>
               <div class="text-muted text-xs mb-2">{{d.role}}</div>
               <div class="text-yellow-400 text-xs mb-2">★ {{d.rating}} <span class="text-muted">({{d.reviews}}則評價)</span></div>
               <div class="flex flex-wrap gap-1">
                 <span v-for="sp in d.specialty.slice(0,3)" :key="sp" class="text-xs px-2 py-0.5 rounded-full" style="background:#252525;color:#aaa">{{sp}}</span>
               </div>
-              <div v-if="!d.available" class="mt-2 text-xs text-red-400">目前休假中</div>
+              <div v-if="!d.available" class="mt-2 text-xs text-red-400 flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                目前休假中
+              </div>
             </div>
           </div>
           <div class="mt-3 text-xs text-muted border-t border-gray-800 pt-3">{{d.bio}}</div>
         </div>
       </div>
       <div class="flex justify-between mt-6">
-        <button class="btn btn-ghost" @click="bookingStep=1">← 上一步</button>
-        <button :disabled="!bookingForm.designerId" :class="['btn btn-gold px-8 py-3',!bookingForm.designerId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=3">下一步 →</button>
+        <button class="btn btn-ghost" @click="bookingStep=1">
+          <svg class="inline mr-1 -mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+          上一步
+        </button>
+        <button :disabled="!bookingForm.designerId" :class="['btn btn-gold px-8 py-3 text-base',!bookingForm.designerId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=3">
+          下一步
+          <svg class="inline ml-1 -mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
       </div>
     </div>
 
@@ -155,23 +199,28 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
       <h2 class="text-2xl font-bold serif mb-6">選擇預約日期與時間</h2>
       <div class="card p-5 mb-4">
         <div class="flex items-center justify-between mb-4">
-          <button class="btn btn-ghost px-3 py-2" @click="prevMonth()">←</button>
+          <button class="btn btn-ghost px-3 py-2 text-lg" @click="prevMonth()" :disabled="isCurrentMonth">←</button>
           <div class="font-semibold">{{calendarYear}}年 {{calendarMonth}}月</div>
-          <button class="btn btn-ghost px-3 py-2" @click="nextMonth()">→</button>
+          <button class="btn btn-ghost px-3 py-2 text-lg" @click="nextMonth()">→</button>
         </div>
         <div class="grid grid-cols-7 gap-1 mb-2">
-          <div v-for="w in ['日','一','二','三','四','五','六']" :key="w" class="text-center text-xs text-muted py-1">{{w}}</div>
+          <div v-for="(w,i) in ['日','一','二','三','四','五','六']" :key="w" class="text-center text-xs py-1" :style="i===0||i===6?'color:#666':'color:#555'">{{w}}</div>
         </div>
         <div class="grid grid-cols-7 gap-1">
           <div v-for="n in calDays.first" :key="'e'+n" class="calendar-cell disabled"></div>
           <div v-for="d in calDays.total" :key="d"
-            :class="['calendar-cell',isDatePast(d)?'disabled':isSelectedD(d)?'selected':isTodayD(d)?'today':'hover:bg-gray-800']"
+            :class="['calendar-cell',isDatePast(d)?'disabled':isSelectedD(d)?'selected':isTodayD(d)?'today':'']"
             @click="!isDatePast(d)&&selectDate(d)">{{d}}</div>
         </div>
       </div>
       <div v-if="bookingForm.date" class="card p-5 fade">
-        <div class="text-sm font-semibold mb-3">可用時段 <span class="text-muted font-normal">{{bookingForm.date}}</span></div>
-        <div v-if="loadingSlots" class="text-center py-4 text-muted text-sm">載入時段中...</div>
+        <div class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          可用時段 <span class="text-muted font-normal">{{bookingForm.date}}</span>
+        </div>
+        <div v-if="loadingSlots" class="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          <div v-for="i in 12" :key="i" class="skeleton rounded-md" style="height:52px;"></div>
+        </div>
         <div v-else class="grid grid-cols-4 gap-2 sm:grid-cols-6">
           <div v-for="t in ALL_TIMES" :key="t"
             :class="['time-slot',isTimeBooked(t)?'booked':bookingForm.time===t?'selected':'']"
@@ -180,48 +229,83 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             <div v-if="isTimeBooked(t)" class="text-xs mt-0.5" style="color:#555">已訂</div>
           </div>
         </div>
+        <div class="mt-3 text-xs text-muted flex items-center gap-1">
+          <span class="inline-block w-3 h-3 rounded-sm" style="background:rgba(201,168,76,.15);border:1px solid #C9A84C;"></span> 已選擇
+          <span class="inline-block w-3 h-3 rounded-sm ml-2" style="background:#1a1a1a;border:1px solid #222;"></span> 已預約
+        </div>
       </div>
-      <div v-else class="text-center text-muted text-sm py-8">請先在上方選擇日期</div>
+      <div v-else class="text-center text-muted text-sm py-8">
+        <svg class="inline-block mb-2 text-muted" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <div>請先在上方選擇日期</div>
+      </div>
       <div class="flex justify-between mt-6">
-        <button class="btn btn-ghost" @click="bookingStep=2">← 上一步</button>
-        <button :disabled="!bookingForm.date||!bookingForm.time" :class="['btn btn-gold px-8 py-3',(!bookingForm.date||!bookingForm.time)?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=4">下一步 →</button>
+        <button class="btn btn-ghost" @click="bookingStep=2">
+          <svg class="inline mr-1 -mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+          上一步
+        </button>
+        <button :disabled="!bookingForm.date||!bookingForm.time" :class="['btn btn-gold px-8 py-3 text-base',(!bookingForm.date||!bookingForm.time)?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=4">
+          下一步
+          <svg class="inline ml-1 -mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
       </div>
     </div>
 
     <!-- Step 4: Personal info -->
     <div v-if="bookingStep===4" class="fade">
       <h2 class="text-2xl font-bold serif mb-2">填寫預約資料</h2>
-      <div class="card p-5 mb-4 text-sm">
+      <div class="card p-5 mb-5 text-sm">
         <div class="text-muted text-xs uppercase tracking-wider mb-3">預約摘要</div>
-        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">服務</span><span class="font-semibold">{{bookingForm.serviceName}}</span></div>
-        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">設計師</span><span class="font-semibold">{{bookingForm.designerName}}</span></div>
-        <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-muted">日期時間</span><span class="font-semibold">{{bookingForm.date}} {{bookingForm.time}}</span></div>
-        <div class="flex justify-between py-1"><span class="text-muted">費用</span><span class="font-bold text-gold">${{bookingForm.price?.toLocaleString()}}</span></div>
+        <div class="flex justify-between py-2 border-b border-gray-800">
+          <span class="text-muted flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5zm-5 0C8.67 10 8 9.33 8 8.5v-5C8 2.67 8.67 2 9.5 2S11 2.67 11 3.5v5c0 .83-.67 1.5-1.5 1.5zm-4 0C4.67 10 4 9.33 4 8.5v-5C4 2.67 4.67 2 5.5 2S7 2.67 7 3.5v5c0 .83-.67 1.5-1.5 1.5z"/></svg>
+            服務
+          </span>
+          <span class="font-semibold">{{bookingForm.serviceName}}</span>
+        </div>
+        <div class="flex justify-between py-2 border-b border-gray-800"><span class="text-muted">設計師</span><span class="font-semibold">{{bookingForm.designerName}}</span></div>
+        <div class="flex justify-between py-2 border-b border-gray-800"><span class="text-muted">日期時間</span><span class="font-semibold">{{bookingForm.date}} {{bookingForm.time}}</span></div>
+        <div class="flex justify-between py-2 border-b border-gray-800"><span class="text-muted">預計時長</span><span class="text-muted">約 {{bookingForm.duration}} 分鐘</span></div>
+        <div class="flex justify-between py-2"><span class="text-muted">費用</span><span class="font-bold text-gold text-base">${{bookingForm.price?.toLocaleString()}}</span></div>
       </div>
       <div class="space-y-4">
         <div>
-          <label class="block text-xs text-muted mb-1">姓名 *</label>
-          <input v-model="bookingForm.name" placeholder="請輸入您的姓名" />
+          <label class="block text-xs text-muted mb-1.5">姓名 <span class="text-red-400">*</span></label>
+          <input v-model="bookingForm.name" :class="['',formErrors.name?'error-field':'']" placeholder="請輸入您的姓名" @input="formErrors.name=''"/>
+          <div v-if="formErrors.name" class="text-red-400 text-xs mt-1">{{formErrors.name}}</div>
         </div>
         <div>
-          <label class="block text-xs text-muted mb-1">手機號碼 *</label>
-          <input v-model="bookingForm.phone" placeholder="09XX-XXX-XXX" />
+          <label class="block text-xs text-muted mb-1.5">手機號碼 <span class="text-red-400">*</span></label>
+          <input v-model="bookingForm.phone" :class="['',formErrors.phone?'error-field':'']" placeholder="例：91234567 或 09XX-XXX-XXX" @input="formErrors.phone=''"/>
+          <div v-if="formErrors.phone" class="text-red-400 text-xs mt-1">{{formErrors.phone}}</div>
         </div>
         <div>
-          <label class="block text-xs text-muted mb-1">Email（可選，接收確認信）</label>
-          <input v-model="bookingForm.email" placeholder="your@email.com" type="email" />
+          <label class="block text-xs text-muted mb-1.5">Email <span style="color:#555;">（可選，接收確認通知）</span></label>
+          <input v-model="bookingForm.email" :class="['',formErrors.email?'error-field':'']" placeholder="your@email.com" type="email" @input="formErrors.email=''"/>
+          <div v-if="formErrors.email" class="text-red-400 text-xs mt-1">{{formErrors.email}}</div>
         </div>
         <div>
-          <label class="block text-xs text-muted mb-1">備註 / 特殊需求</label>
-          <textarea v-model="bookingForm.note" rows="3" placeholder="例如：想染玫瑰金、頭髮較細..."></textarea>
+          <label class="block text-xs text-muted mb-1.5">備註 / 特殊需求</label>
+          <textarea v-model="bookingForm.note" rows="3" placeholder="例如：想染玫瑰金、頭髮較細、第一次來訪..."></textarea>
         </div>
       </div>
-      <div v-if="submitError" class="mt-3 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{submitError}}</div>
+      <div v-if="submitError" class="mt-4 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm flex items-start gap-2">
+        <svg class="mt-0.5 flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        {{submitError}}
+      </div>
       <div class="flex justify-between mt-6">
-        <button class="btn btn-ghost" @click="bookingStep=3">← 上一步</button>
-        <button :disabled="!bookingForm.name||!bookingForm.phone||submitting"
-          :class="['btn btn-gold px-8 py-3',(!bookingForm.name||!bookingForm.phone||submitting)?'opacity-40 cursor-not-allowed':'']"
-          @click="submitBooking()">{{submitting?'預約中...':'確認預約 ✓'}}</button>
+        <button class="btn btn-ghost" @click="bookingStep=3">
+          <svg class="inline mr-1 -mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+          上一步
+        </button>
+        <button :disabled="submitting"
+          :class="['btn btn-gold px-8 py-3 text-base',submitting?'opacity-60 cursor-not-allowed':'']"
+          @click="submitBooking()">
+          <span v-if="submitting" class="flex items-center gap-2">
+            <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            預約中...
+          </span>
+          <span v-else>確認預約 ✓</span>
+        </button>
       </div>
     </div>
 
@@ -242,7 +326,8 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
           <div class="flex justify-between items-center"><span class="text-muted">狀態</span><span class="badge-status badge-pending">待確認</span></div>
         </div>
       </div>
-      <div class="flex gap-3 justify-center">
+      <p class="text-xs text-muted mb-6">如需查詢或取消預約，請點擊右上角「我的預約」</p>
+      <div class="flex gap-3 justify-center flex-wrap">
         <button class="btn btn-gold px-8 py-3" @click="resetBooking()">再次預約</button>
         <a href="../index.html" class="btn btn-ghost px-6 py-3">返回首頁</a>
       </div>
@@ -260,10 +345,11 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <div v-for="d in designers" :key="d.id" class="flex gap-4 p-4 rounded-xl" style="background:#252525">
           <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl flex-shrink-0">{{d.avatar}}</div>
           <div class="flex-1">
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
               <span class="font-bold">{{d.name}}</span>
               <span class="text-muted text-xs">{{d.role}}</span>
               <span class="text-yellow-400 text-xs">★ {{d.rating}}</span>
+              <span v-if="!d.available" class="text-red-400 text-xs">休假中</span>
             </div>
             <div class="text-muted text-xs mb-2">{{d.bio}}</div>
             <div class="flex flex-wrap gap-1">
@@ -288,11 +374,15 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <div class="space-y-3">
           <div>
             <label class="block text-xs text-muted mb-1">手機號碼</label>
-            <input v-model="myBookings.phone" placeholder="09XX-XXX-XXX" @keyup.enter="verifyPhone()"/>
+            <input v-model="myBookings.phone" placeholder="09XX-XXX-XXX 或 9XXXXXXX" @keyup.enter="verifyPhone()"/>
           </div>
           <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{myBookings.error}}</div>
           <button class="btn btn-gold w-full py-3" @click="verifyPhone()" :disabled="myBookings.loading">
-            {{myBookings.loading ? '查詢中...' : '查詢預約'}}
+            <span v-if="myBookings.loading" class="flex items-center justify-center gap-2">
+              <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              查詢中...
+            </span>
+            <span v-else>查詢預約</span>
           </button>
         </div>
         <div class="mt-4 pt-4 border-t border-gray-800 text-center">
@@ -308,11 +398,23 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <div class="space-y-3">
           <div>
             <label class="block text-xs text-muted mb-1">設置密碼（至少6位）</label>
-            <input v-model="myBookings.newPassword" type="password" placeholder="請設置密碼"/>
+            <div class="pwd-wrap">
+              <input v-model="myBookings.newPassword" :type="showPwd1?'text':'password'" placeholder="請設置密碼"/>
+              <button class="pwd-toggle" @click="showPwd1=!showPwd1" type="button">
+                <svg v-if="!showPwd1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
           </div>
           <div>
             <label class="block text-xs text-muted mb-1">確認密碼</label>
-            <input v-model="myBookings.confirmPassword" type="password" placeholder="再次輸入密碼" @keyup.enter="setPassword()"/>
+            <div class="pwd-wrap">
+              <input v-model="myBookings.confirmPassword" :type="showPwd2?'text':'password'" placeholder="再次輸入密碼" @keyup.enter="setPassword()"/>
+              <button class="pwd-toggle" @click="showPwd2=!showPwd2" type="button">
+                <svg v-if="!showPwd2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
           </div>
           <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{myBookings.error}}</div>
           <button class="btn btn-gold w-full py-3" @click="setPassword()" :disabled="myBookings.loading">
@@ -326,7 +428,13 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <div class="space-y-3">
           <div>
             <label class="block text-xs text-muted mb-1">密碼</label>
-            <input v-model="myBookings.password" type="password" placeholder="請輸入密碼" @keyup.enter="loginWithPassword()"/>
+            <div class="pwd-wrap">
+              <input v-model="myBookings.password" :type="showPwd3?'text':'password'" placeholder="請輸入密碼" @keyup.enter="loginWithPassword()"/>
+              <button class="pwd-toggle" @click="showPwd3=!showPwd3" type="button">
+                <svg v-if="!showPwd3" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
           </div>
           <div v-if="myBookings.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{myBookings.error}}</div>
           <button class="btn btn-gold w-full py-3" @click="loginWithPassword()" :disabled="myBookings.loading">
@@ -344,7 +452,9 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             <button class="btn btn-ghost px-3 py-1 text-xs" @click="logoutMyBookings()">登出</button>
           </div>
         </div>
-        <div v-if="myBookings.loadingList" class="text-center py-8 text-muted text-sm">載入中...</div>
+        <div v-if="myBookings.loadingList" class="space-y-3">
+          <div v-for="i in 3" :key="i" class="skeleton rounded-xl" style="height:100px;"></div>
+        </div>
         <div v-else-if="myBookings.list.length===0" class="text-center py-8 text-muted">
           <div class="text-4xl mb-2">📋</div>
           <p>暫無預約記錄</p>
@@ -359,7 +469,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
             <div class="text-sm text-muted mb-2">{{b.date}} {{b.time}}</div>
             <div class="flex justify-between items-center">
               <span class="text-gold font-bold">${{b.price.toLocaleString()}}</span>
-              <button v-if="b.status==='pending'" class="btn btn-ghost px-3 py-1 text-xs text-red-400" @click="cancelBooking(b.id)">取消預約</button>
+              <button v-if="b.status==='pending'" class="btn btn-ghost px-3 py-1 text-xs text-red-400 hover:border-red-500 hover:text-red-300" @click="cancelBooking(b.id)">取消預約</button>
             </div>
           </div>
         </div>
@@ -375,9 +485,24 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
         <button class="btn btn-ghost px-3 py-2" @click="showModal='myBookings'">✕</button>
       </div>
       <div class="space-y-3">
-        <div><label class="block text-xs text-muted mb-1">當前密碼</label><input v-model="changePwdForm.current" type="password" placeholder="請輸入當前密碼"/></div>
-        <div><label class="block text-xs text-muted mb-1">新密碼（至少6位）</label><input v-model="changePwdForm.newPwd" type="password" placeholder="請輸入新密碼"/></div>
-        <div><label class="block text-xs text-muted mb-1">確認新密碼</label><input v-model="changePwdForm.confirm" type="password" placeholder="再次輸入新密碼" @keyup.enter="changeClientPassword()"/></div>
+        <div>
+          <label class="block text-xs text-muted mb-1">當前密碼</label>
+          <div class="pwd-wrap">
+            <input v-model="changePwdForm.current" :type="showCurPwd?'text':'password'" placeholder="請輸入當前密碼"/>
+            <button class="pwd-toggle" @click="showCurPwd=!showCurPwd" type="button">
+              <svg v-if="!showCurPwd" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">新密碼（至少6位）</label>
+          <input v-model="changePwdForm.newPwd" type="password" placeholder="請輸入新密碼"/>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">確認新密碼</label>
+          <input v-model="changePwdForm.confirm" type="password" placeholder="再次輸入新密碼" @keyup.enter="changeClientPassword()"/>
+        </div>
         <div v-if="changePwdForm.error" class="p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm">{{changePwdForm.error}}</div>
         <div v-if="changePwdForm.success" class="p-3 rounded-lg bg-green-900/30 border border-green-700 text-green-300 text-sm">{{changePwdForm.success}}</div>
         <button class="btn btn-gold w-full py-3" @click="changeClientPassword()" :disabled="changePwdForm.loading">
@@ -391,7 +516,7 @@ input:focus,select:focus,textarea:focus{border-color:#C9A84C;box-shadow:0 0 0 3p
 <script>
 const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
-// 內建服務（客戶端離線回退 - 與後端 DEFAULT_SERVICES 保持一致）
+// 內建服務（客戶端離線回退）
 const BUILTIN_SERVICES = [
   { id:1,  name:'洗剪吹',     en:'Wash, cut and blow-dry',           category:'基礎', price:128, duration:60  },
   { id:2,  name:'單剪',       en:'Single cut',                       category:'基礎', price:68,  duration:30  },
@@ -405,9 +530,19 @@ const BUILTIN_SERVICES = [
   { id:10, name:'負離子直髮', en:'Negative ion hair straightening',  category:'燙髮', price:228, duration:120 },
 ];
 
-const ALL_TIMES = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
+const ALL_TIMES = ['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00'];
 
 function normalizePhone(p) { return (p||'').replace(/\D/g,''); }
+
+function isValidPhone(p) {
+  const n = normalizePhone(p);
+  // 支持香港（8位）或台灣（10位）手機號
+  return n.length >= 8 && n.length <= 11;
+}
+
+function isValidEmail(e) {
+  return !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
 
 createApp({
   setup() {
@@ -417,20 +552,26 @@ createApp({
     const showModal    = ref('');
     const submitting   = ref(false);
     const submitError  = ref('');
+    const formErrors   = reactive({ name:'', phone:'', email:'' });
 
-    // 服務 & 設計師（從 DB 載入）
+    // 密碼顯示開關
+    const showPwd1 = ref(false);
+    const showPwd2 = ref(false);
+    const showPwd3 = ref(false);
+    const showCurPwd = ref(false);
+
     const services        = ref([...BUILTIN_SERVICES]);
     const designers       = ref([]);
     const loadingServices = ref(false);
     const loadingDesigners= ref(false);
     const loadingSlots    = ref(false);
-    // 已預約時段（從 DB 載入，用於封鎖重複預約）
-    const bookedSlots     = ref([]); // [{designerId, date, time}]
+    const bookedSlots     = ref([]);
 
-    // 日曆
     const now = new Date();
     const calendarMonth = ref(now.getMonth() + 1);
     const calendarYear  = ref(now.getFullYear());
+
+    const isCurrentMonth = computed(() => calendarYear.value === now.getFullYear() && calendarMonth.value === now.getMonth() + 1);
 
     const calDays = computed(() => {
       const first = new Date(calendarYear.value, calendarMonth.value-1, 1).getDay();
@@ -438,7 +579,6 @@ createApp({
       return { first, total };
     });
 
-    // 動態從服務資料提取分類（保持固定順序）
     const CATEGORY_ORDER = ['基礎','染髮','燙髮','護理','進階'];
     const serviceCategories = computed(() => {
       const cats = [...new Set(services.value.map(s => s.category))];
@@ -446,8 +586,26 @@ createApp({
         .concat(cats.filter(c => !CATEGORY_ORDER.includes(c)));
     });
 
-    function prevMonth() { if (calendarMonth.value===1){calendarMonth.value=12;calendarYear.value--;}else calendarMonth.value--; }
-    function nextMonth() { if (calendarMonth.value===12){calendarMonth.value=1;calendarYear.value++;}else calendarMonth.value++; }
+    // 分類顏色
+    function catColor(cat) {
+      const map = { '基礎':'background:#C9A84C', '染髮':'background:#A78BFA', '燙髮':'background:#86EFAC', '護理':'background:#FDE047', '進階':'background:#60A5FA' };
+      return map[cat] || 'background:#888';
+    }
+
+    // 設計師等級樣式
+    function levelStyle(level) {
+      if (level==='A') return 'background:rgba(201,168,76,.2);color:#C9A84C';
+      if (level==='B') return 'background:rgba(99,102,241,.2);color:#A78BFA';
+      return 'background:rgba(34,197,94,.2);color:#86EFAC';
+    }
+
+    function prevMonth() {
+      if (isCurrentMonth.value) return;
+      if (calendarMonth.value===1){calendarMonth.value=12;calendarYear.value--;}else calendarMonth.value--;
+    }
+    function nextMonth() {
+      if (calendarMonth.value===12){calendarMonth.value=1;calendarYear.value++;}else calendarMonth.value++;
+    }
 
     function selectDate(d) {
       const m = String(calendarMonth.value).padStart(2,'0');
@@ -495,11 +653,9 @@ createApp({
       }
     }
 
-    // 訂閱即時更新（有新/更新預約時刷新時段）
     let unsubscribeBookings = null;
 
     onMounted(async () => {
-      // 載入設計師
       loadingDesigners.value = true;
       try {
         const ds = await DB.getDesigners();
@@ -507,7 +663,6 @@ createApp({
       } catch(e) { console.warn('loadDesigners:', e); }
       finally { loadingDesigners.value = false; }
 
-      // 載入服務（從 DB，降級使用內建）
       loadingServices.value = true;
       try {
         const svcs = await DB.getServices();
@@ -517,17 +672,14 @@ createApp({
       } catch(e) { console.warn('loadServices:', e); }
       finally { loadingServices.value = false; }
 
-      // 訂閱即時更新
       unsubscribeBookings = DB.subscribeBookings(({ eventType, booking }) => {
         if (bookingForm.date) loadSlotsForDate(bookingForm.date);
       });
 
-      // 設計師即時更新（對應 db.js 廣播: NEW_DESIGNER / UPDATE_DESIGNER）
       DB.subscribeDesigners(({ eventType, designer: nd }) => {
         if (!nd) return;
         const idx = designers.value.findIndex(d => d.id === nd.id);
         if (eventType === 'UPDATE_DESIGNER' && (nd.status === 'resigned' || nd.available === false)) {
-          // 已離職或不可用：從選單移除
           if (idx > -1) designers.value.splice(idx, 1);
         } else if (eventType === 'UPDATE_DESIGNER' && idx > -1) {
           designers.value[idx] = nd;
@@ -536,7 +688,6 @@ createApp({
         }
       });
 
-      // 監聽 INIT（WS 重連後伺服器推送完整快照）
       EventBus.on('INIT', (data) => {
         if (data.designers) designers.value = (data.designers || []).filter(d => d.status !== 'resigned');
         if (data.services)  services.value  = (data.services  || []).map(s => ({ ...s, en: s.en || s.description || '' }));
@@ -551,7 +702,14 @@ createApp({
     // ── 提交預約 ─────────────────────────────────────────────
     async function submitBooking() {
       submitError.value = '';
-      if (!bookingForm.name.trim() || !bookingForm.phone.trim()) return;
+      // 表單驗證
+      let valid = true;
+      if (!bookingForm.name.trim()) { formErrors.name = '請填寫姓名'; valid = false; }
+      if (!bookingForm.phone.trim()) { formErrors.phone = '請填寫手機號碼'; valid = false; }
+      else if (!isValidPhone(bookingForm.phone)) { formErrors.phone = '手機號碼格式不正確（至少8位數字）'; valid = false; }
+      if (bookingForm.email && !isValidEmail(bookingForm.email)) { formErrors.email = 'Email 格式不正確'; valid = false; }
+      if (!valid) return;
+
       submitting.value = true;
       try {
         const nb = await DB.createBooking({
@@ -570,10 +728,11 @@ createApp({
         });
         bookingDone.value = nb;
         bookingStep.value = 5;
-        // 更新已訂時段
         bookedSlots.value.push({ designerId: nb.designerId, date: nb.date, time: nb.time });
+        // 滾動到頂部
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch(e) {
-        submitError.value = '預約失敗，請稍後再試';
+        submitError.value = '預約失敗，請稍後再試。如問題持續，請致電 5508 3339。';
         console.error('submitBooking:', e);
       } finally {
         submitting.value = false;
@@ -582,9 +741,11 @@ createApp({
 
     function resetBooking() {
       Object.assign(bookingForm, { serviceId:null, serviceName:'', price:0, duration:60, designerId:null, designerName:'', date:'', time:'', name:'', phone:'', email:'', note:'' });
+      Object.assign(formErrors, { name:'', phone:'', email:'' });
       bookingStep.value = 1;
       bookingDone.value = null;
       submitError.value = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // ── 我的預約 ─────────────────────────────────────────────
@@ -605,7 +766,7 @@ createApp({
     async function verifyPhone() {
       myBookings.error = '';
       const np = normalizePhone(myBookings.phone);
-      if (!np || np.length < 8) { myBookings.error = '請輸入正確的手機號碼'; return; }
+      if (!np || np.length < 8) { myBookings.error = '請輸入正確的手機號碼（至少8位）'; return; }
       myBookings.loading = true;
       try {
         const account = await DB.getClientAccount(np);
@@ -715,12 +876,14 @@ createApp({
     }
 
     return {
-      bookingStep, bookingForm, bookingDone, showModal, submitting, submitError,
+      bookingStep, bookingForm, bookingDone, showModal, submitting, submitError, formErrors,
       calendarMonth, calendarYear, services, designers,
       loadingServices, loadingDesigners, loadingSlots,
-      ALL_TIMES, calDays, serviceCategories,
+      ALL_TIMES, calDays, serviceCategories, isCurrentMonth,
+      catColor, levelStyle,
       selectDate, isDatePast, isTodayD, isSelectedD, isTimeBooked,
       prevMonth, nextMonth, submitBooking, resetBooking,
+      showPwd1, showPwd2, showPwd3, showCurPwd,
       myBookings, changePwdForm, statusText,
       openMyBookings, resetMyBookingsState, verifyPhone, setPassword,
       loginWithPassword, logoutMyBookings, cancelBooking, changeClientPassword,
