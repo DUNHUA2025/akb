@@ -8,11 +8,17 @@
 <meta name="theme-color" content="#0F0F0F"/>
 <title>客戶預約 - AKB 多元化音樂發廊</title>
 <meta name="description" content="AKB 多元化音樂發廊線上預約系統，輕鬆預約洗剪吹、染髮、燙髮等專業造型服務。"/>
+<!-- 預連線加速資源加載 -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preconnect" href="https://akb-salon-server.onrender.com"/>
+<!-- 固定版本 CDN（生產用 Vue，非 unpkg 不穩定路徑） -->
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.min.js"></script>
+<!-- Tailwind CDN 僅限開發/小型專案，生產可換成 Play CDN -->
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="../js/db.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
 *{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
 .serif{font-family:'Noto Serif TC',serif;}
 .gold{color:#C9A84C;}
@@ -642,12 +648,20 @@ createApp({
     async function loadSlotsForDate(date) {
       loadingSlots.value = true;
       try {
-        const all = await DB.getBookings();
-        bookedSlots.value = all
-          .filter(b => b.date === date && b.status !== 'cancelled')
+        // 只拉該日期的預約（server 支持 ?date= 篩選，大幅減少傳輸量）
+        const dayBookings = await DB.getBookings({ date });
+        bookedSlots.value = dayBookings
+          .filter(b => b.status !== 'cancelled')
           .map(b => ({ designerId: b.designerId, date: b.date, time: b.time }));
       } catch(e) {
         console.warn('loadSlotsForDate:', e);
+        // 降級：從快取全量過濾
+        try {
+          const all = await DB.getBookings();
+          bookedSlots.value = all
+            .filter(b => b.date === date && b.status !== 'cancelled')
+            .map(b => ({ designerId: b.designerId, date: b.date, time: b.time }));
+        } catch(_) {}
       } finally {
         loadingSlots.value = false;
       }
