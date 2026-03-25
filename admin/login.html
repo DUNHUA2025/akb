@@ -78,7 +78,18 @@
       <div class="card p-8" :class="{'shake': shaking}">
         <div class="text-xl font-bold mb-6 text-center">管理員登入</div>
         
-        <div v-if="error" class="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm flex items-center gap-2">
+        <!-- 冷啟動提示（倒計時自動重試）-->
+        <div v-if="waking" class="mb-4 p-3 rounded-lg text-sm" style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);color:#C9A84C;">
+          <div class="flex items-center gap-2 mb-1">
+            <svg class="animate-spin flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <span class="font-semibold">服務器啟動中，請稍候…</span>
+          </div>
+          <div class="text-xs" style="color:#a87f2a;">{{countdown}} 秒後自動重試登入</div>
+          <div class="mt-1.5 h-1 rounded-full overflow-hidden" style="background:rgba(201,168,76,.2);">
+            <div class="h-full rounded-full transition-all" style="background:#C9A84C;" :style="{width: (countdown/30*100)+'%'}"></div>
+          </div>
+        </div>
+        <div v-else-if="error" class="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm flex items-center gap-2">
           <svg width="14" height="14" flex-shrink="0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
           {{error}}
         </div>
@@ -123,7 +134,7 @@
 </div>
 
 <script>
-const { createApp, ref } = Vue;
+const { createApp, ref, onMounted, onUnmounted } = Vue;
 
 createApp({
   setup() {
@@ -133,31 +144,60 @@ createApp({
     const loading = ref(false);
     const showPwd = ref(false);
     const shaking = ref(false);
+    const waking = ref(false);      // 冷啟動喚醒中
+    const countdown = ref(30);      // 倒計時秒數
+
+    let countdownTimer = null;
+    let savedUsername = '';
+    let savedPassword = '';
     
     // 如果已登入，直接進入管理後台
     if (Auth.isLoggedIn() && Auth.hasPermission('admin')) {
       window.location.href = './index.html';
     }
 
+    // 頁面載入時靜默 ping 後端，若失敗則顯示預熱提示
+    onMounted(() => {
+      const apiBase = 'https://akb-salon-server.onrender.com';
+      fetch(apiBase + '/api/health', { method: 'GET', signal: AbortSignal.timeout(5000) })
+        .catch(() => {
+          // 後端未就緒，顯示友好提示（不顯示錯誤，只是資訊）
+          console.info('[Login] 後端冷啟動中，已靜默喚醒');
+        });
+    });
+
+    onUnmounted(() => {
+      if (countdownTimer) clearInterval(countdownTimer);
+    });
+
     function triggerShake() {
       shaking.value = true;
       setTimeout(() => { shaking.value = false; }, 400);
     }
-    
-    function login() {
-      error.value = '';
-      
-      if (!username.value || !password.value) {
-        error.value = '請輸入帳號和密碼';
-        triggerShake();
-        return;
-      }
-      
+
+    // 啟動倒計時，結束後自動重試登入
+    function startWakeCountdown(u, p) {
+      waking.value = true;
+      countdown.value = 30;
+      savedUsername = u;
+      savedPassword = p;
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        countdown.value--;
+        if (countdown.value <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+          waking.value = false;
+          doLogin(savedUsername, savedPassword);
+        }
+      }, 1000);
+    }
+
+    function doLogin(u, p) {
       loading.value = true;
-      
-      Auth.loginAsync(username.value, password.value).then(result => {
+      error.value = '';
+      Auth.loginAsync(u, p).then(result => {
         loading.value = false;
-        
         if (result.success) {
           if (result.role === 'admin') {
             window.location.href = './index.html';
@@ -167,17 +207,35 @@ createApp({
             Auth.logout();
           }
         } else {
-          error.value = result.error || '帳號或密碼不正確';
-          triggerShake();
+          // 冷啟動錯誤 → 自動倒計時重試
+          if (result.error && result.error.includes('啟動')) {
+            startWakeCountdown(u, p);
+          } else {
+            error.value = result.error || '帳號或密碼不正確';
+            triggerShake();
+          }
         }
       });
+    }
+    
+    function login() {
+      error.value = '';
+      waking.value = false;
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+      
+      if (!username.value || !password.value) {
+        error.value = '請輸入帳號和密碼';
+        triggerShake();
+        return;
+      }
+      doLogin(username.value, password.value);
     }
     
     function goHome() {
       window.location.href = '../index.html';
     }
     
-    return { username, password, error, loading, showPwd, shaking, login, goHome };
+    return { username, password, error, loading, showPwd, shaking, waking, countdown, login, goHome };
   }
 }).mount('#app');
 </script>
