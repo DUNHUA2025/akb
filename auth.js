@@ -32,14 +32,14 @@ async function authFetch(method, path, body) {
 
 // ── 後備：本地帳號（僅在後端不可用時使用）──────────────────
 const LOCAL_ACCOUNTS = {
-  admin: { username: 'admin', password: 'akb2024', role: 'admin', name: '店家管理員',
+  admin: { username: 'admin', password: 'Hk888888', role: 'admin', name: '店長',
     permissions: ['dashboard','bookings','designers','customers','services'] },
   designers: [
-    { username: 'aika',  password: 'aika123',  role: 'designer', name: 'Aika',  designerId: 1 },
-    { username: 'ken',   password: 'ken123',   role: 'designer', name: 'Ken',   designerId: 2 },
-    { username: 'bella', password: 'bella123', role: 'designer', name: 'Bella', designerId: 3 },
-    { username: 'sam',   password: 'sam123',   role: 'designer', name: 'Sam',   designerId: 4 },
-    { username: 'luna',  password: 'luna123',  role: 'designer', name: 'Luna',  designerId: 5 },
+    { username: 'aika',  password: 'Aa888888',  role: 'designer', name: 'A Li 亞力', designerId: 1 },
+    { username: 'ken',   password: 'ken123',    role: 'designer', name: 'QiQi',      designerId: 2 },
+    { username: 'bella', password: 'bella123',  role: 'designer', name: 'Bella',     designerId: 3 },
+    { username: 'jay',   password: 'jay123',    role: 'designer', name: 'Jay',       designerId: 4 },
+    { username: 'mia',   password: 'mia123',    role: 'designer', name: 'Mia',       designerId: 5 },
   ]
 };
 
