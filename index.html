@@ -14,9 +14,12 @@
 <meta property="og:image" content="https://akbmusicsalon.top/promo1.png"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="keywords" content="AKB,音樂發廊,髮廊,屯門,洗剪吹,染髮,燙髮,線上預約"/>
+<!-- 預連線：加速 Google Fonts 和 CDN 字體加載 -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<!-- 字體：只載入實際使用的字重，font-display=swap 避免 FOIT -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com"></script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&display=swap');
 *{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;margin:0;padding:0;}
 :root{
   --gold:#C9A84C;
@@ -248,7 +251,7 @@ body{background:var(--dark);color:#fff;min-height:100vh;}
       <div class="pulse-dot" style="top:-8px;right:-8px;"></div>
       <img src="logo.png" alt="AKB Music Salon"
         style="max-width:260px;width:100%;height:auto;filter:drop-shadow(0 6px 32px rgba(201,168,76,0.4));"
-        loading="eager" fetchpriority="high">
+        loading="eager" fetchpriority="high" decoding="async" width="260" height="130">
     </div>
 
     <!-- 標語 -->
@@ -290,7 +293,7 @@ body{background:var(--dark);color:#fff;min-height:100vh;}
   <!-- ── 宣傳圖片 ── -->
   <section class="px-5 pb-12 fade-up" style="max-width:680px;margin:0 auto;animation-delay:.2s;">
     <div class="promo-wrap">
-      <img src="promo1.png" alt="AKB 最新優惠活動" class="w-full h-auto block" loading="lazy">
+      <img src="promo1.png" alt="AKB 最新優惠活動" class="w-full h-auto block" loading="lazy" width="680" height="960" decoding="async">
     </div>
   </section>
 
