@@ -214,13 +214,13 @@ const DB = {
   // ── 初始化（建立 WS 連線 + 定期心跳防止 Render sleep）─────
   init() {
     WS.connect();
-    // 每 10 分鐘 ping 後端，防止 Render 免費層進入 sleep 並確保數據同步
+    // 每 4 分鐘 ping 後端，防止 Render 免費層進入 sleep（免費層閒置 5 分鐘後會休眠）
     if (API_BASE) {
       setInterval(async () => {
         try {
           await fetch(`${API_BASE}/api/health`);
         } catch(e) { /* silent */ }
-      }, 10 * 60 * 1000); // 10 minutes
+      }, 4 * 60 * 1000); // 4 minutes
     }
   },
 
