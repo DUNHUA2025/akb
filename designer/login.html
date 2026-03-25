@@ -130,7 +130,17 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
           </div>
         </div>
         
-        <!-- 密碼輸入（選擇後顯示）-->
+        <!-- 冷啟動提示（倒計時自動重試）-->
+        <div v-if="waking" class="mb-4 p-3 rounded-lg text-sm" style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);color:#C9A84C;">
+          <div class="flex items-center gap-2 mb-1">
+            <svg class="animate-spin flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <span class="font-semibold">服務器啟動中，請稍候…</span>
+          </div>
+          <div class="text-xs" style="color:#a87f2a;">{{countdown}} 秒後自動重試登入</div>
+          <div class="mt-1.5 h-1 rounded-full overflow-hidden" style="background:rgba(201,168,76,.2);">
+            <div class="h-full rounded-full transition-all" style="background:#C9A84C;" :style="{width: (countdown/30*100)+'%'}"></div>
+          </div>
+        </div>
         <div v-if="selectedDesigner" class="fade">
           <div class="mb-4">
             <label class="block text-xs mb-2" style="color:#777;">
@@ -174,7 +184,7 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
 </div>
 
 <script>
-const { createApp, ref } = Vue;
+const { createApp, ref, onMounted, onUnmounted } = Vue;
 
 const DESIGNERS_KEY = 'akb_designers_data';
 
@@ -223,24 +233,47 @@ createApp({
     const showPwd = ref(false);
     const error = ref('');
     const loading = ref(false);
+    const waking = ref(false);
+    const countdown = ref(30);
+
+    let countdownTimer = null;
+    let savedUsername = '';
+    let savedPassword = '';
     
     if (Auth.isLoggedIn() && Auth.hasPermission('designer')) {
       window.location.href = './index.html';
     }
-    
-    function selectDesigner(d) {
-      selectedDesigner.value = d;
-      error.value = '';
-      password.value = '';
+
+    onMounted(() => {
+      fetch('https://akb-salon-server.onrender.com/api/health', { method: 'GET', signal: AbortSignal.timeout(5000) })
+        .catch(() => { console.info('[Login] 後端冷啟動中'); });
+    });
+
+    onUnmounted(() => {
+      if (countdownTimer) clearInterval(countdownTimer);
+    });
+
+    function startWakeCountdown(u, p) {
+      waking.value = true;
+      countdown.value = 30;
+      savedUsername = u;
+      savedPassword = p;
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        countdown.value--;
+        if (countdown.value <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+          waking.value = false;
+          doLogin(savedUsername, savedPassword);
+        }
+      }, 1000);
     }
-    
-    function login() {
-      error.value = '';
-      if (!selectedDesigner.value) { error.value = '請選擇設計師'; return; }
-      if (!password.value) { error.value = '請輸入密碼'; return; }
+
+    function doLogin(u, p) {
       loading.value = true;
-      // 使用後端 API 登入，確保密碼同步（loginAsync 優先呼叫後端）
-      Auth.loginAsync(selectedDesigner.value.username, password.value).then(result => {
+      error.value = '';
+      Auth.loginAsync(u, p).then(result => {
         loading.value = false;
         if (result.success) {
           if (result.role === 'designer' || result.role === 'admin') {
@@ -250,12 +283,33 @@ createApp({
             Auth.logout();
           }
         } else {
-          error.value = result.error || '帳號或密碼錯誤';
+          if (result.error && result.error.includes('啟動')) {
+            startWakeCountdown(u, p);
+          } else {
+            error.value = result.error || '帳號或密碼錯誤';
+          }
         }
       });
     }
     
-    return { designers, selectedDesigner, password, showPwd, error, loading, selectDesigner, login };
+    function selectDesigner(d) {
+      selectedDesigner.value = d;
+      error.value = '';
+      password.value = '';
+      waking.value = false;
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    }
+    
+    function login() {
+      error.value = '';
+      waking.value = false;
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+      if (!selectedDesigner.value) { error.value = '請選擇設計師'; return; }
+      if (!password.value) { error.value = '請輸入密碼'; return; }
+      doLogin(selectedDesigner.value.username, password.value);
+    }
+    
+    return { designers, selectedDesigner, password, showPwd, error, loading, waking, countdown, selectDesigner, login };
   }
 }).mount('#app');
 </script>
