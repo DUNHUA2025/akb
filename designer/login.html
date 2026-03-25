@@ -80,6 +80,7 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
   padding:2px 7px;border-radius:12px;
   display:inline-block;
 }
+@keyframes skeleton-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 </style>
 </head>
 <body>
@@ -111,7 +112,10 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
         </div>
         
         <!-- 設計師列表 -->
-        <div class="space-y-2 mb-5">
+        <div v-if="loadingDesigners" class="space-y-2 mb-5">
+          <div v-for="i in 3" :key="i" class="rounded-xl" style="height:68px;background:linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%);background-size:200% 100%;animation:skeleton-shimmer 1.4s infinite;"></div>
+        </div>
+        <div v-else class="space-y-2 mb-5">
           <div v-for="d in designers" :key="d.id"
             :class="['designer-btn',selectedDesigner?.id===d.id?'selected':'']"
             @click="selectDesigner(d)">
@@ -128,6 +132,7 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
             </div>
             <div v-if="selectedDesigner?.id===d.id" class="check-mark">✓</div>
           </div>
+        </div>
         </div>
         
         <!-- 冷啟動提示（倒計時自動重試）-->
@@ -186,67 +191,82 @@ input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
 <script>
 const { createApp, ref, onMounted, onUnmounted } = Vue;
 
-const DESIGNERS_KEY = 'akb_designers_data';
-
-const DEFAULT_LOGIN_DATA = [
-  { id:1, name:'Aika', role:'首席設計師', avatar:'A', username:'aika', level:'A' },
-  { id:2, name:'Ken', role:'資深設計師', avatar:'K', username:'ken', level:'B' },
-  { id:3, name:'Bella', role:'設計師', avatar:'B', username:'bella', level:'C' },
-  { id:4, name:'Jay', role:'資深設計師', avatar:'J', username:'jay', level:'B' },
-  { id:5, name:'Mia', role:'設計師', avatar:'M', username:'mia', level:'C' },
-];
-
-function loadDesignersForLogin() {
-  const saved = localStorage.getItem(DESIGNERS_KEY);
-  if (saved) {
-    const fullData = JSON.parse(saved);
-    return fullData
-      .filter(d => d.status !== 'resigned')
-      .map(d => {
-        const loginInfo = DEFAULT_LOGIN_DATA.find(l => l.id === d.id);
-        return {
-          id: d.id,
-          name: d.name,
-          role: d.role,
-          avatar: d.avatar,
-          level: d.level || 'C',
-          username: loginInfo ? loginInfo.username : d.name.toLowerCase()
-        };
-      });
-  }
-  const initialData = [
-    { id:1, name:'Aika', role:'首席設計師', level:'A', specialty:['染髮','挑染'], bio:'10年經驗', avatar:'A', rating:4.9, reviews:142, works:320, available:true, status:'active' },
-    { id:2, name:'Ken', role:'資深設計師', level:'B', specialty:['燙髮','護髮'], bio:'首爾歸國', avatar:'K', rating:4.8, reviews:98, works:215, available:true, status:'active' },
-    { id:3, name:'Bella', role:'設計師', level:'C', specialty:['剪髮','SPA'], bio:'輕柔手法', avatar:'B', rating:4.7, reviews:63, works:140, available:true, status:'active' },
-    { id:4, name:'Jay', role:'資深設計師', level:'B', specialty:['染髮','新娘'], bio:'婚禮達人', avatar:'J', rating:4.9, reviews:117, works:278, available:false, status:'active' },
-    { id:5, name:'Mia', role:'設計師', level:'C', specialty:['剪髮','燙髮'], bio:'活潑開朗', avatar:'M', rating:4.6, reviews:45, works:98, available:true, status:'active' },
-  ];
-  localStorage.setItem(DESIGNERS_KEY, JSON.stringify(initialData));
-  return DEFAULT_LOGIN_DATA;
-}
+const API_BASE = 'https://akb-salon-server.onrender.com';
 
 createApp({
   setup() {
-    const designers = ref(loadDesignersForLogin());
+    const designers = ref([]);
     const selectedDesigner = ref(null);
     const password = ref('');
     const showPwd = ref(false);
     const error = ref('');
     const loading = ref(false);
+    const loadingDesigners = ref(true);
     const waking = ref(false);
     const countdown = ref(30);
 
     let countdownTimer = null;
     let savedUsername = '';
     let savedPassword = '';
-    
+    // 帳號對照表：designerId -> username
+    let accountMap = {};
+
     if (Auth.isLoggedIn() && Auth.hasPermission('designer')) {
       window.location.href = './index.html';
     }
 
-    onMounted(() => {
-      fetch('https://akb-salon-server.onrender.com/api/health', { method: 'GET', signal: AbortSignal.timeout(5000) })
+    onMounted(async () => {
+      // 靜默喚醒後端
+      fetch(API_BASE + '/api/health', { method: 'GET', signal: AbortSignal.timeout(5000) })
         .catch(() => { console.info('[Login] 後端冷啟動中'); });
+
+      // 動態載入設計師列表 + 帳號對照
+      try {
+        const [designerRes, accountRes] = await Promise.all([
+          fetch(API_BASE + '/api/designers').then(r => r.json()),
+          fetch(API_BASE + '/api/accounts').then(r => r.json()),
+        ]);
+        // 建立 designerId -> username 對照表
+        accountMap = {};
+        Object.entries(accountRes).forEach(([username, acc]) => {
+          if (acc.designerId) accountMap[acc.designerId] = username;
+        });
+        // 過濾掉離職設計師，並附上 username
+        designers.value = designerRes
+          .filter(d => d.status !== 'resigned')
+          .map(d => ({
+            id: d.id,
+            name: d.name,
+            role: d.role,
+            avatar: d.avatar || d.name[0],
+            level: d.level || 'C',
+            username: accountMap[d.id] || d.name.toLowerCase(),
+          }));
+      } catch(e) {
+        // 後端不可用時使用本地快取
+        console.warn('[Login] 無法載入設計師列表:', e);
+        const cached = localStorage.getItem('akb_designers_data');
+        if (cached) {
+          const all = JSON.parse(cached);
+          designers.value = all
+            .filter(d => d.status !== 'resigned')
+            .map(d => ({
+              id: d.id, name: d.name, role: d.role,
+              avatar: d.avatar || d.name[0], level: d.level || 'C',
+              username: d.name.toLowerCase(),
+            }));
+        } else {
+          // 最終後備：靜態列表
+          designers.value = [
+            { id:1, name:'A Li 亞力', role:'首席設計師', avatar:'A', username:'aika', level:'A' },
+            { id:2, name:'QiQi', role:'資深設計師', avatar:'Q', username:'ken', level:'B' },
+            { id:3, name:'Bella', role:'設計師', avatar:'B', username:'bella', level:'C' },
+            { id:4, name:'Jay', role:'資深設計師', avatar:'J', username:'jay', level:'B' },
+          ];
+        }
+      } finally {
+        loadingDesigners.value = false;
+      }
     });
 
     onUnmounted(() => {
@@ -291,7 +311,7 @@ createApp({
         }
       });
     }
-    
+
     function selectDesigner(d) {
       selectedDesigner.value = d;
       error.value = '';
@@ -299,7 +319,7 @@ createApp({
       waking.value = false;
       if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
     }
-    
+
     function login() {
       error.value = '';
       waking.value = false;
@@ -308,8 +328,8 @@ createApp({
       if (!password.value) { error.value = '請輸入密碼'; return; }
       doLogin(selectedDesigner.value.username, password.value);
     }
-    
-    return { designers, selectedDesigner, password, showPwd, error, loading, waking, countdown, selectDesigner, login };
+
+    return { designers, selectedDesigner, password, showPwd, error, loading, loadingDesigners, waking, countdown, selectDesigner, login };
   }
 }).mount('#app');
 </script>
