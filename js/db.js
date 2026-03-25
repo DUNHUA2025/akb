@@ -75,6 +75,7 @@ const WS = {
   _listeners:    [],          // { eventType, table, callback }
   _connected:    false,
   _reconnectDelay: 3000,
+  _reconnectAttempts: 0,
 
   connect() {
     if (!WS_BASE) {
@@ -88,6 +89,8 @@ const WS = {
 
       this._ws.onopen = () => {
         this._connected = true;
+        this._reconnectAttempts = 0; // 重置重試計數
+        this._reconnectDelay = 3000;
         console.info('[DB] WebSocket 已連線');
         clearTimeout(this._reconnectTimer);
         EventBus.emit('ws_connected', {});
@@ -106,7 +109,10 @@ const WS = {
 
       this._ws.onclose = () => {
         this._connected = false;
-        console.info('[DB] WebSocket 已斷線，將在', this._reconnectDelay / 1000, '秒後重連...');
+        // 指數退避：3s → 6s → 12s → 24s → 最大 60s
+        this._reconnectAttempts++;
+        this._reconnectDelay = Math.min(3000 * Math.pow(2, this._reconnectAttempts - 1), 60000);
+        console.info('[DB] WebSocket 已斷線，將在', this._reconnectDelay / 1000, '秒後重連... (第', this._reconnectAttempts, '次)');
         EventBus.emit('ws_disconnected', {});
         this._reconnectTimer = setTimeout(() => this.connect(), this._reconnectDelay);
       };
@@ -193,19 +199,36 @@ function _patchCacheDesigner(d) {
 }
 
 // ── HTTP 請求輔助 ────────────────────────────────────────────
+// 快取 TTL（毫秒）：設計師和服務項目在短時間內重複請求時直接用快取
+const CACHE_TTL = {
+  designers: 30 * 1000,  // 30 秒
+  services:  60 * 1000,  // 60 秒
+};
+const _cacheMeta = {};
+
 async function apiRequest(method, path, body) {
   if (!API_BASE) throw new Error('未設定後端地址');
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Accept-Encoding': 'gzip' },
   };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(`${API_BASE}${path}`, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+  // 15 秒超時（兼容 Render 免費層冷啟動）
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  opts.signal = ctrl.signal;
+  try {
+    const res = await fetch(`${API_BASE}${path}`, opts);
+    clearTimeout(timer);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  } catch(e) {
+    clearTimeout(timer);
+    throw e;
   }
-  return res.json();
 }
 
 // ── 主 DB 物件 ───────────────────────────────────────────────
@@ -226,15 +249,24 @@ const DB = {
 
   // ── 預約管理 ──────────────────────────────────────────────
 
-  async getBookings() {
+  async getBookings(params = {}) {
     try {
-      const data = await apiRequest('GET', '/api/bookings');
-      CACHE.set(CACHE.BOOKINGS,  data);
-      CACHE.set(CACHE.BOOKINGS2, data);
+      const qs = Object.keys(params).length
+        ? '?' + new URLSearchParams(params).toString()
+        : '';
+      const data = await apiRequest('GET', '/api/bookings' + qs);
+      // 只有拉全量時才更新快取
+      if (!qs) {
+        CACHE.set(CACHE.BOOKINGS,  data);
+        CACHE.set(CACHE.BOOKINGS2, data);
+      }
       return data;
     } catch(e) {
       console.warn('[DB] getBookings 降級:', e.message);
-      return CACHE.get(CACHE.BOOKINGS) || CACHE.get(CACHE.BOOKINGS2) || [];
+      const cached = CACHE.get(CACHE.BOOKINGS) || CACHE.get(CACHE.BOOKINGS2) || [];
+      // 若有篩選條件，在客戶端過濾
+      if (params.date) return cached.filter(b => b.date === params.date);
+      return cached;
     }
   },
 
@@ -307,9 +339,16 @@ const DB = {
   // ── 設計師管理 ────────────────────────────────────────────
 
   async getDesigners() {
+    // TTL 快取：30 秒內重複請求直接用記憶體，不打後端
+    const now = Date.now();
+    if (_cacheMeta.designers && now - _cacheMeta.designers < CACHE_TTL.designers) {
+      const cached = CACHE.get(CACHE.DESIGNERS);
+      if (cached && cached.length) return cached;
+    }
     try {
       const data = await apiRequest('GET', '/api/designers');
       CACHE.set(CACHE.DESIGNERS, data);
+      _cacheMeta.designers = Date.now();
       return data;
     } catch(e) {
       console.warn('[DB] getDesigners 降級:', e.message);
@@ -350,9 +389,16 @@ const DB = {
   // ── 服務管理 ──────────────────────────────────────────────
 
   async getServices() {
+    // TTL 快取：60 秒內重複請求直接用記憶體
+    const now = Date.now();
+    if (_cacheMeta.services && now - _cacheMeta.services < CACHE_TTL.services) {
+      const cached = CACHE.get(CACHE.SERVICES);
+      if (cached && cached.length) return cached;
+    }
     try {
       const data = await apiRequest('GET', '/api/services');
       CACHE.set(CACHE.SERVICES, data);
+      _cacheMeta.services = Date.now();
       return data;
     } catch(e) {
       console.warn('[DB] getServices 降級:', e.message);
