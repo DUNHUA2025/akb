@@ -4,12 +4,31 @@ const WebSocket = require('ws');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // 中間件
+// ── Gzip 壓縮（減少約 70% 傳輸大小）──────────────────────
+app.use((req, res, next) => {
+  const ae = req.headers['accept-encoding'] || '';
+  if (!ae.includes('gzip')) return next();
+  const _json = res.json.bind(res);
+  res.json = (obj) => {
+    const buf = Buffer.from(JSON.stringify(obj), 'utf8');
+    zlib.gzip(buf, (err, compressed) => {
+      if (err) return _json(obj);
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Vary', 'Accept-Encoding');
+      res.end(compressed);
+    });
+  };
+  next();
+});
+
 app.use(cors({
   origin: function(origin, callback) {
     const allowed = [
@@ -69,16 +88,27 @@ function saveData(filePath, data) {
 // 使用原生 fetch（Node 18+），不需要額外套件
 async function sbFetch(method, table, body = null, query = '') {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+  // POST 需要回傳新記錄；PATCH/DELETE 用 minimal 節省帶寬
+  const prefer = (method === 'POST') ? 'return=representation' : 'return=minimal';
   const headers = {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${SUPABASE_KEY}`,
     'Content-Type': 'application/json',
-    'Prefer': method === 'POST' ? 'return=representation' : 'return=representation',
+    'Prefer': prefer,
   };
-  const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Supabase ${method} ${table}: ${res.status} ${text}`);
-  return text ? JSON.parse(text) : [];
+  // 10 秒超時防止 Supabase 偶發慢響應阻塞事件循環
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: ctrl.signal });
+    clearTimeout(timer);
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Supabase ${method} ${table}: ${res.status} ${text}`);
+    return text ? JSON.parse(text) : [];
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
 }
 
 // ========== 預設資料 ==========
@@ -315,6 +345,7 @@ function genId(prefix) {
 // ========== API 路由 ==========
 
 app.get('/api/health', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   res.json({
     status: 'ok',
     bookings: bookings.length,
@@ -386,6 +417,8 @@ app.get('/api/designers', (req, res) => {
   let result = [...designers];
   if (available !== undefined) result = result.filter(d => d.available === (available === 'true'));
   if (status)                  result = result.filter(d => d.status === status);
+  // 設計師數據相對穩定，允許客戶端快取 30 秒，代理快取 60 秒
+  res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60');
   res.json(result);
 });
 
@@ -430,7 +463,11 @@ app.delete('/api/designers/:id', async (req, res) => {
 });
 
 // ─── 服務項目 ─────────────────────────────────────────
-app.get('/api/services', (req, res) => res.json(services));
+// 服務項目變更頻率低，快取 60 秒
+app.get('/api/services', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=120');
+  res.json(services);
+});
 
 app.post('/api/services', async (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: '服務名稱必填' });
