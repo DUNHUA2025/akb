@@ -287,18 +287,19 @@ td{border-bottom:1px solid #1E1E1E;font-size:14px;}
         </div>
         <div class="card overflow-x-auto">
           <table>
-            <thead><tr><th>姓名</th><th>手機</th><th>來訪次數</th><th>累計消費</th><th>首次來訪</th><th>最近來訪</th></tr></thead>
+            <thead><tr><th>姓名</th><th>手機</th><th>來訪次數</th><th>待確認</th><th>累計消費</th><th>首次來訪</th><th>最近來訪</th></tr></thead>
             <tbody>
               <tr v-for="c in customers" :key="c.id||c.phone">
                 <td class="font-semibold">{{c.name}}</td>
                 <td class="text-muted">{{c.phone}}</td>
-                <td class="text-gold font-bold">{{c.visits||c.visit_count||0}}</td>
+                <td class="text-gold font-bold">{{c.visits||c.visit_count||0}} 次</td>
+                <td><span v-if="c.pendingCount>0" class="text-yellow-400 text-xs">{{c.pendingCount}} 筆待確認</span><span v-else class="text-muted text-xs">—</span></td>
                 <td class="font-semibold text-green-400">${{(c.totalSpent||c.total_spent||0).toLocaleString()}}</td>
                 <td class="text-muted text-xs">{{(c.firstVisit||c.first_visit||'').slice(0,10)||'—'}}</td>
                 <td class="text-muted text-xs">{{(c.lastVisit||c.last_visit||'').slice(0,10)||'—'}}</td>
               </tr>
               <tr v-if="customers.length===0">
-                <td colspan="6" class="text-center text-muted py-8">暫無顧客資料</td>
+                <td colspan="7" class="text-center text-muted py-8">暫無顧客資料（顧客資料從預約記錄統計）</td>
               </tr>
             </tbody>
           </table>
@@ -624,17 +625,22 @@ createApp({
     function buildCustomersFromBookings() {
       const map = {};
       bookings.value.forEach(b => {
+        if (b.status === 'cancelled') return; // 只排除已取消
         const key = b.customerPhone || b.customerName || '';
         if (!key) return;
-        if (!map[key]) map[key] = { id: key, name: b.customerName||'', phone: b.customerPhone||'', visits:0, totalSpent:0, firstVisit:null, lastVisit:null };
+        if (!map[key]) map[key] = { id: key, name: b.customerName||'', phone: b.customerPhone||'', visits:0, totalSpent:0, pendingCount:0, firstVisit:b.date||'', lastVisit:'' };
+        // 已確認/完成 → 計入來訪次數和消費
         if (b.status === 'confirmed' || b.status === 'done') {
           map[key].visits++;
           map[key].totalSpent += Number(b.price)||0;
           if (!map[key].firstVisit || b.date < map[key].firstVisit) map[key].firstVisit = b.date;
           if (!map[key].lastVisit  || b.date > map[key].lastVisit)  map[key].lastVisit  = b.date;
+        } else if (b.status === 'pending') {
+          map[key].pendingCount++; // 待確認預約也顯示顧客
+          if (!map[key].firstVisit || b.date < map[key].firstVisit) map[key].firstVisit = b.date;
         }
       });
-      customers.value = Object.values(map);
+      customers.value = Object.values(map).sort((a,b) => b.totalSpent - a.totalSpent || b.visits - a.visits);
     }
 
     function logout() { Auth.logout(); window.location.href = '../index.html'; }
