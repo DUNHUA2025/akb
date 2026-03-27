@@ -102,6 +102,28 @@ async function sbFetch(method, table, body = null, query = '') {
   }
 }
 
+function normalizeBookingRow(row = {}) {
+  return {
+    ...row,
+    customerName:  row.customerName  ?? row.customer_name  ?? '',
+    customerPhone: row.customerPhone ?? row.customer_phone ?? '',
+    designerId:    row.designerId    ?? row.designer_id    ?? null,
+    designerName:  row.designerName  ?? row.designer_name  ?? '',
+    serviceName:   row.serviceName   ?? row.service_name   ?? '',
+    createdAt:     Number(row.createdAt ?? row.created_at ?? Date.now()),
+    updatedAt:     Number(row.updatedAt ?? row.updated_at ?? Date.now()),
+  };
+}
+
+async function loadSupabaseBookings() {
+  // 不在查詢字串中指定排序欄位，避免 simplified schema("createdAt")
+  // 與舊 schema(created_at) 欄位不一致時，啟動後把既有資料誤判成空陣列。
+  const rows = await sbFetch('GET', 'bookings');
+  return (Array.isArray(rows) ? rows : [])
+    .map(normalizeBookingRow)
+    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+}
+
 // ========== 預設資料 ==========
 const DEFAULT_DESIGNERS = [
   { id:1, name:'Aika',  role:'首席設計師', level:'A', specialty:['挑染','剪髮'], bio:'擅長各種染髮技術，尤其是挑染與漸層。', avatar:'A', rating:4.9, reviews:128, works:350, available:true,  status:'active' },
@@ -146,11 +168,11 @@ const DB = {
     if (USE_SUPABASE) {
       console.log('[DB] 使用 Supabase 雲端資料庫:', SUPABASE_URL);
       try {
-        // 載入預約
-        bookings = await sbFetch('GET', 'bookings', null, '?order=created_at.desc');
+        // 載入預約（兼容 created_at / "createdAt" 兩種 schema）
+        bookings = await loadSupabaseBookings();
         console.log('[DB] 預約載入成功，共', bookings.length, '筆');
       } catch(e) {
-        console.warn('[DB] 預約表不存在或無資料，初始化空陣列:', e.message);
+        console.warn('[DB] 預約載入失敗，暫時初始化空陣列:', e.message);
         bookings = [];
       }
       try {

@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   "updatedAt"     BIGINT GENERATED ALWAYS AS (updated_at) STORED
 );
 
--- 若上方 GENERATED ALWAYS 語法有問題，使用簡化版：
+-- 若你尚未建立資料表，可改用下方簡化版。
+-- 已上線資料庫請勿直接重建，避免刪掉既有預約：
 -- DROP TABLE IF EXISTS bookings;
 -- CREATE TABLE bookings (
 --   id TEXT PRIMARY KEY,
@@ -50,9 +51,10 @@ CREATE TABLE IF NOT EXISTS bookings (
 
 -- ========== 簡化版建表（推薦使用此版本）==========
 -- 請使用以下簡化版，欄位名稱與程式碼一致
+-- ⚠️ 正式環境不要先 DROP TABLE，否則會直接清空既有預約資料
+-- 若已上線，請改用 ALTER TABLE / migration 方式調整結構
 
-DROP TABLE IF EXISTS bookings CASCADE;
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
   id              TEXT PRIMARY KEY,
   "customerName"  TEXT NOT NULL,
   "customerPhone" TEXT NOT NULL,
