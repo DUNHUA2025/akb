@@ -5,7 +5,10 @@
   "main": "server_app.js",
   "scripts": {
     "start": "node server_app.js",
-    "dev": "node server_app.js"
+    "dev": "node server_app.js",
+    "backup:export": "node scripts/backup-export.js",
+    "monitor:health": "node scripts/health-monitor.js",
+    "restore:backup": "node scripts/restore-from-backup.js"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "createdAt": "2026-03-27T05:18:26.410Z",
+  "backupMode": "api",
+  "source": {
+    "apiBase": "https://akb-salon-server.onrender.com",
+    "supabaseUrl": null,
+    "gitSha": null,
+    "workflowRunId": null,
+    "workflowRunNumber": null
+  },
+  "warnings": [
+    "API 模式下 accounts 只會備份安全欄位，不包含 passwordHash。完整帳號還原請使用 Supabase service role 直連備份。",
+    "customers 為衍生資料，可由 bookings 重建。"
+  ],
+  "counts": {
+    "bookings": 0,
+    "designers": 5,
+    "services": 10,
+    "customers": 0,
+    "accounts": 8
+  },
+  "health": {
+    "status": "ok",
+    "bookings": 0,
+    "designers": 5,
+    "clients": 0,
+    "storage": "supabase",
+    "timestamp": "2026-03-27T05:18:26.550Z"
+  },
+  "files": {
+    "health.json": {
+      "bytes": 140,
+      "sha256": "2bf3840976396c6a8face30dda6fe394db5d33517ed9b780f67b8009429447b4"
+    },
+    "bookings.json": {
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "designers.json": {
+      "bytes": 2052,
+      "sha256": "7c292222f0d4a5f3a16f64548b4767805cfbec1764bdcb1d79e767fa212b2833"
+    },
+    "services.json": {
+      "bytes": 2201,
+      "sha256": "2e5d1d6abd2fd933802caac436b0c3cd0b769eb175376166544cb8f0ecfc5fd2"
+    },
+    "customers.json": {
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "accounts.json": {
+      "bytes": 648,
+      "sha256": "3940fd84b1bfc2d68e74999d9c4b2e8134d5f017559d761e43562293c98ed35f"
+    }
+  }
+}
