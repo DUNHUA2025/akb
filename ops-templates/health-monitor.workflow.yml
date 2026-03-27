@@ -1,0 +1,35 @@
+name: Health Monitor
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run health monitor
+        env:
+          AKB_API_BASE: ${{ vars.AKB_API_BASE || 'https://akb-salon-server.onrender.com' }}
+          BASELINE_FILE: ${{ github.workspace }}/.ops/state/latest-backup-manifest.json
+          BOOKING_DROP_THRESHOLD_PCT: '50'
+          MAX_BACKUP_AGE_HOURS: '30'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          AUTO_CLOSE_MONITOR_ISSUE: 'true'
+        run: node scripts/health-monitor.js
