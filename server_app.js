@@ -408,12 +408,50 @@ app.get('/api/health', (req, res) => {
 app.get('/api/debug/supabase', async (req, res) => {
   if (!USE_SUPABASE) return res.json({ supabase: false, message: '未設定 SUPABASE_URL/SUPABASE_ANON_KEY' });
   try {
-    const rows = await sbFetch('GET', 'bookings', null, '?select=id,status,date&order=created_at.desc&limit=5');
+    // 不加排序，避免 created_at vs "createdAt" 欄位名稱衝突
+    const rows = await sbFetch('GET', 'bookings', null, '?select=id,status,date&limit=5');
     res.json({ supabase: true, supabaseUrl: SUPABASE_URL.replace(/https:\/\/([^.]+)\..*/, 'https://$1.supabase.co'),
       bookingsInSupabase: rows.length, latestBookings: rows, memoryBookings: bookings.length });
   } catch(e) {
     res.status(500).json({ supabase: true, error: e.message });
   }
+});
+
+// ─── Supabase Schema 自動修正（首次使用或 schema 變更後執行）──
+// 通過 Supabase REST API 的 rpc 無法直接執行 DDL，
+// 改用「插入一筆帶有所有欄位的記錄」來觸發欄位驗證，
+// 並在 DB.init() 中通過 upsertBooking 確保 schema 已正確。
+// 此 endpoint 用於手動觸發 schema 診斷和修復。
+app.post('/api/admin/fix-schema', async (req, res) => {
+  const { secret } = req.body;
+  const RESET_SECRET = process.env.RESET_SECRET || 'akb-reset-2026';
+  if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
+  if (!USE_SUPABASE) return res.json({ message: '使用本地 JSON，無需修復' });
+
+  const results = [];
+  // 嘗試寫入一筆測試記錄（包含所有欄位），測試 schema 是否正確
+  const testRow = toBookingRow({
+    id: '__schema_test__',
+    customerName: 'test', customerPhone: '00000000',
+    date: '2000-01-01', time: '00:00',
+    designerId: 0, designerName: 'test',
+    serviceId: 0, serviceName: 'test',
+    price: 0, duration: 0, note: 'schema test',
+    status: 'cancelled', createdAt: 0, updatedAt: 0,
+  });
+  try {
+    await sbFetch('POST', 'bookings', testRow, '?on_conflict=id');
+    results.push({ step: 'schema_test_insert', ok: true });
+    // 清理測試記錄
+    await sbFetch('DELETE', 'bookings?id=eq.__schema_test__');
+    results.push({ step: 'schema_test_cleanup', ok: true });
+    // 重新載入 bookings
+    bookings = await loadSupabaseBookings();
+    results.push({ step: 'reload_bookings', count: bookings.length, ok: true });
+  } catch(e) {
+    results.push({ step: 'schema_test_insert', ok: false, error: e.message });
+  }
+  res.json({ results, memoryBookings: bookings.length });
 });
 
 // ─── 預約 ─────────────────────────────────────────────
