@@ -1,79 +1,42 @@
--- AKB 多元化音樂發廊 - Supabase 資料庫建表語句
+-- AKB 多元化音樂發廊 - Supabase 資料庫建表語句（最終修正版）
 -- 在 Supabase SQL Editor 中執行此文件即可建立所需資料表
 -- 執行後，將 SUPABASE_URL 和 SUPABASE_ANON_KEY 填入 Render 環境變數
 
 -- ========== 預約表 ==========
+-- 欄位名稱嚴格與後端程式碼一致（camelCase）
+-- 使用 CREATE TABLE IF NOT EXISTS，避免重新建表時刪除既有預約
 CREATE TABLE IF NOT EXISTS bookings (
   id              TEXT PRIMARY KEY,
-  customer_name   TEXT,
-  customer_phone  TEXT,
-  date            TEXT,
-  time            TEXT,
-  designer_id     INTEGER,
-  designer_name   TEXT,
-  service_name    TEXT,
-  service_id      INTEGER,
-  price           INTEGER DEFAULT 0,
-  duration        INTEGER DEFAULT 60,
-  status          TEXT DEFAULT 'pending',
-  notes           TEXT DEFAULT '',
-  created_at      BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000,
-  updated_at      BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000,
-  -- 允許前端傳入的 camelCase 欄位（自動映射）
-  "customerName"  TEXT GENERATED ALWAYS AS (customer_name) STORED,
-  "customerPhone" TEXT GENERATED ALWAYS AS (customer_phone) STORED,
-  "designerId"    INTEGER GENERATED ALWAYS AS (designer_id) STORED,
-  "designerName"  TEXT GENERATED ALWAYS AS (designer_name) STORED,
-  "serviceName"   TEXT GENERATED ALWAYS AS (service_name) STORED,
-  "createdAt"     BIGINT GENERATED ALWAYS AS (created_at) STORED,
-  "updatedAt"     BIGINT GENERATED ALWAYS AS (updated_at) STORED
-);
-
--- 若你尚未建立資料表，可改用下方簡化版。
--- 已上線資料庫請勿直接重建，避免刪掉既有預約：
--- DROP TABLE IF EXISTS bookings;
--- CREATE TABLE bookings (
---   id TEXT PRIMARY KEY,
---   "customerName" TEXT,
---   "customerPhone" TEXT,
---   date TEXT,
---   time TEXT,
---   "designerId" INTEGER,
---   "designerName" TEXT,
---   "serviceName" TEXT,
---   price INTEGER DEFAULT 0,
---   duration INTEGER DEFAULT 60,
---   status TEXT DEFAULT 'pending',
---   notes TEXT DEFAULT '',
---   "createdAt" BIGINT,
---   "updatedAt" BIGINT
--- );
-
--- ========== 簡化版建表（推薦使用此版本）==========
--- 請使用以下簡化版，欄位名稱與程式碼一致
--- ⚠️ 正式環境不要先 DROP TABLE，否則會直接清空既有預約資料
--- 若已上線，請改用 ALTER TABLE / migration 方式調整結構
-
-CREATE TABLE IF NOT EXISTS bookings (
-  id              TEXT PRIMARY KEY,
-  "customerName"  TEXT NOT NULL,
-  "customerPhone" TEXT NOT NULL,
-  date            TEXT NOT NULL,
-  time            TEXT NOT NULL,
+  "customerName"  TEXT NOT NULL DEFAULT '',
+  "customerPhone" TEXT NOT NULL DEFAULT '',
+  date            TEXT NOT NULL DEFAULT '',
+  time            TEXT NOT NULL DEFAULT '',
   "designerId"    INTEGER,
-  "designerName"  TEXT,
-  "serviceName"   TEXT,
+  "designerName"  TEXT DEFAULT '',
+  "serviceId"     INTEGER,
+  "serviceName"   TEXT DEFAULT '',
   price           INTEGER DEFAULT 0,
   duration        INTEGER DEFAULT 60,
+  note            TEXT DEFAULT '',
   status          TEXT DEFAULT 'pending',
-  notes           TEXT DEFAULT '',
   "createdAt"     BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
   "updatedAt"     BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
+-- 若 bookings 表已存在但結構較舊（有 notes 欄位而非 note，無 serviceId 欄位），
+-- 執行以下 ALTER 語句補充缺失欄位（已存在欄位不受影響）：
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "serviceId" INTEGER;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS note TEXT DEFAULT '';
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "serviceName" TEXT DEFAULT '';
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "designerId" INTEGER;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "designerName" TEXT DEFAULT '';
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "customerName" TEXT DEFAULT '';
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "customerPhone" TEXT DEFAULT '';
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "createdAt" BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "updatedAt" BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT;
+
 -- ========== 設計師表 ==========
-DROP TABLE IF EXISTS designers CASCADE;
-CREATE TABLE designers (
+CREATE TABLE IF NOT EXISTS designers (
   id          INTEGER PRIMARY KEY,
   name        TEXT NOT NULL,
   role        TEXT DEFAULT '設計師',
@@ -91,8 +54,7 @@ CREATE TABLE designers (
 );
 
 -- ========== 服務表 ==========
-DROP TABLE IF EXISTS services CASCADE;
-CREATE TABLE services (
+CREATE TABLE IF NOT EXISTS services (
   id          INTEGER PRIMARY KEY,
   name        TEXT NOT NULL,
   category    TEXT DEFAULT '基礎',
@@ -104,26 +66,20 @@ CREATE TABLE services (
 );
 
 -- ========== 帳號表 ==========
-DROP TABLE IF EXISTS accounts CASCADE;
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
   username        TEXT PRIMARY KEY,
   role            TEXT NOT NULL DEFAULT 'customer',
-  name            TEXT,
-  "passwordHash"  TEXT,
+  name            TEXT DEFAULT '',
+  "passwordHash"  TEXT DEFAULT '',
   "designerId"    INTEGER,
   "updatedAt"     BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
 );
 
--- ========== Row Level Security（建議開啟）==========
--- 由後端用 anon key 直接存取，關閉 RLS 或建立適當政策
+-- ========== 關閉 Row Level Security（後端 anon key 直接存取）==========
 ALTER TABLE bookings  DISABLE ROW LEVEL SECURITY;
 ALTER TABLE designers DISABLE ROW LEVEL SECURITY;
 ALTER TABLE services  DISABLE ROW LEVEL SECURITY;
 ALTER TABLE accounts  DISABLE ROW LEVEL SECURITY;
-
--- 若需啟用 RLS（更安全），請改用 Service Role Key 在後端
--- ALTER TABLE bookings  ENABLE ROW LEVEL SECURITY;
--- CREATE POLICY "allow_all" ON bookings USING (true) WITH CHECK (true);
 
 -- ========== 驗證 ==========
 SELECT 'bookings'  AS table_name, COUNT(*) FROM bookings

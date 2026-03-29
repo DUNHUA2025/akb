@@ -600,23 +600,31 @@ createApp({
 
     async function refreshCustomers(toast = true) {
       try {
+        // 1. 先確保取得最新預約資料（/api/customers 是從 bookings 計算的）
+        const latestBookings = await DB.getBookings();
+        if (latestBookings && latestBookings.length) {
+          bookings.value = latestBookings;
+          calcStats();
+        }
+        // 2. 再取客戶統計（後端從最新 bookings 計算）
         const raw = await DB.getCustomers();
         if (raw && raw.length) {
-          // Supabase customers 表格式
           customers.value = raw.map(c => ({
-            id: c.id || c.phone,
-            name: c.name || '',
-            phone: c.phone || '',
-            visits: c.visit_count || 0,
-            totalSpent: c.total_spent || 0,
-            firstVisit: c.first_visit || '',
-            lastVisit: c.last_visit || '',
+            id:         c.id         || c.phone  || '',
+            name:       c.name       || '',
+            phone:      c.phone      || c.id     || '',
+            visits:     c.visits     || c.visit_count    || 0,
+            totalSpent: c.totalSpent || c.total_spent    || 0,
+            pendingCount: c.pendingCount || 0,
+            firstVisit: c.firstVisit || c.first_visit    || '',
+            lastVisit:  c.lastVisit  || c.last_visit     || '',
           }));
         } else {
-          // 從預約資料計算
+          // 後端 bookings 為空時，從前端快取計算
           buildCustomersFromBookings();
         }
       } catch(e) {
+        console.warn('refreshCustomers error:', e);
         buildCustomersFromBookings();
       }
       if (toast) showToast('顧客資料已更新');

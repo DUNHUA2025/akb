@@ -79,8 +79,15 @@ function saveData(filePath, data) {
 // 使用原生 fetch（Node 18+），不需要額外套件
 async function sbFetch(method, table, body = null, query = '') {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
-  // POST 需要回傳新記錄；PATCH/DELETE 用 minimal 節省帶寬
-  const prefer = (method === 'POST') ? 'return=representation' : 'return=minimal';
+  // POST+on_conflict upsert 需要 resolution=merge-duplicates；普通 POST 需要 return=representation
+  let prefer;
+  if (query.includes('on_conflict')) {
+    prefer = 'resolution=merge-duplicates,return=representation';
+  } else if (method === 'POST') {
+    prefer = 'return=representation';
+  } else {
+    prefer = 'return=minimal';
+  }
   const headers = {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -122,6 +129,28 @@ async function loadSupabaseBookings() {
   return (Array.isArray(rows) ? rows : [])
     .map(normalizeBookingRow)
     .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+}
+
+// ── 將 booking 物件轉換成 Supabase bookings 表所需的欄位格式 ──
+// 嚴格只傳 schema 中存在的欄位，避免 Supabase 因未知欄位拒絕寫入
+function toBookingRow(b) {
+  return {
+    id:              b.id,
+    "customerName":  b.customerName  || b.name   || '',
+    "customerPhone": b.customerPhone || b.phone  || '',
+    date:            b.date          || '',
+    time:            b.time          || '',
+    "designerId":    b.designerId    || null,
+    "designerName":  b.designerName  || '',
+    "serviceId":     b.serviceId     || null,
+    "serviceName":   b.serviceName   || '',
+    price:           Number(b.price) || 0,
+    duration:        Number(b.duration) || 60,
+    note:            b.note          || b.notes  || '',
+    status:          b.status        || 'pending',
+    "createdAt":     b.createdAt     || Date.now(),
+    "updatedAt":     b.updatedAt     || Date.now(),
+  };
 }
 
 // ========== 預設資料 ==========
@@ -298,7 +327,13 @@ const DB = {
   // ── Supabase 逐筆寫入 ────────────────────────────────
   async upsertBooking(b) {
     if (!USE_SUPABASE) return;
-    try { await sbFetch('POST', 'bookings', b, '?on_conflict=id'); } catch(e) { console.warn('[DB] upsertBooking:', e.message); }
+    try {
+      const row = toBookingRow(b);
+      await sbFetch('POST', 'bookings', row, '?on_conflict=id');
+      console.log('[DB] ✅ upsertBooking 成功:', b.id);
+    } catch(e) {
+      console.error('[DB] ❌ upsertBooking 失敗:', b.id, e.message);
+    }
   },
   async deleteBooking(id) {
     if (!USE_SUPABASE) return;
@@ -367,6 +402,18 @@ app.get('/api/health', (req, res) => {
     storage: USE_SUPABASE ? 'supabase' : 'local-json',
     timestamp: new Date().toISOString()
   });
+});
+
+// ─── Supabase 連接診斷（用於排查持久化問題）─────────────
+app.get('/api/debug/supabase', async (req, res) => {
+  if (!USE_SUPABASE) return res.json({ supabase: false, message: '未設定 SUPABASE_URL/SUPABASE_ANON_KEY' });
+  try {
+    const rows = await sbFetch('GET', 'bookings', null, '?select=id,status,date&order=created_at.desc&limit=5');
+    res.json({ supabase: true, supabaseUrl: SUPABASE_URL.replace(/https:\/\/([^.]+)\..*/, 'https://$1.supabase.co'),
+      bookingsInSupabase: rows.length, latestBookings: rows, memoryBookings: bookings.length });
+  } catch(e) {
+    res.status(500).json({ supabase: true, error: e.message });
+  }
 });
 
 // ─── 預約 ─────────────────────────────────────────────
