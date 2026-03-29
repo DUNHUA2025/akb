@@ -133,8 +133,50 @@ async function loadSupabaseBookings() {
 
 // ── 將 booking 物件轉換成 Supabase bookings 表所需的欄位格式 ──
 // 嚴格只傳 schema 中存在的欄位，避免 Supabase 因未知欄位拒絕寫入
+// BOOKING_NOTE_FIELD 在啟動時自動偵測（'note' 或 'notes'），預設 'notes'（向後兼容舊 schema）
+let BOOKING_NOTE_FIELD = 'notes'; // 啟動後由 detectBookingSchema() 更新
+let BOOKING_HAS_SERVICE_ID = false; // 啟動後由 detectBookingSchema() 更新
+
+async function detectBookingSchema() {
+  if (!USE_SUPABASE) return;
+  // 插入一筆測試記錄，先試 note 欄位，再試 notes 欄位
+  const base = {
+    id: '__detect__', "customerName": 'x', "customerPhone": '0',
+    date: '2000-01-01', time: '00:00', status: 'cancelled',
+    price: 0, duration: 0,
+  };
+  // 試驗1：帶 serviceId + note
+  try {
+    await sbFetch('POST', 'bookings', { ...base, note: '', "serviceId": 0 }, '?on_conflict=id');
+    await sbFetch('DELETE', 'bookings?id=eq.__detect__');
+    BOOKING_NOTE_FIELD = 'note';
+    BOOKING_HAS_SERVICE_ID = true;
+    console.log('[DB] Schema 偵測：bookings 表使用 note + serviceId 欄位');
+    return;
+  } catch(e) { /* 繼續嘗試 */ }
+  // 試驗2：帶 notes（無 serviceId）
+  try {
+    await sbFetch('POST', 'bookings', { ...base, notes: '' }, '?on_conflict=id');
+    await sbFetch('DELETE', 'bookings?id=eq.__detect__');
+    BOOKING_NOTE_FIELD = 'notes';
+    BOOKING_HAS_SERVICE_ID = false;
+    console.log('[DB] Schema 偵測：bookings 表使用 notes 欄位（舊 schema）');
+    return;
+  } catch(e) { /* 繼續嘗試 */ }
+  // 試驗3：最小欄位（更舊的 schema）
+  try {
+    await sbFetch('POST', 'bookings', base, '?on_conflict=id');
+    await sbFetch('DELETE', 'bookings?id=eq.__detect__');
+    BOOKING_NOTE_FIELD = 'notes';
+    BOOKING_HAS_SERVICE_ID = false;
+    console.log('[DB] Schema 偵測：bookings 表使用最小欄位集');
+  } catch(e) {
+    console.error('[DB] Schema 偵測全部失敗，請手動在 Supabase SQL Editor 執行 supabase_schema.sql:', e.message);
+  }
+}
+
 function toBookingRow(b) {
-  return {
+  const row = {
     id:              b.id,
     "customerName":  b.customerName  || b.name   || '',
     "customerPhone": b.customerPhone || b.phone  || '',
@@ -142,15 +184,18 @@ function toBookingRow(b) {
     time:            b.time          || '',
     "designerId":    b.designerId    || null,
     "designerName":  b.designerName  || '',
-    "serviceId":     b.serviceId     || null,
     "serviceName":   b.serviceName   || '',
     price:           Number(b.price) || 0,
     duration:        Number(b.duration) || 60,
-    note:            b.note          || b.notes  || '',
     status:          b.status        || 'pending',
     "createdAt":     b.createdAt     || Date.now(),
     "updatedAt":     b.updatedAt     || Date.now(),
   };
+  // 根據偵測結果動態設定備註欄位名稱
+  row[BOOKING_NOTE_FIELD] = b.note || b.notes || '';
+  // 只在表有 serviceId 欄位時才傳
+  if (BOOKING_HAS_SERVICE_ID) row['serviceId'] = b.serviceId || null;
+  return row;
 }
 
 // ========== 預設資料 ==========
@@ -196,6 +241,8 @@ const DB = {
   async init() {
     if (USE_SUPABASE) {
       console.log('[DB] 使用 Supabase 雲端資料庫:', SUPABASE_URL);
+      // 啟動時先偵測 bookings 表的實際欄位名稱（note/notes, serviceId 等）
+      await detectBookingSchema();
       try {
         // 載入預約（兼容 created_at / "createdAt" 兩種 schema）
         bookings = await loadSupabaseBookings();
