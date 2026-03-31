@@ -161,11 +161,45 @@ input.error-field{border-color:#EF4444!important;box-shadow:0 0 0 3px rgba(239,6
 
 @media(max-width:480px){.nav-tab{padding:8px 10px;font-size:13px;}.modal-box{padding:20px 16px;}}
 
+
+/* ── 淺色模式覆蓋 ── */
+html.light body,.html-light body{background:#F5F3EE !important;color:#1A1208 !important;}
+html.light .bg-dark{background:#F5F3EE !important;}
+html.light .bg-card,.html.light .card{background:#FFFFFF !important;}
+html.light input,html.light select,html.light textarea{background:#F0EDE8 !important;border-color:#D4CFCA !important;color:#1A1208 !important;}
+html.light .text-white{color:#1A1208 !important;}
+html.light .text-muted{color:#6B6050 !important;}
+html.light th{color:#9B8F7E !important;}
+html.light td{border-color:#E8E2DC !important;}
+html.light [style*="color:#888"],[html.light [style*="color: #888"]]{color:#6B6050 !important;}
+html.light [style*="color:#666"]{color:#7A6F65 !important;}
+html.light [style*="color:#555"]{color:#8B7F75 !important;}
+html.light [style*="color:#444"]{color:#9A8D80 !important;}
+html.light [style*="color:#333"]{color:#A89A8D !important;}
+html.light [style*="color:#777"]{color:#6B6050 !important;}
+html.light [style*="background:#1C1C1C"]{background:#FFFFFF !important;}
+html.light [style*="background:#121212"]{background:#F0EDE8 !important;}
+html.light [style*="background:#0F0F0F"]{background:#F5F3EE !important;}
+html.light [style*="background:#252525"]{background:#F0EDE8 !important;}
+html.light [style*="border-color:#2A2A2A"],[html.light [style*="border-color: #2A2A2A"]]{border-color:#E2DDD4 !important;}
+html.light .sidebar-item{color:#6B6050 !important;}
+html.light .sidebar-item.active{background:rgba(201,168,76,.15) !important;color:#8B6914 !important;}
+html.light .sidebar-item:hover{background:#EAE5DE !important;color:#1A1208 !important;}
+html.light aside{background:#EAE5DE !important;border-color:#D8D0C5 !important;}
+html.light header{background:rgba(245,243,238,.96) !important;border-color:#D8D0C5 !important;}
+html.light .card{background:#FFFFFF !important;border-color:#E2DDD4 !important;}
+html.light table th{border-color:#E2DDD4 !important;}
+html.light table td{border-color:#EDE8E2 !important;}
+html.light .btn-ghost{border-color:#D4CFCA !important;color:#6B6050 !important;}
+html.light .btn-ghost:hover{border-color:var(--gold) !important;color:var(--gold) !important;}
+
 </style>
 
 </head>
 
 <body class="bg-dark text-white min-h-screen">
+<button id="themeBtn" onclick="toggleTheme()" title="切換深色/淺色模式" style="position:fixed;top:60px;right:10px;z-index:9999;width:38px;height:38px;border-radius:50%;background:rgba(28,28,28,.9);border:1px solid #2A2A2A;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;box-shadow:0 2px 10px rgba(0,0,0,.4);transition:all .25s;" onmouseover="this.style.borderColor='#C9A84C'" onmouseout="this.style.borderColor='#2A2A2A'">🌙</button>
+
 
 <div id="app">
 
@@ -1872,6 +1906,25 @@ createApp({
 
 </script>
 
+
+<script>
+// ── 深色/淺色模式切換 ──
+(function(){
+  function applyTheme(t){
+    if(t==='light'){document.documentElement.classList.add('light');}
+    else{document.documentElement.classList.remove('light');}
+    var btn=document.getElementById('themeBtn');
+    if(btn) btn.textContent=(t==='light'?'☀️':'🌙');
+  }
+  window.toggleTheme=function(){
+    var isLight=document.documentElement.classList.contains('light');
+    var next=isLight?'dark':'light';
+    applyTheme(next);
+    localStorage.setItem('akb_theme',next);
+  };
+  applyTheme(localStorage.getItem('akb_theme')||'dark');
+})();
+</script>
 </body>
 
 </html>
