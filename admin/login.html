@@ -4,172 +4,219 @@
 <meta charset="UTF-8"/>
 <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<meta name="theme-color" content="#0F0F0F"/>
 <title>店家管理員登入 - AKB 多元化音樂發廊</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.min.js"></script>
 <script src="../auth.js?v=20260325c"></script>
 <style>
-*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;}
+/* ══ AKB 墨玉主題 ══ */
+:root{
+  --bg:#0E1117;--bg2:#141921;--surface:#1A2332;--surface2:#1F2A3C;
+  --border:#243044;--border2:#2E3D56;
+  --text:#E8EDF5;--text2:#9DAFC8;--text3:#5A6E8A;
+  --jade:#2DD4BF;--jade2:#5EEAD4;--jade3:#99F6E4;
+  --amber:#F59E0B;--amber2:#FCD34D;--rose:#FB7185;--green:#34D399;
+  --glass:rgba(26,35,50,.75);--glass-border:rgba(45,212,191,.16);
+  --shadow:rgba(0,0,0,.5);
+}
+html.light{
+  --bg:#F7F8FA;--bg2:#EDEEF2;--surface:#FFFFFF;--surface2:#F0F2F6;
+  --border:#DDE1EB;--border2:#C8CEDC;
+  --text:#111827;--text2:#374151;--text3:#6B7280;
+  --jade:#0D9488;--jade2:#14B8A6;--jade3:#2DD4BF;
+  --amber:#D97706;--amber2:#F59E0B;
+  --glass:rgba(255,255,255,.84);--glass-border:rgba(13,148,136,.2);
+  --shadow:rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Noto Sans TC','DM Sans',sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;
+  transition:background .4s,color .4s;
+}
 .serif{font-family:'Noto Serif TC',serif;}
-.gold{color:#C9A84C;}
-.bg-gold{background:#C9A84C;}
-.bg-gold-grad{background:linear-gradient(135deg,#C9A84C,#E8D5A3);}
-.text-gold{color:#C9A84C;}
-.bg-dark{background:#0F0F0F;}
-.bg-card{background:#1C1C1C;}
-.text-muted{color:#888;}
-.input-wrap{position:relative;}
-.input-wrap input{
-  background:#252525;border:1px solid #333;color:#fff;
-  border-radius:10px;padding:12px 44px 12px 16px;
-  width:100%;outline:none;transition:border .2s,box-shadow .2s;
-  font-family:inherit;font-size:15px;
-}
-.input-wrap input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
-.input-wrap input.error{border-color:#EF4444;box-shadow:0 0 0 3px rgba(239,68,68,.1);}
-.input-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#555;pointer-events:none;}
-.input-wrap input{padding-left:42px;}
-.pwd-toggle{
-  position:absolute;right:13px;top:50%;transform:translateY(-50%);
-  background:none;border:none;cursor:pointer;color:#555;padding:4px;
-  transition:color .2s;
-}
-.pwd-toggle:hover{color:#C9A84C;}
-.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:10px;}
-.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:12px 24px;}
-.btn-gold:hover{opacity:.87;transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,168,76,.4);}
-.btn-gold:active{transform:translateY(0);}
-.btn-ghost{background:transparent;color:#777;border:1px solid #2a2a2a;padding:9px 18px;border-radius:8px;}
-.btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
-.fade{animation:fadeUp .35s ease;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:20px;}
-.shimmer{
-  background:linear-gradient(90deg,#C9A84C 0%,#F0DFA0 40%,#C9A84C 60%,#E8D5A3 100%);
-  background-size:200% auto;
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  animation:shimmerMove 3s linear infinite;
-}
-@keyframes shimmerMove{0%{background-position:0%}100%{background-position:200%}}
 
-/* 搖晃動畫（錯誤時） */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes gradShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
 @keyframes shake{0%,100%{transform:translateX(0);}20%,60%{transform:translateX(-6px);}40%,80%{transform:translateX(6px);}}
-.shake{animation:shake .35s ease;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes orbFloat{0%,100%{transform:translate(0,0);}50%{transform:translate(20px,-16px);}}
+.fade{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;}
+.shake-anim{animation:shake .35s ease;}
 
-/* ── 淺色模式覆蓋 ── */
-html.light body,.html-light body{background:#F5F3EE !important;color:#1A1208 !important;}
-html.light .bg-dark{background:#F5F3EE !important;}
-html.light .bg-card,.html.light .card{background:#FFFFFF !important;}
-html.light input,html.light select,html.light textarea{background:#F0EDE8 !important;border-color:#D4CFCA !important;color:#1A1208 !important;}
-html.light .text-white{color:#1A1208 !important;}
-html.light .text-muted{color:#6B6050 !important;}
-html.light th{color:#9B8F7E !important;}
-html.light td{border-color:#E8E2DC !important;}
-html.light [style*="color:#888"],[html.light [style*="color: #888"]]{color:#6B6050 !important;}
-html.light [style*="color:#666"]{color:#7A6F65 !important;}
-html.light [style*="color:#555"]{color:#8B7F75 !important;}
-html.light [style*="color:#444"]{color:#9A8D80 !important;}
-html.light [style*="color:#333"]{color:#A89A8D !important;}
-html.light [style*="color:#777"]{color:#6B6050 !important;}
-html.light [style*="background:#1C1C1C"]{background:#FFFFFF !important;}
-html.light [style*="background:#121212"]{background:#F0EDE8 !important;}
-html.light [style*="background:#0F0F0F"]{background:#F5F3EE !important;}
-html.light [style*="background:#252525"]{background:#F0EDE8 !important;}
-html.light [style*="border-color:#2A2A2A"],[html.light [style*="border-color: #2A2A2A"]]{border-color:#E2DDD4 !important;}
-html.light .sidebar-item{color:#6B6050 !important;}
-html.light .sidebar-item.active{background:rgba(201,168,76,.15) !important;color:#8B6914 !important;}
-html.light .sidebar-item:hover{background:#EAE5DE !important;color:#1A1208 !important;}
-html.light aside{background:#EAE5DE !important;border-color:#D8D0C5 !important;}
-html.light header{background:rgba(245,243,238,.96) !important;border-color:#D8D0C5 !important;}
-html.light .card{background:#FFFFFF !important;border-color:#E2DDD4 !important;}
-html.light table th{border-color:#E2DDD4 !important;}
-html.light table td{border-color:#EDE8E2 !important;}
-html.light .btn-ghost{border-color:#D4CFCA !important;color:#6B6050 !important;}
-html.light .btn-ghost:hover{border-color:var(--gold) !important;color:var(--gold) !important;}
+/* 背景光暈 */
+.orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;}
+.orb-a{width:480px;height:480px;background:radial-gradient(circle,rgba(45,212,191,.12) 0%,transparent 70%);top:-120px;right:-100px;animation:orbFloat 14s ease-in-out infinite;}
+.orb-b{width:360px;height:360px;background:radial-gradient(circle,rgba(245,158,11,.08) 0%,transparent 70%);bottom:-80px;left:-80px;animation:orbFloat 11s ease-in-out infinite reverse;}
+html.light .orb-a{background:radial-gradient(circle,rgba(13,148,136,.08) 0%,transparent 70%);}
+html.light .orb-b{background:radial-gradient(circle,rgba(217,119,6,.06) 0%,transparent 70%);}
 
+/* 漸層文字 */
+.jade-text{
+  background:linear-gradient(135deg,var(--jade),var(--jade2),var(--amber));
+  background-size:200% 200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:gradShift 4.5s ease infinite;
+}
+
+/* 玻璃卡 */
+.glass-card{
+  background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:24px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+}
+
+/* 輸入框 */
+.field-wrap{position:relative;}
+.field-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;}
+.field-input{
+  width:100%;background:var(--surface2);border:1.5px solid var(--border);
+  color:var(--text);border-radius:12px;padding:12px 14px 12px 42px;
+  font-size:14px;outline:none;transition:all .2s;font-family:inherit;
+}
+.field-input::placeholder{color:var(--text3);}
+.field-input:focus{border-color:var(--jade);box-shadow:0 0 0 3px rgba(45,212,191,.14);}
+.field-input.err{border-color:var(--rose);}
+.pwd-eye{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;transition:color .2s;
+}
+.pwd-eye:hover{color:var(--jade);}
+
+/* 主按鈕 */
+.btn-main{
+  width:100%;background:linear-gradient(135deg,var(--jade),var(--jade2));
+  color:#fff;font-weight:700;font-size:15px;border-radius:14px;
+  border:none;padding:14px;cursor:pointer;transition:all .25s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+html.light .btn-main{color:#042f2e;}
+.btn-main:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 24px rgba(45,212,191,.4);}
+.btn-main:disabled{opacity:.4;cursor:not-allowed;}
+
+/* 返回按鈕 */
+.btn-back{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);border-radius:12px;padding:9px 18px;
+  font-size:13px;cursor:pointer;text-decoration:none;transition:all .2s;
+}
+.btn-back:hover{border-color:var(--jade);color:var(--jade);}
+
+/* 主題按鈕 */
+.theme-btn{
+  position:fixed;top:16px;right:16px;z-index:999;
+  width:36px;height:36px;border-radius:50%;
+  background:var(--surface2);border:1.5px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:15px;transition:all .2s;
+}
+.theme-btn:hover{border-color:var(--jade);transform:scale(1.1);}
 </style>
 </head>
-<body class="bg-dark text-white min-h-screen">
-<button id="themeBtn" onclick="toggleTheme()" title="切換深色/淺色模式" style="position:fixed;top:14px;right:14px;z-index:9999;width:38px;height:38px;border-radius:50%;background:rgba(28,28,28,.9);border:1px solid #2A2A2A;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;box-shadow:0 2px 10px rgba(0,0,0,.4);transition:all .25s;" onmouseover="this.style.borderColor='#C9A84C'" onmouseout="this.style.borderColor='#2A2A2A'">🌙</button>
+<body>
+<div class="orb orb-a"></div>
+<div class="orb orb-b"></div>
+
+<button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換主題">🌙</button>
 
 <div id="app">
-  <div class="min-h-screen flex items-center justify-center fade" style="background:radial-gradient(ellipse at top,#1a1400 0%,#0F0F0F 60%)">
-    <div class="w-full max-w-sm px-6">
-      <button @click="goHome" class="btn btn-ghost mb-6 text-sm flex items-center gap-1.5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="width:100%;max-width:400px;position:relative;z-index:1;">
+
+      <!-- 返回 -->
+      <button @click="goHome" class="btn-back fade" style="margin-bottom:24px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
         返回首頁
       </button>
-      
-      <div class="text-center mb-8">
-        <div class="text-4xl font-bold serif shimmer mb-2">AKB</div>
-        <div class="text-gold text-sm tracking-wider">店家管理員登入</div>
+
+      <!-- 標題 -->
+      <div class="fade text-center" style="margin-bottom:28px;animation-delay:.06s;">
+        <div class="serif jade-text" style="font-size:38px;font-weight:700;margin-bottom:6px;">AKB</div>
+        <div style="font-size:11px;letter-spacing:.35em;color:var(--text3);text-transform:uppercase;">店家管理員登入</div>
       </div>
-      
-      <div class="card p-8" :class="{'shake': shaking}">
-        <div class="text-xl font-bold mb-6 text-center">管理員登入</div>
-        
-        <!-- 冷啟動提示（倒計時自動重試）-->
-        <div v-if="waking" class="mb-4 p-3 rounded-lg text-sm" style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);color:#C9A84C;">
-          <div class="flex items-center gap-2 mb-1">
-            <svg class="animate-spin flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            <span class="font-semibold">服務器啟動中，請稍候…</span>
+
+      <!-- 登入卡片 -->
+      <div class="glass-card fade" :class="{'shake-anim':shaking}" style="padding:32px;animation-delay:.1s;">
+        <div style="font-weight:700;font-size:17px;margin-bottom:24px;text-align:center;color:var(--text);">管理員登入</div>
+
+        <!-- 冷啟動提示 -->
+        <div v-if="waking" style="margin-bottom:16px;padding:14px;border-radius:12px;font-size:13px;background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.22);color:var(--jade2);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <svg style="animation:spin 1s linear infinite;flex-shrink:0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <span style="font-weight:600;">服務器啟動中，請稍候…</span>
           </div>
-          <div class="text-xs" style="color:#a87f2a;">{{countdown}} 秒後自動重試登入</div>
-          <div class="mt-1.5 h-1 rounded-full overflow-hidden" style="background:rgba(201,168,76,.2);">
-            <div class="h-full rounded-full transition-all" style="background:#C9A84C;" :style="{width: (countdown/30*100)+'%'}"></div>
+          <div style="font-size:12px;color:var(--text3);">{{countdown}} 秒後自動重試</div>
+          <div style="margin-top:8px;height:3px;border-radius:2px;background:var(--border);overflow:hidden;">
+            <div style="height:100%;background:linear-gradient(90deg,var(--jade),var(--jade2));border-radius:2px;transition:width .9s;" :style="{width:(countdown/30*100)+'%'}"></div>
           </div>
         </div>
-        <div v-else-if="error" class="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-700 text-red-300 text-sm flex items-center gap-2">
-          <svg width="14" height="14" flex-shrink="0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+
+        <!-- 錯誤提示 -->
+        <div v-else-if="error" style="margin-bottom:16px;padding:12px 16px;border-radius:12px;font-size:13px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);color:var(--rose);display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
           {{error}}
         </div>
-        
-        <div class="space-y-4">
+
+        <!-- 表單 -->
+        <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:20px;">
           <div>
-            <label class="block text-xs text-muted mb-2">帳號</label>
-            <div class="input-wrap">
-              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <input v-model="username" :class="{'error': !!error}" placeholder="請輸入管理員帳號" autocomplete="username" @keyup.enter="login" @input="error=''"/>
+            <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:8px;">帳號</label>
+            <div class="field-wrap">
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+              <input class="field-input" :class="{'err':!!error}" v-model="username" placeholder="請輸入管理員帳號" autocomplete="username" @keyup.enter="login" @input="error=''"/>
             </div>
           </div>
           <div>
-            <label class="block text-xs text-muted mb-2">密碼</label>
-            <div class="input-wrap">
-              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <input v-model="password" :type="showPwd?'text':'password'" :class="{'error': !!error}" placeholder="請輸入密碼" autocomplete="current-password" @keyup.enter="login" @input="error=''"/>
-              <button class="pwd-toggle" @click="showPwd=!showPwd" type="button" :title="showPwd?'隱藏密碼':'顯示密碼'">
+            <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:8px;">密碼</label>
+            <div class="field-wrap">
+              <span class="field-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+              <input class="field-input" :class="{'err':!!error}" v-model="password" :type="showPwd?'text':'password'" placeholder="請輸入密碼" autocomplete="current-password" @keyup.enter="login" @input="error=''"/>
+              <button class="pwd-eye" @click="showPwd=!showPwd" type="button">
                 <svg v-if="!showPwd" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               </button>
             </div>
           </div>
         </div>
-        
-        <button class="btn btn-gold w-full mt-6 py-3 text-base flex items-center justify-center gap-2" @click="login" :disabled="loading">
-          <svg v-if="loading" class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+
+        <button class="btn-main" @click="login" :disabled="loading">
+          <svg v-if="loading" style="animation:spin 1s linear infinite;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
           <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
           {{loading ? '登入中...' : '登入'}}
         </button>
-        
-        <div class="mt-5 pt-4 border-t text-center" style="border-color:#1a1a1a;">
-          <div class="text-xs" style="color:#333;">© 2026 AKB 多元化音樂發廊</div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);text-align:center;">
+          <p style="font-size:11px;color:var(--text3);">© 2026 AKB 多元化音樂發廊</p>
         </div>
       </div>
-      
-      <div class="mt-6 text-center text-xs" style="color:#3a3a3a;">
-        AKB 多元化音樂發廊 管理系統
-      </div>
+
+      <div style="margin-top:14px;text-align:center;font-size:11px;color:var(--text3);">AKB 管理系統</div>
     </div>
   </div>
 </div>
 
 <script>
-const { createApp, ref, onMounted, onUnmounted } = Vue;
+(function(){
+  function applyTheme(t){
+    if(t==='light') document.documentElement.classList.add('light');
+    else document.documentElement.classList.remove('light');
+    var btn=document.getElementById('themeBtn');
+    if(btn) btn.textContent=(t==='light'?'☀️':'🌙');
+  }
+  window.toggleTheme=function(){
+    var isLight=document.documentElement.classList.contains('light');
+    var next=isLight?'dark':'light';
+    applyTheme(next);localStorage.setItem('akb_theme',next);
+  };
+  applyTheme(localStorage.getItem('akb_theme')||'dark');
+})();
+</script>
 
+<script>
+const { createApp, ref, onMounted, onUnmounted } = Vue;
 createApp({
   setup() {
     const username = ref('');
@@ -178,119 +225,60 @@ createApp({
     const loading = ref(false);
     const showPwd = ref(false);
     const shaking = ref(false);
-    const waking = ref(false);      // 冷啟動喚醒中
-    const countdown = ref(30);      // 倒計時秒數
-
+    const waking = ref(false);
+    const countdown = ref(30);
     let countdownTimer = null;
     let savedUsername = '';
     let savedPassword = '';
-    
-    // 如果已登入，直接進入管理後台
-    if (Auth.isLoggedIn() && Auth.hasPermission('admin')) {
-      window.location.href = './index.html';
-    }
 
-    // 頁面載入時靜默 ping 後端，若失敗則顯示預熱提示
+    if (Auth.isLoggedIn() && Auth.hasPermission('admin')) window.location.href = './index.html';
+
     onMounted(() => {
-      const apiBase = 'https://akb-salon-server.onrender.com';
-      fetch(apiBase + '/api/health', { method: 'GET', signal: AbortSignal.timeout(5000) })
-        .catch(() => {
-          // 後端未就緒，顯示友好提示（不顯示錯誤，只是資訊）
-          console.info('[Login] 後端冷啟動中，已靜默喚醒');
-        });
+      fetch('https://akb-salon-server.onrender.com/api/health', { method: 'GET', signal: AbortSignal.timeout(5000) })
+        .catch(() => { console.info('[Login] 後端冷啟動中'); });
     });
+    onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer); });
 
-    onUnmounted(() => {
-      if (countdownTimer) clearInterval(countdownTimer);
-    });
+    function triggerShake() { shaking.value = true; setTimeout(() => { shaking.value = false; }, 400); }
 
-    function triggerShake() {
-      shaking.value = true;
-      setTimeout(() => { shaking.value = false; }, 400);
-    }
-
-    // 啟動倒計時，結束後自動重試登入
     function startWakeCountdown(u, p) {
-      waking.value = true;
-      countdown.value = 30;
-      savedUsername = u;
-      savedPassword = p;
+      waking.value = true; countdown.value = 30; savedUsername = u; savedPassword = p;
       if (countdownTimer) clearInterval(countdownTimer);
       countdownTimer = setInterval(() => {
         countdown.value--;
         if (countdown.value <= 0) {
-          clearInterval(countdownTimer);
-          countdownTimer = null;
-          waking.value = false;
+          clearInterval(countdownTimer); countdownTimer = null; waking.value = false;
           doLogin(savedUsername, savedPassword);
         }
       }, 1000);
     }
 
     function doLogin(u, p) {
-      loading.value = true;
-      error.value = '';
+      loading.value = true; error.value = '';
       Auth.loginAsync(u, p).then(result => {
         loading.value = false;
         if (result.success) {
-          if (result.role === 'admin') {
-            window.location.href = './index.html';
-          } else {
-            error.value = '您沒有管理員權限';
-            triggerShake();
-            Auth.logout();
-          }
+          if (result.role === 'admin') { window.location.href = './index.html'; }
+          else { error.value = '您沒有管理員權限'; triggerShake(); Auth.logout(); }
         } else {
-          // 冷啟動錯誤 → 自動倒計時重試
-          if (result.error && result.error.includes('啟動')) {
-            startWakeCountdown(u, p);
-          } else {
-            error.value = result.error || '帳號或密碼不正確';
-            triggerShake();
-          }
+          if (result.error && result.error.includes('啟動')) startWakeCountdown(u, p);
+          else { error.value = result.error || '帳號或密碼不正確'; triggerShake(); }
         }
       });
     }
-    
+
     function login() {
-      error.value = '';
-      waking.value = false;
+      error.value = ''; waking.value = false;
       if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-      
-      if (!username.value || !password.value) {
-        error.value = '請輸入帳號和密碼';
-        triggerShake();
-        return;
-      }
+      if (!username.value || !password.value) { error.value = '請輸入帳號和密碼'; triggerShake(); return; }
       doLogin(username.value, password.value);
     }
-    
-    function goHome() {
-      window.location.href = '../index.html';
-    }
-    
+
+    function goHome() { window.location.href = '../index.html'; }
+
     return { username, password, error, loading, showPwd, shaking, waking, countdown, login, goHome };
   }
 }).mount('#app');
-</script>
-
-<script>
-// ── 深色/淺色模式切換 ──
-(function(){
-  function applyTheme(t){
-    if(t==='light'){document.documentElement.classList.add('light');}
-    else{document.documentElement.classList.remove('light');}
-    var btn=document.getElementById('themeBtn');
-    if(btn) btn.textContent=(t==='light'?'☀️':'🌙');
-  }
-  window.toggleTheme=function(){
-    var isLight=document.documentElement.classList.contains('light');
-    var next=isLight?'dark':'light';
-    applyTheme(next);
-    localStorage.setItem('akb_theme',next);
-  };
-  applyTheme(localStorage.getItem('akb_theme')||'dark');
-})();
 </script>
 </body>
 </html>

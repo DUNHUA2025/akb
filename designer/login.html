@@ -7,223 +7,264 @@
 <title>設計師登入 - AKB 多元化音樂發廊</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.min.js"></script>
 <script src="../auth.js?v=20260325c"></script>
 <style>
-*{font-family:'Noto Sans TC',sans-serif;box-sizing:border-box;margin:0;padding:0;}
-body{background:#0F0F0F;color:#fff;min-height:100vh;}
+/* ══ AKB 墨玉主題 ══ */
+:root{
+  --bg:#0E1117;--bg2:#141921;--surface:#1A2332;--surface2:#1F2A3C;
+  --border:#243044;--border2:#2E3D56;
+  --text:#E8EDF5;--text2:#9DAFC8;--text3:#5A6E8A;
+  --jade:#2DD4BF;--jade2:#5EEAD4;--jade3:#99F6E4;
+  --amber:#F59E0B;--amber2:#FCD34D;--rose:#FB7185;--green:#34D399;
+  --glass:rgba(26,35,50,.75);--glass-border:rgba(45,212,191,.16);
+  --shadow:rgba(0,0,0,.5);
+}
+html.light{
+  --bg:#F7F8FA;--bg2:#EDEEF2;--surface:#FFFFFF;--surface2:#F0F2F6;
+  --border:#DDE1EB;--border2:#C8CEDC;
+  --text:#111827;--text2:#374151;--text3:#6B7280;
+  --jade:#0D9488;--jade2:#14B8A6;--jade3:#2DD4BF;
+  --amber:#D97706;--amber2:#F59E0B;
+  --glass:rgba(255,255,255,.84);--glass-border:rgba(13,148,136,.2);
+  --shadow:rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Noto Sans TC','DM Sans',sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;
+  transition:background .4s,color .4s;
+}
 .serif{font-family:'Noto Serif TC',serif;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
-@keyframes shimmerMove{0%{background-position:0%}100%{background-position:200%}}
-.fade{animation:fadeUp .4s ease both;}
-.shimmer-text{
-  background:linear-gradient(90deg,#C9A84C 0%,#F0DFA0 40%,#C9A84C 60%,#E8D5A3 100%);
-  background-size:200% auto;
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  animation:shimmerMove 3s linear infinite;
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes gradShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+@keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+@keyframes orbFloat{0%,100%{transform:translate(0,0);}50%{transform:translate(18px,-14px);}}
+@keyframes skeleton{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+.fade{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;}
+
+/* 背景光暈 */
+.orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;}
+.orb-a{width:440px;height:440px;background:radial-gradient(circle,rgba(45,212,191,.11) 0%,transparent 70%);top:-100px;right:-80px;animation:orbFloat 13s ease-in-out infinite;}
+.orb-b{width:320px;height:320px;background:radial-gradient(circle,rgba(245,158,11,.07) 0%,transparent 70%);bottom:-70px;left:-70px;animation:orbFloat 11s ease-in-out infinite reverse;}
+html.light .orb-a{background:radial-gradient(circle,rgba(13,148,136,.08) 0%,transparent 70%);}
+html.light .orb-b{background:radial-gradient(circle,rgba(217,119,6,.05) 0%,transparent 70%);}
+
+/* 漸層文字 */
+.jade-text{background:linear-gradient(135deg,var(--jade),var(--jade2),var(--amber));background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradShift 4.5s ease infinite;}
+.amber-text{background:linear-gradient(90deg,var(--amber) 0%,var(--amber2) 50%,var(--amber) 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3.5s linear infinite;}
+
+/* 玻璃卡片 */
+.glass-card{
+  background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:24px;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
 }
-input{background:#252525;border:1px solid #333;color:#fff;border-radius:10px;padding:12px 16px;width:100%;outline:none;transition:border 0.2s;font-family:inherit;font-size:15px;}
-input:focus{border-color:#C9A84C;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
-.btn{cursor:pointer;transition:all 0.2s;border:none;font-weight:600;border-radius:10px;font-family:inherit;}
-.btn-gold{background:linear-gradient(135deg,#C9A84C,#E8D5A3);color:#0F0F0F;padding:13px 24px;font-size:15px;}
-.btn-gold:hover{opacity:.85;transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,168,76,.4);}
-.btn-gold:disabled{opacity:.4;cursor:not-allowed;transform:none;}
-.btn-ghost{background:transparent;color:#777;border:1px solid #2a2a2a;padding:10px 20px;font-size:13px;}
-.btn-ghost:hover{border-color:#C9A84C;color:#C9A84C;}
-.card{background:#1C1C1C;border:1px solid #2A2A2A;border-radius:20px;}
-/* 設計師選項卡 */
+
+/* 設計師按鈕 */
 .designer-btn{
-  background:#1A1A1A;
-  border:1.5px solid #2A2A2A;
-  border-radius:14px;
-  padding:14px 16px;
-  cursor:pointer;
-  transition:all 0.22s cubic-bezier(.4,0,.2,1);
-  display:flex;align-items:center;gap:14px;
-  position:relative;
-  overflow:hidden;
+  background:var(--surface);border:1.5px solid var(--border);border-radius:14px;
+  padding:14px 16px;cursor:pointer;transition:all .22s;
+  display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;
 }
-.designer-btn::before{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(135deg,rgba(201,168,76,.06),transparent);
-  opacity:0;transition:opacity .2s;
-}
-.designer-btn:hover{border-color:#C9A84C;background:#1E1E1E;}
-.designer-btn:hover::before{opacity:1;}
+.designer-btn:hover{border-color:var(--jade);background:var(--surface2);}
 .designer-btn.selected{
-  border-color:#C9A84C;
-  background:rgba(201,168,76,.08);
-  box-shadow:0 0 0 1px rgba(201,168,76,.2);
+  border-color:var(--jade);background:rgba(45,212,191,.06);
+  box-shadow:0 0 0 3px rgba(45,212,191,.14);
 }
-.designer-btn.selected::before{opacity:1;}
+
+/* 頭像環 */
 .avatar-ring{
   width:44px;height:44px;border-radius:50%;
-  background:linear-gradient(135deg,#C9A84C,#E8D5A3);
+  background:linear-gradient(135deg,var(--jade),var(--jade2));
   display:flex;align-items:center;justify-content:center;
-  color:#0F0F0F;font-weight:800;font-size:18px;flex-shrink:0;
-  box-shadow:0 2px 8px rgba(201,168,76,.3);
+  color:#fff;font-weight:800;font-size:17px;flex-shrink:0;
+  box-shadow:0 2px 10px rgba(45,212,191,.3);
 }
+html.light .avatar-ring{color:#042f2e;}
+
+/* 勾選標記 */
 .check-mark{
   width:22px;height:22px;border-radius:50%;
-  background:linear-gradient(135deg,#C9A84C,#E8D5A3);
+  background:linear-gradient(135deg,var(--jade),var(--jade2));
   display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;margin-left:auto;
-  font-size:12px;font-weight:700;color:#0F0F0F;
+  flex-shrink:0;margin-left:auto;font-size:11px;font-weight:700;color:#fff;
 }
-/* 密碼輸入區域過渡 */
-.pwd-area{overflow:hidden;transition:all .3s ease;}
-/* 小版本標籤 */
-.level-tag{
-  font-size:10px;font-weight:700;
-  padding:2px 7px;border-radius:12px;
-  display:inline-block;
+html.light .check-mark{color:#042f2e;}
+
+/* 等級標籤 */
+.level-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;display:inline-block;}
+
+/* 輸入框 */
+.field-input{
+  width:100%;background:var(--surface2);border:1.5px solid var(--border);
+  color:var(--text);border-radius:12px;padding:12px 46px 12px 16px;
+  font-size:14px;outline:none;transition:all .2s;font-family:inherit;
 }
-@keyframes skeleton-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+.field-input::placeholder{color:var(--text3);}
+.field-input:focus{border-color:var(--jade);box-shadow:0 0 0 3px rgba(45,212,191,.12);}
 
-/* ── 淺色模式覆蓋 ── */
-html.light body,.html-light body{background:#F5F3EE !important;color:#1A1208 !important;}
-html.light .bg-dark{background:#F5F3EE !important;}
-html.light .bg-card,.html.light .card{background:#FFFFFF !important;}
-html.light input,html.light select,html.light textarea{background:#F0EDE8 !important;border-color:#D4CFCA !important;color:#1A1208 !important;}
-html.light .text-white{color:#1A1208 !important;}
-html.light .text-muted{color:#6B6050 !important;}
-html.light th{color:#9B8F7E !important;}
-html.light td{border-color:#E8E2DC !important;}
-html.light [style*="color:#888"],[html.light [style*="color: #888"]]{color:#6B6050 !important;}
-html.light [style*="color:#666"]{color:#7A6F65 !important;}
-html.light [style*="color:#555"]{color:#8B7F75 !important;}
-html.light [style*="color:#444"]{color:#9A8D80 !important;}
-html.light [style*="color:#333"]{color:#A89A8D !important;}
-html.light [style*="color:#777"]{color:#6B6050 !important;}
-html.light [style*="background:#1C1C1C"]{background:#FFFFFF !important;}
-html.light [style*="background:#121212"]{background:#F0EDE8 !important;}
-html.light [style*="background:#0F0F0F"]{background:#F5F3EE !important;}
-html.light [style*="background:#252525"]{background:#F0EDE8 !important;}
-html.light [style*="border-color:#2A2A2A"],[html.light [style*="border-color: #2A2A2A"]]{border-color:#E2DDD4 !important;}
-html.light .sidebar-item{color:#6B6050 !important;}
-html.light .sidebar-item.active{background:rgba(201,168,76,.15) !important;color:#8B6914 !important;}
-html.light .sidebar-item:hover{background:#EAE5DE !important;color:#1A1208 !important;}
-html.light aside{background:#EAE5DE !important;border-color:#D8D0C5 !important;}
-html.light header{background:rgba(245,243,238,.96) !important;border-color:#D8D0C5 !important;}
-html.light .card{background:#FFFFFF !important;border-color:#E2DDD4 !important;}
-html.light table th{border-color:#E2DDD4 !important;}
-html.light table td{border-color:#EDE8E2 !important;}
-html.light .btn-ghost{border-color:#D4CFCA !important;color:#6B6050 !important;}
-html.light .btn-ghost:hover{border-color:var(--gold) !important;color:var(--gold) !important;}
+/* 主按鈕 */
+.btn-main{
+  width:100%;background:linear-gradient(135deg,var(--jade),var(--jade2));
+  color:#fff;font-weight:700;font-size:15px;border-radius:14px;
+  border:none;padding:14px;cursor:pointer;transition:all .25s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+html.light .btn-main{color:#042f2e;}
+.btn-main:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 24px rgba(45,212,191,.35);}
+.btn-main:disabled{opacity:.4;cursor:not-allowed;transform:none;}
 
+/* 返回按鈕 */
+.btn-back{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);border-radius:12px;padding:9px 18px;
+  font-size:13px;cursor:pointer;text-decoration:none;transition:all .2s;
+}
+.btn-back:hover{border-color:var(--jade);color:var(--jade);}
+
+/* 骨架屏 */
+.skel{
+  border-radius:14px;
+  background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);
+  background-size:200% 100%;animation:skeleton 1.4s infinite;
+}
+
+/* 主題按鈕 */
+.theme-btn{
+  position:fixed;top:16px;right:16px;z-index:999;
+  width:36px;height:36px;border-radius:50%;
+  background:var(--surface2);border:1.5px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:15px;transition:all .2s;
+}
+.theme-btn:hover{border-color:var(--jade);transform:scale(1.1);}
 </style>
 </head>
 <body>
-<button id="themeBtn" onclick="toggleTheme()" title="切換深色/淺色模式" style="position:fixed;top:14px;right:14px;z-index:9999;width:38px;height:38px;border-radius:50%;background:rgba(28,28,28,.9);border:1px solid #2A2A2A;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;box-shadow:0 2px 10px rgba(0,0,0,.4);transition:all .25s;" onmouseover="this.style.borderColor='#C9A84C'" onmouseout="this.style.borderColor='#2A2A2A'">🌙</button>
+<div class="orb orb-a"></div>
+<div class="orb orb-b"></div>
+
+<button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換主題">🌙</button>
 
 <div id="app">
-  <div class="min-h-screen flex items-center justify-center px-5 py-10"
-    style="background:radial-gradient(ellipse 80% 60% at 50% -5%,rgba(201,168,76,.12) 0%,transparent 60%),#0F0F0F">
-    
-    <div class="w-full fade" style="max-width:400px">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="width:100%;max-width:420px;position:relative;z-index:1;">
+
       <!-- 返回 -->
-      <a href="../index.html" class="btn btn-ghost mb-6 inline-flex items-center gap-2">
+      <a href="../index.html" class="btn-back fade" style="margin-bottom:24px;display:inline-flex;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
         返回首頁
       </a>
-      
+
       <!-- 標題 -->
-      <div class="text-center mb-8">
-        <div class="text-4xl font-bold serif shimmer-text mb-2">AKB</div>
-        <div class="text-sm tracking-widest" style="color:#C9A84C;">設計師工作台</div>
+      <div class="fade text-center" style="margin-bottom:28px;animation-delay:.06s;">
+        <div class="serif jade-text" style="font-size:38px;font-weight:700;margin-bottom:6px;">AKB</div>
+        <div style="font-size:11px;letter-spacing:.35em;color:var(--text3);text-transform:uppercase;">設計師工作台</div>
       </div>
-      
+
       <!-- 登入卡片 -->
-      <div class="card p-6">
-        <div class="font-bold text-lg mb-5 text-center" style="color:#ccc;">選擇設計師帳號</div>
-        
+      <div class="glass-card fade" style="padding:28px;animation-delay:.1s;">
+        <div style="font-weight:700;font-size:16px;margin-bottom:20px;text-align:center;color:var(--text2);">選擇設計師帳號</div>
+
         <!-- 錯誤提示 -->
-        <div v-if="error" class="mb-4 p-3 rounded-xl text-sm text-center"
-          style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;">
+        <div v-if="error" class="fade" style="margin-bottom:16px;padding:12px 16px;border-radius:12px;font-size:13px;text-align:center;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);color:var(--rose);">
           {{error}}
         </div>
-        
-        <!-- 設計師列表 -->
-        <div v-if="loadingDesigners" class="space-y-2 mb-5">
-          <div v-for="i in 3" :key="i" class="rounded-xl" style="height:68px;background:linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%);background-size:200% 100%;animation:skeleton-shimmer 1.4s infinite;"></div>
+
+        <!-- 骨架屏 -->
+        <div v-if="loadingDesigners" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+          <div v-for="i in 3" :key="i" class="skel" style="height:68px;"></div>
         </div>
-        <div v-else class="space-y-2 mb-5">
+
+        <!-- 設計師列表 -->
+        <div v-else style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
           <div v-for="d in designers" :key="d.id"
             :class="['designer-btn',selectedDesigner?.id===d.id?'selected':'']"
             @click="selectDesigner(d)">
             <div class="avatar-ring">{{d.avatar}}</div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-bold text-sm">{{d.name}}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:700;font-size:14px;color:var(--text);">{{d.name}}</span>
                 <span class="level-tag"
-                  :style="d.level==='A'?'background:rgba(201,168,76,.2);color:#C9A84C':d.level==='B'?'background:rgba(99,102,241,.2);color:#A78BFA':'background:rgba(34,197,94,.2);color:#86EFAC'">
+                  :style="d.level==='A'?'background:rgba(245,158,11,.12);color:var(--amber)':d.level==='B'?'background:rgba(45,212,191,.12);color:var(--jade2)':'background:rgba(52,211,153,.12);color:var(--green)'">
                   Lv.{{d.level||'C'}}
                 </span>
               </div>
-              <div class="text-xs mt-0.5" style="color:#666;">{{d.role}}</div>
+              <div style="font-size:12px;margin-top:3px;color:var(--text3);">{{d.role}}</div>
             </div>
             <div v-if="selectedDesigner?.id===d.id" class="check-mark">✓</div>
           </div>
         </div>
-        
-        <!-- 冷啟動提示（倒計時自動重試）-->
-        <div v-if="waking" class="mb-4 p-3 rounded-lg text-sm" style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);color:#C9A84C;">
-          <div class="flex items-center gap-2 mb-1">
-            <svg class="animate-spin flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            <span class="font-semibold">服務器啟動中，請稍候…</span>
+
+        <!-- 冷啟動提示 -->
+        <div v-if="waking" style="margin-bottom:16px;padding:12px 16px;border-radius:12px;font-size:13px;background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.22);color:var(--jade2);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <svg style="animation:spin 1s linear infinite;flex-shrink:0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <span style="font-weight:600;">服務器啟動中，請稍候…</span>
           </div>
-          <div class="text-xs" style="color:#a87f2a;">{{countdown}} 秒後自動重試登入</div>
-          <div class="mt-1.5 h-1 rounded-full overflow-hidden" style="background:rgba(201,168,76,.2);">
-            <div class="h-full rounded-full transition-all" style="background:#C9A84C;" :style="{width: (countdown/30*100)+'%'}"></div>
+          <div style="font-size:12px;color:var(--text3);">{{countdown}} 秒後自動重試</div>
+          <div style="margin-top:8px;height:3px;border-radius:2px;background:var(--border);overflow:hidden;">
+            <div style="height:100%;background:linear-gradient(90deg,var(--jade),var(--jade2));border-radius:2px;transition:width .9s;" :style="{width:(countdown/30*100)+'%'}"></div>
           </div>
         </div>
-        <div v-if="selectedDesigner" class="fade">
-          <div class="mb-4">
-            <label class="block text-xs mb-2" style="color:#777;">
-              {{selectedDesigner.name}} 的登入密碼
-            </label>
-            <div class="relative">
-              <input
-                v-model="password"
-                :type="showPwd ? 'text' : 'password'"
-                placeholder="請輸入密碼"
-                @keyup.enter="login"
-                style="padding-right:44px;"
-              />
-              <button type="button"
-                @click="showPwd=!showPwd"
-                class="absolute right-3 top-1/2 -translate-y-1/2"
-                style="color:#555;background:none;border:none;cursor:pointer;padding:4px;">
+
+        <!-- 密碼輸入 -->
+        <div v-if="selectedDesigner" class="fade" style="animation-delay:0s;">
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:12px;margin-bottom:8px;color:var(--text3);">{{selectedDesigner.name}} 的登入密碼</label>
+            <div style="position:relative;">
+              <input class="field-input" v-model="password" :type="showPwd?'text':'password'" placeholder="請輸入密碼" @keyup.enter="login"/>
+              <button type="button" @click="showPwd=!showPwd"
+                style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;transition:color .2s;"
+                onmouseover="this.style.color='var(--jade)'" onmouseout="this.style.color='var(--text3)'">
                 <svg v-if="!showPwd" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               </button>
             </div>
           </div>
-          <button class="btn btn-gold w-full" @click="login" :disabled="loading">
-            {{ loading ? '登入中...' : '進入工作台' }}
+          <button class="btn-main" @click="login" :disabled="loading">
+            <span v-if="loading" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+              <svg style="animation:spin 1s linear infinite;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              登入中...
+            </span>
+            <span v-else>進入工作台 →</span>
           </button>
         </div>
 
         <!-- 底部提示 -->
-        <div class="mt-5 pt-4 border-t text-center" style="border-color:#222;">
-          <div class="text-xs" style="color:#555;">
-            如忘記密碼請聯絡店長重置
-          </div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);text-align:center;">
+          <p style="font-size:12px;color:var(--text3);">如忘記密碼請聯絡店長重置</p>
         </div>
       </div>
-      
-      <div class="mt-6 text-center text-xs" style="color:#444;">
-        AKB 多元化音樂發廊 © 2026
-      </div>
+
+      <div style="margin-top:20px;text-align:center;font-size:11px;color:var(--text3);">AKB 多元化音樂發廊 © 2026</div>
     </div>
   </div>
 </div>
 
 <script>
-const { createApp, ref, onMounted, onUnmounted } = Vue;
+(function(){
+  function applyTheme(t){
+    if(t==='light') document.documentElement.classList.add('light');
+    else document.documentElement.classList.remove('light');
+    var btn=document.getElementById('themeBtn');
+    if(btn) btn.textContent=(t==='light'?'☀️':'🌙');
+  }
+  window.toggleTheme=function(){
+    var isLight=document.documentElement.classList.contains('light');
+    var next=isLight?'dark':'light';
+    applyTheme(next);localStorage.setItem('akb_theme',next);
+  };
+  applyTheme(localStorage.getItem('akb_theme')||'dark');
+})();
+</script>
 
+<script>
+const { createApp, ref, onMounted, onUnmounted } = Vue;
 const API_BASE = 'https://akb-salon-server.onrender.com';
 
 createApp({
@@ -241,7 +282,6 @@ createApp({
     let countdownTimer = null;
     let savedUsername = '';
     let savedPassword = '';
-    // 帳號對照表：designerId -> username
     let accountMap = {};
 
     if (Auth.isLoggedIn() && Auth.hasPermission('designer')) {
@@ -249,47 +289,34 @@ createApp({
     }
 
     onMounted(async () => {
-      // 靜默喚醒後端
       fetch(API_BASE + '/api/health', { method: 'GET', signal: AbortSignal.timeout(5000) })
         .catch(() => { console.info('[Login] 後端冷啟動中'); });
 
-      // 動態載入設計師列表 + 帳號對照
       try {
         const [designerRes, accountRes] = await Promise.all([
           fetch(API_BASE + '/api/designers').then(r => r.json()),
           fetch(API_BASE + '/api/accounts').then(r => r.json()),
         ]);
-        // 建立 designerId -> username 對照表
         accountMap = {};
         Object.entries(accountRes).forEach(([username, acc]) => {
           if (acc.designerId) accountMap[acc.designerId] = username;
         });
-        // 過濾掉離職設計師，並附上 username
         designers.value = designerRes
           .filter(d => d.status !== 'resigned')
           .map(d => ({
-            id: d.id,
-            name: d.name,
-            role: d.role,
-            avatar: d.avatar || d.name[0],
-            level: d.level || 'C',
+            id: d.id, name: d.name, role: d.role,
+            avatar: d.avatar || d.name[0], level: d.level || 'C',
             username: accountMap[d.id] || d.name.toLowerCase(),
           }));
       } catch(e) {
-        // 後端不可用時使用本地快取
         console.warn('[Login] 無法載入設計師列表:', e);
         const cached = localStorage.getItem('akb_designers_data');
         if (cached) {
           const all = JSON.parse(cached);
           designers.value = all
             .filter(d => d.status !== 'resigned')
-            .map(d => ({
-              id: d.id, name: d.name, role: d.role,
-              avatar: d.avatar || d.name[0], level: d.level || 'C',
-              username: d.name.toLowerCase(),
-            }));
+            .map(d => ({ id: d.id, name: d.name, role: d.role, avatar: d.avatar || d.name[0], level: d.level || 'C', username: d.name.toLowerCase() }));
         } else {
-          // 最終後備：靜態列表
           designers.value = [
             { id:1, name:'A Li 亞力', role:'首席設計師', avatar:'A', username:'aika', level:'A' },
             { id:2, name:'QiQi', role:'資深設計師', avatar:'Q', username:'ken', level:'B' },
@@ -302,60 +329,41 @@ createApp({
       }
     });
 
-    onUnmounted(() => {
-      if (countdownTimer) clearInterval(countdownTimer);
-    });
+    onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer); });
 
     function startWakeCountdown(u, p) {
-      waking.value = true;
-      countdown.value = 30;
-      savedUsername = u;
-      savedPassword = p;
+      waking.value = true; countdown.value = 30; savedUsername = u; savedPassword = p;
       if (countdownTimer) clearInterval(countdownTimer);
       countdownTimer = setInterval(() => {
         countdown.value--;
         if (countdown.value <= 0) {
-          clearInterval(countdownTimer);
-          countdownTimer = null;
-          waking.value = false;
+          clearInterval(countdownTimer); countdownTimer = null; waking.value = false;
           doLogin(savedUsername, savedPassword);
         }
       }, 1000);
     }
 
     function doLogin(u, p) {
-      loading.value = true;
-      error.value = '';
+      loading.value = true; error.value = '';
       Auth.loginAsync(u, p).then(result => {
         loading.value = false;
         if (result.success) {
-          if (result.role === 'designer' || result.role === 'admin') {
-            window.location.href = './index.html';
-          } else {
-            error.value = '您沒有設計師權限';
-            Auth.logout();
-          }
+          if (result.role === 'designer' || result.role === 'admin') { window.location.href = './index.html'; }
+          else { error.value = '您沒有設計師權限'; Auth.logout(); }
         } else {
-          if (result.error && result.error.includes('啟動')) {
-            startWakeCountdown(u, p);
-          } else {
-            error.value = result.error || '帳號或密碼錯誤';
-          }
+          if (result.error && result.error.includes('啟動')) startWakeCountdown(u, p);
+          else error.value = result.error || '帳號或密碼錯誤';
         }
       });
     }
 
     function selectDesigner(d) {
-      selectedDesigner.value = d;
-      error.value = '';
-      password.value = '';
-      waking.value = false;
+      selectedDesigner.value = d; error.value = ''; password.value = ''; waking.value = false;
       if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
     }
 
     function login() {
-      error.value = '';
-      waking.value = false;
+      error.value = ''; waking.value = false;
       if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
       if (!selectedDesigner.value) { error.value = '請選擇設計師'; return; }
       if (!password.value) { error.value = '請輸入密碼'; return; }
@@ -365,25 +373,6 @@ createApp({
     return { designers, selectedDesigner, password, showPwd, error, loading, loadingDesigners, waking, countdown, selectDesigner, login };
   }
 }).mount('#app');
-</script>
-
-<script>
-// ── 深色/淺色模式切換 ──
-(function(){
-  function applyTheme(t){
-    if(t==='light'){document.documentElement.classList.add('light');}
-    else{document.documentElement.classList.remove('light');}
-    var btn=document.getElementById('themeBtn');
-    if(btn) btn.textContent=(t==='light'?'☀️':'🌙');
-  }
-  window.toggleTheme=function(){
-    var isLight=document.documentElement.classList.contains('light');
-    var next=isLight?'dark':'light';
-    applyTheme(next);
-    localStorage.setItem('akb_theme',next);
-  };
-  applyTheme(localStorage.getItem('akb_theme')||'dark');
-})();
 </script>
 </body>
 </html>
