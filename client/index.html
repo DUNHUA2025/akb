@@ -670,24 +670,23 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
         </div>
 
         <!-- 驗證數字 -->
-        <div class="mt-2 p-4 rounded-xl border border-gray-700 bg-gray-900/60">
-          <label class="block text-xs text-muted mb-2">🔢 請完成驗證 <span class="text-red-400">*</span></label>
-          <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800 border border-gray-600 select-none">
-              <span class="text-gold font-bold text-lg tracking-widest">{{captcha.num1}}</span>
-              <span class="text-muted font-bold text-base">{{captcha.op === 'add' ? '+' : '−'}}</span>
-              <span class="text-gold font-bold text-lg tracking-widest">{{captcha.num2}}</span>
-              <span class="text-muted font-bold text-base">=</span>
+        <div class="mt-2 p-4 rounded-xl" style="border:1px solid var(--border);background:var(--surface2);">
+          <label class="block text-xs text-muted mb-2">🔢 請完成數學驗證 <span style="color:var(--rose);">*</span></label>
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-2 px-5 py-2.5 rounded-xl select-none font-bold text-lg tracking-wider serif"
+              style="background:var(--surface);border:2px solid var(--jade);color:var(--jade2);letter-spacing:.08em;min-width:120px;justify-content:center;">
+              {{captcha.num1}} {{captcha.op === 'add' ? '+' : '−'}} {{captcha.num2}} =
             </div>
             <input v-model="captcha.input"
-              :class="['w-24 text-center text-lg font-bold', formErrors.captcha ? 'error-field' : '']"
+              :class="['w-24 text-center text-xl font-bold', formErrors.captcha ? 'error-field' : '']"
+              style="border-color:var(--border);"
+              :style="formErrors.captcha?'border-color:var(--rose)!important':''"
               type="number" placeholder="?" @input="formErrors.captcha=''"
               @keyup.enter="submitBooking()"/>
-            <button type="button" @click="refreshCaptcha()" class="text-muted hover:text-gold transition-colors text-xs px-2 py-1 rounded border border-gray-700 hover:border-gold">
-              換一題
-            </button>
+            <button type="button" @click="refreshCaptcha()" title="換一題"
+              class="btn btn-ghost text-sm px-3 py-2">🔄 換一題</button>
           </div>
-          <div v-if="formErrors.captcha" class="text-red-400 text-xs mt-1.5">{{formErrors.captcha}}</div>
+          <div v-if="formErrors.captcha" class="text-xs mt-1.5" style="color:var(--rose);">{{formErrors.captcha}}</div>
         </div>
 
       </div>
