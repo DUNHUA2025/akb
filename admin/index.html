@@ -273,6 +273,40 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
           </div>
         </div>
 
+        <!-- 隨機分配統計 -->
+        <div v-if="randomStats.total>0" class="mb-6">
+          <h3 class="text-lg font-bold mb-4">🎲 隨機分配統計</h3>
+          <div class="card p-5">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="text-center">
+                <div class="text-2xl font-bold" style="color:var(--jade2);">{{randomStats.total}}</div>
+                <div class="text-xs text-muted mt-1">隨機預約總數</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold" style="color:var(--amber);">{{randomStats.pct}}%</div>
+                <div class="text-xs text-muted mt-1">佔全部預約比例</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-green-400">{{randomStats.done}}</div>
+                <div class="text-xs text-muted mt-1">已完成</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold" style="color:var(--rose);">{{randomStats.cancelled}}</div>
+                <div class="text-xs text-muted mt-1">已取消</div>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="text-xs text-muted mb-2">隨機預約最常指定的設計師</div>
+              <div class="flex flex-wrap gap-2">
+                <div v-for="(v,k) in randomStats.topDesigners" :key="k" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs" style="background:var(--surface2);border:1px solid var(--border);">
+                  <span style="color:var(--jade2);">{{k}}</span>
+                  <span class="text-muted">{{v}}筆</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 熱門服務 -->
         <div v-if="topServices.length">
           <h3 class="text-lg font-bold mb-4">熱門服務排行</h3>
@@ -290,13 +324,18 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
       <div v-else-if="tab==='bookings'" class="fade">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <h2 class="text-2xl font-bold serif">預約管理</h2>
-          <div class="flex gap-2">
+          <div class="flex gap-2 flex-wrap">
             <select v-model="bookingStatusFilter" class="bg-gray-800 border-gray-700 text-sm rounded px-2 py-1">
               <option value="all">全部狀態</option>
               <option value="pending">待確認</option>
               <option value="confirmed">已確認</option>
               <option value="done">已完成</option>
               <option value="cancelled">已取消</option>
+            </select>
+            <select v-model="bookingRandomFilter" class="bg-gray-800 border-gray-700 text-sm rounded px-2 py-1">
+              <option value="all">全部來源</option>
+              <option value="random">🎲 隨機分配</option>
+              <option value="manual">指定設計師</option>
             </select>
             <input v-model="search" placeholder="搜尋顧客/設計師..." style="width:180px">
           </div>
@@ -310,7 +349,10 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
                   <div>{{b.customerName}}</div>
                   <div class="text-xs text-muted">{{b.customerPhone}}</div>
                 </td>
-                <td>{{b.designerName}}</td>
+                <td>
+                  {{b.designerName}}
+                  <span v-if="b.isRandom" class="ml-1 text-xs px-1.5 py-0.5 rounded-full" style="background:rgba(45,212,191,.1);color:var(--jade2);border:1px solid rgba(45,212,191,.22);">🎲</span>
+                </td>
                 <td>{{b.serviceName}}</td>
                 <td class="text-sm text-muted whitespace-nowrap">{{b.date}}<br/>{{b.time}}</td>
                 <td class="text-gold font-semibold whitespace-nowrap">${{(b.price||0).toLocaleString()}}</td>
@@ -734,6 +776,7 @@ createApp({
     const services  = ref([]);
     const search    = ref('');
     const bookingStatusFilter = ref('all');
+    const bookingRandomFilter = ref('all');
     const designerFilter      = ref('all');
     const toast     = ref({ show: false, msg: '' });
 
@@ -773,6 +816,8 @@ createApp({
     const filteredBookings = computed(() => {
       let list = bookings.value;
       if (bookingStatusFilter.value !== 'all') list = list.filter(b => b.status === bookingStatusFilter.value);
+      if (bookingRandomFilter.value === 'random') list = list.filter(b => b.isRandom);
+      else if (bookingRandomFilter.value === 'manual') list = list.filter(b => !b.isRandom);
       if (search.value) {
         const q = search.value.toLowerCase();
         list = list.filter(b =>
@@ -787,6 +832,21 @@ createApp({
     const filteredDesigners = computed(() => {
       if (designerFilter.value === 'all') return designers.value;
       return designers.value.filter(d => d.status === designerFilter.value);
+    });
+
+    // ── 隨機分配統計 ─────────────────────────────────────────
+    const randomStats = computed(() => {
+      const all    = bookings.value;
+      const random = all.filter(b => b.isRandom);
+      const total  = random.length;
+      const pct    = all.length ? Math.round(total / all.length * 100) : 0;
+      const done   = random.filter(b => b.status === 'done').length;
+      const cancelled = random.filter(b => b.status === 'cancelled').length;
+      const dmap = {};
+      random.forEach(b => { if (b.designerName) dmap[b.designerName] = (dmap[b.designerName]||0)+1; });
+      const sorted = Object.entries(dmap).sort((a,b) => b[1]-a[1]).slice(0,5);
+      const topDesigners = Object.fromEntries(sorted);
+      return { total, pct, done, cancelled, topDesigners };
     });
 
     // ── 初始化資料 ───────────────────────────────────────────
@@ -1235,8 +1295,8 @@ createApp({
 
     return {
       tab, tabs, loading, bookings, designers, customers, services,
-      search, bookingStatusFilter, designerFilter,
-      stats, todayStr, topDesigners, topServices,
+      search, bookingStatusFilter, bookingRandomFilter, designerFilter,
+      stats, todayStr, topDesigners, topServices, randomStats,
       filteredBookings, filteredDesigners,
       statusText, toast, session,
       updateStatus, refreshCustomers, logout,

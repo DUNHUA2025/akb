@@ -399,84 +399,86 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
     <div v-if="bookingStep===2" class="fade">
 
-      <h2 class="text-2xl font-bold serif mb-6">選擇設計師</h2>
+      <h2 class="text-2xl font-bold serif mb-2">選擇設計師</h2>
+      <p class="text-muted text-sm mb-5">您可以指定設計師，或讓系統為您隨機安排一位空閒的設計師。</p>
 
       <!-- 骨架屏 -->
-
       <div v-if="loadingDesigners" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
         <div v-for="i in 4" :key="i" class="skeleton rounded-xl" style="height:160px;"></div>
-
       </div>
 
-      <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
-        <div v-for="d in designers" :key="d.id"
-
-          :class="['designer-card card p-5',d.available?'':'opacity-50 cursor-not-allowed',bookingForm.designerId===d.id?'selected':'']"
-
-          @click="d.available&&(bookingForm.designerId=d.id,bookingForm.designerName=d.name)">
-
-          <div class="flex items-start gap-4">
-
-            <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl flex-shrink-0">{{d.avatar}}</div>
-
-            <div class="flex-1 min-w-0">
-
-              <div class="flex items-center gap-2 mb-1">
-
-                <div class="font-bold text-lg">{{d.name}}</div>
-
-                <span class="text-xs px-2 py-0.5 rounded-full font-bold" :style="levelStyle(d.level)">Lv.{{d.level}}</span>
-
-              </div>
-
-              <div class="text-muted text-xs mb-2">{{d.role}}</div>
-
-              <div class="text-yellow-400 text-xs mb-2">★ {{d.rating}} <span class="text-muted">({{d.reviews}}則評價)</span></div>
-
-              <div class="flex flex-wrap gap-1">
-
-                <span v-for="sp in d.specialty.slice(0,3)" :key="sp" class="text-xs px-2 py-0.5 rounded-full" style="background:#252525;color:#aaa">{{sp}}</span>
-
-              </div>
-
-              <div v-if="!d.available" class="mt-2 text-xs text-red-400 flex items-center gap-1">
-
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
-
-                目前休假中
-
-              </div>
-
+      <div v-else>
+        <!-- ★ 隨機分配卡片 ★ -->
+        <div :class="['designer-card card p-5 mb-4 cursor-pointer transition-all',bookingForm.designerId==='random'?'selected':'']" @click="pickRandomDesigner()">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full flex items-center justify-center text-3xl flex-shrink-0 transition-all"
+              :style="bookingForm.designerId==='random'?'background:rgba(45,212,191,.18);border:2px solid var(--jade);':'background:var(--surface2);border:2px solid var(--border);'">
+              🎲
             </div>
-
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="font-bold text-lg">隨機分配設計師</div>
+                <span class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                  style="background:rgba(45,212,191,.12);color:var(--jade2);border:1px solid rgba(45,212,191,.3);">推薦</span>
+              </div>
+              <div class="text-muted text-sm mb-2">由系統自動從當日空閒設計師中隨機安排，確保最快服務</div>
+              <!-- 已隨機選出 -->
+              <div v-if="bookingForm.designerId==='random' && randomPickedDesigner" class="flex items-center gap-2 mt-2 p-2 rounded-lg" style="background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.2);">
+                <div class="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold" style="background:linear-gradient(135deg,var(--jade),var(--jade2));color:#042f2e;">{{randomPickedDesigner.avatar}}</div>
+                <div>
+                  <span class="text-sm font-semibold" style="color:var(--jade2);">已為您安排：{{randomPickedDesigner.name}}</span>
+                  <span class="text-xs text-muted ml-2">{{randomPickedDesigner.role}}</span>
+                </div>
+                <button class="ml-auto text-xs btn btn-ghost px-2 py-1" @click.stop="rerollDesigner()" title="換一位">🔀 換一位</button>
+              </div>
+              <div v-else-if="bookingForm.designerId==='random'" class="text-sm mt-1" style="color:var(--rose);">⚠️ 目前無空閒設計師，請指定設計師或稍後再試</div>
+            </div>
           </div>
-
-          <div class="mt-3 text-xs text-muted border-t border-gray-800 pt-3">{{d.bio}}</div>
-
         </div>
 
+        <!-- Divider -->
+        <div class="flex items-center gap-3 mb-4">
+          <div class="flex-1 h-px" style="background:var(--border);"></div>
+          <span class="text-xs text-muted">或指定設計師</span>
+          <div class="flex-1 h-px" style="background:var(--border);"></div>
+        </div>
+
+        <!-- Designer cards -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div v-for="d in designers" :key="d.id"
+            :class="['designer-card card p-5',d.available?'':'opacity-50 cursor-not-allowed',bookingForm.designerId===d.id?'selected':'']" @click="d.available&&assignDesigner(d)">
+            <div class="flex items-start gap-4">
+              <div class="w-14 h-14 rounded-full bg-gold flex items-center justify-center text-black font-bold text-xl flex-shrink-0">{{d.avatar}}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <div class="font-bold text-lg">{{d.name}}</div>
+                  <span class="text-xs px-2 py-0.5 rounded-full font-bold" :style="levelStyle(d.level)">Lv.{{d.level}}</span>
+                </div>
+                <div class="text-muted text-xs mb-2">{{d.role}}</div>
+                <div class="text-yellow-400 text-xs mb-2">★ {{d.rating}} <span class="text-muted">({{d.reviews}}則評價)</span></div>
+                <div class="flex flex-wrap gap-1">
+                  <span v-for="sp in d.specialty.slice(0,3)" :key="sp" class="text-xs px-2 py-0.5 rounded-full" style="background:var(--surface2);color:var(--text3);">{{sp}}</span>
+                </div>
+                <div v-if="!d.available" class="mt-2 text-xs text-red-400 flex items-center gap-1">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                  目前休假中
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 text-xs text-muted border-t pt-3" style="border-color:var(--border);">{{d.bio}}</div>
+          </div>
+        </div>
       </div>
 
       <div class="flex justify-between mt-6">
-
         <button class="btn btn-ghost" @click="bookingStep=1">
-
           <svg class="inline mr-1 -mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
-
           上一步
-
         </button>
-
-        <button :disabled="!bookingForm.designerId" :class="['btn btn-gold px-8 py-3 text-base',!bookingForm.designerId?'opacity-40 cursor-not-allowed':'']" @click="bookingStep=3">
-
+        <button :disabled="!canProceedFromStep2" :class="['btn btn-gold px-8 py-3 text-base',!canProceedFromStep2?'opacity-40 cursor-not-allowed':'']" @click="confirmStep2AndNext()">
           下一步
-
           <svg class="inline ml-1 -mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
-
         </button>
-
       </div>
 
     </div>
@@ -619,7 +621,13 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
         </div>
 
-        <div class="flex justify-between py-2 border-b border-gray-800"><span class="text-muted">設計師</span><span class="font-semibold">{{bookingForm.designerName}}</span></div>
+        <div class="flex justify-between py-2 border-b border-gray-800">
+          <span class="text-muted">設計師</span>
+          <span class="font-semibold flex items-center gap-1.5">
+            {{bookingForm.designerName}}
+            <span v-if="bookingForm.isRandom" class="text-xs px-1.5 py-0.5 rounded-full" style="background:rgba(45,212,191,.12);color:var(--jade2);border:1px solid rgba(45,212,191,.25);">🎲 隨機</span>
+          </span>
+        </div>
 
         <div class="flex justify-between py-2 border-b border-gray-800"><span class="text-muted">日期時間</span><span class="font-semibold">{{bookingForm.date}} {{bookingForm.time}}</span></div>
 
@@ -755,7 +763,13 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
           <div class="flex justify-between"><span class="text-muted">服務</span><span>{{bookingDone.serviceName}}</span></div>
 
-          <div class="flex justify-between"><span class="text-muted">設計師</span><span>{{bookingDone.designerName}}</span></div>
+          <div class="flex justify-between items-center">
+            <span class="text-muted">設計師</span>
+            <span class="flex items-center gap-1.5">
+              {{bookingDone.designerName}}
+              <span v-if="bookingDone.isRandom" class="text-xs px-1.5 py-0.5 rounded-full" style="background:rgba(45,212,191,.12);color:var(--jade2);border:1px solid rgba(45,212,191,.25);">🎲 隨機</span>
+            </span>
+          </div>
 
           <div class="flex justify-between"><span class="text-muted">時間</span><span>{{bookingDone.date}} {{bookingDone.time}}</span></div>
 
@@ -1209,7 +1223,7 @@ createApp({
 
     const bookingStep  = ref(1);
 
-    const bookingForm  = reactive({ serviceId:null, serviceName:'', price:0, duration:60, designerId:null, designerName:'', date:'', time:'', name:'', phone:'', email:'', note:'' });
+    const bookingForm  = reactive({ serviceId:null, serviceName:'', price:0, duration:60, designerId:null, designerName:'', date:'', time:'', name:'', phone:'', email:'', note:'', isRandom:false });
 
     const bookingDone  = ref(null);
 
@@ -1236,7 +1250,58 @@ createApp({
       formErrors.captcha = '';
     }
 
+    // ── 隨機分配設計師 ────────────────────────────────────────
+    const randomPickedDesigner = ref(null);
 
+    // 從當天有空的設計師中隨機挑一位
+    function pickRandomDesigner() {
+      const available = designers.value.filter(d => d.available && d.status !== 'resigned');
+      if (!available.length) {
+        bookingForm.designerId   = 'random';
+        bookingForm.designerName = '';
+        bookingForm.isRandom     = true;
+        randomPickedDesigner.value = null;
+        return;
+      }
+      const picked = available[Math.floor(Math.random() * available.length)];
+      randomPickedDesigner.value  = picked;
+      bookingForm.designerId      = 'random';        // sentinel value
+      bookingForm.designerName    = picked.name;
+      bookingForm.isRandom        = true;
+    }
+
+    // 換一位（重新隨機，排除上次）
+    function rerollDesigner() {
+      const available = designers.value.filter(d => d.available && d.status !== 'resigned');
+      if (available.length <= 1) { pickRandomDesigner(); return; }
+      const others = available.filter(d => d.id !== (randomPickedDesigner.value?.id));
+      const picked = others.length ? others[Math.floor(Math.random() * others.length)] : available[0];
+      randomPickedDesigner.value  = picked;
+      bookingForm.designerName    = picked.name;
+    }
+
+    // 指定設計師（清除隨機狀態）
+    function assignDesigner(d) {
+      bookingForm.designerId   = d.id;
+      bookingForm.designerName = d.name;
+      bookingForm.isRandom     = false;
+      randomPickedDesigner.value = null;
+    }
+
+    // 前往第三步前，把 random sentinel 替換成實際設計師 id
+    const canProceedFromStep2 = computed(() => {
+      if (bookingForm.designerId === 'random') return !!randomPickedDesigner.value;
+      return !!bookingForm.designerId;
+    });
+
+    function confirmStep2AndNext() {
+      // 若選的是隨機，把 sentinel 換成真實設計師 id
+      if (bookingForm.designerId === 'random' && randomPickedDesigner.value) {
+        bookingForm.designerId = randomPickedDesigner.value.id;
+        // isRandom flag stays true for display purposes
+      }
+      bookingStep.value = 3;
+    }
 
     // 密碼顯示開關
 
@@ -1616,6 +1681,8 @@ createApp({
 
           duration:     bookingForm.duration,
 
+          isRandom:     bookingForm.isRandom || false,
+
         });
 
         bookingDone.value = nb;
@@ -1646,7 +1713,8 @@ createApp({
 
     function resetBooking() {
 
-      Object.assign(bookingForm, { serviceId:null, serviceName:'', price:0, duration:60, designerId:null, designerName:'', date:'', time:'', name:'', phone:'', email:'', note:'' });
+      Object.assign(bookingForm, { serviceId:null, serviceName:'', price:0, duration:60, designerId:null, designerName:'', date:'', time:'', name:'', phone:'', email:'', note:'', isRandom:false });
+      randomPickedDesigner.value = null;
 
       Object.assign(formErrors, { name:'', phone:'', email:'', captcha:'' });
       refreshCaptcha();
@@ -1942,6 +2010,9 @@ createApp({
       openMyBookings, resetMyBookingsState, verifyPhone, setPassword,
 
       loginWithPassword, logoutMyBookings, cancelBooking, changeClientPassword,
+
+      randomPickedDesigner, canProceedFromStep2,
+      pickRandomDesigner, rerollDesigner, assignDesigner, confirmStep2AndNext,
 
     };
 
