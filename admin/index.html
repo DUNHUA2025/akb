@@ -184,6 +184,7 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
       <div :class="['sidebar-item',tab==='designers'?'active':'']" @click="tab='designers'">👥 設計師管理</div>
       <div :class="['sidebar-item',tab==='customers'?'active':'']" @click="tab='customers'">👤 顧客資料</div>
       <div :class="['sidebar-item',tab==='services'?'active':'']" @click="tab='services'">⭐ 服務項目</div>
+      <div :class="['sidebar-item',tab==='datasec'?'active':'']" @click="tab='datasec'" style="color:var(--rose)!important">🛡️ 數據安全</div>
     </nav>
     <div class="p-3 space-y-1">
       <button class="sidebar-item w-full" @click="showChangePwd=true">🔒 修改密碼</button>
@@ -272,6 +273,40 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
           </div>
         </div>
 
+        <!-- 隨機分配統計 -->
+        <div v-if="randomStats.total>0" class="mb-6">
+          <h3 class="text-lg font-bold mb-4">🎲 隨機分配統計</h3>
+          <div class="card p-5">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="text-center">
+                <div class="text-2xl font-bold" style="color:var(--jade2);">{{randomStats.total}}</div>
+                <div class="text-xs text-muted mt-1">隨機預約總數</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold" style="color:var(--amber);">{{randomStats.pct}}%</div>
+                <div class="text-xs text-muted mt-1">佔全部預約比例</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-green-400">{{randomStats.done}}</div>
+                <div class="text-xs text-muted mt-1">已完成</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold" style="color:var(--rose);">{{randomStats.cancelled}}</div>
+                <div class="text-xs text-muted mt-1">已取消</div>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="text-xs text-muted mb-2">隨機預約最常指定的設計師</div>
+              <div class="flex flex-wrap gap-2">
+                <div v-for="(v,k) in randomStats.topDesigners" :key="k" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs" style="background:var(--surface2);border:1px solid var(--border);">
+                  <span style="color:var(--jade2);">{{k}}</span>
+                  <span class="text-muted">{{v}}筆</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 熱門服務 -->
         <div v-if="topServices.length">
           <h3 class="text-lg font-bold mb-4">熱門服務排行</h3>
@@ -289,13 +324,18 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
       <div v-else-if="tab==='bookings'" class="fade">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <h2 class="text-2xl font-bold serif">預約管理</h2>
-          <div class="flex gap-2">
+          <div class="flex gap-2 flex-wrap">
             <select v-model="bookingStatusFilter" class="bg-gray-800 border-gray-700 text-sm rounded px-2 py-1">
               <option value="all">全部狀態</option>
               <option value="pending">待確認</option>
               <option value="confirmed">已確認</option>
               <option value="done">已完成</option>
               <option value="cancelled">已取消</option>
+            </select>
+            <select v-model="bookingRandomFilter" class="bg-gray-800 border-gray-700 text-sm rounded px-2 py-1">
+              <option value="all">全部來源</option>
+              <option value="random">🎲 隨機分配</option>
+              <option value="manual">指定設計師</option>
             </select>
             <input v-model="search" placeholder="搜尋顧客/設計師..." style="width:180px">
           </div>
@@ -309,7 +349,10 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
                   <div>{{b.customerName}}</div>
                   <div class="text-xs text-muted">{{b.customerPhone}}</div>
                 </td>
-                <td>{{b.designerName}}</td>
+                <td>
+                  {{b.designerName}}
+                  <span v-if="b.isRandom" class="ml-1 text-xs px-1.5 py-0.5 rounded-full" style="background:rgba(45,212,191,.1);color:var(--jade2);border:1px solid rgba(45,212,191,.22);">🎲</span>
+                </td>
                 <td>{{b.serviceName}}</td>
                 <td class="text-sm text-muted whitespace-nowrap">{{b.date}}<br/>{{b.time}}</td>
                 <td class="text-gold font-semibold whitespace-nowrap">${{(b.price||0).toLocaleString()}}</td>
@@ -403,6 +446,127 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
         </div>
       </div>
 
+      <!-- Data Security -->
+      <div v-else-if="tab==='datasec'" class="fade">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style="background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.28);">🛡️</div>
+          <div>
+            <h2 class="text-2xl font-bold serif">數據安全管理</h2>
+            <p class="text-muted text-sm">清除或恢復預約測試數據，所有操作均需管理員密碼確認</p>
+          </div>
+        </div>
+
+        <!-- Warning Banner -->
+        <div class="mb-6 p-4 rounded-xl" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl mt-0.5">⚠️</span>
+            <div>
+              <div class="font-semibold" style="color:var(--amber);">操作警告</div>
+              <div class="text-sm text-muted mt-1">清除操作<strong style="color:var(--text);">無法撤銷</strong>，請謹慎操作。建議在清除前先使用「匯出備份」保存數據。所有操作均記錄在系統日誌中。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="card p-4 text-center">
+            <div class="text-3xl font-bold" style="color:var(--jade2);">{{bookings.length}}</div>
+            <div class="text-xs text-muted mt-1">預約總筆數</div>
+          </div>
+          <div class="card p-4 text-center">
+            <div class="text-3xl font-bold" style="color:var(--amber);">{{bookings.filter(b=>b.status==='pending').length}}</div>
+            <div class="text-xs text-muted mt-1">待確認</div>
+          </div>
+          <div class="card p-4 text-center">
+            <div class="text-3xl font-bold" style="color:var(--rose);">{{bookings.filter(b=>b.status==='cancelled').length}}</div>
+            <div class="text-xs text-muted mt-1">已取消</div>
+          </div>
+          <div class="card p-4 text-center">
+            <div class="text-3xl font-bold text-green-400">{{bookings.filter(b=>b.status==='done').length}}</div>
+            <div class="text-xs text-muted mt-1">已完成</div>
+          </div>
+        </div>
+
+        <!-- Action Cards -->
+        <div class="grid md:grid-cols-2 gap-5">
+          <!-- Clear Test Data -->
+          <div class="card p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.28);">🗑️</div>
+              <div>
+                <div class="font-bold text-lg">清除測試數據</div>
+                <div class="text-xs text-muted">刪除所有預約記錄</div>
+              </div>
+            </div>
+            <div class="space-y-2 mb-5">
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <span style="color:var(--rose);">•</span> 清除<strong style="color:var(--text);">全部</strong>預約記錄（{{bookings.length}} 筆）
+              </div>
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <span style="color:var(--rose);">•</span> 此操作<strong style="color:var(--rose);">不可撤銷</strong>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <span style="color:var(--jade2);">•</span> 設計師、服務項目資料保留
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <button class="btn btn-ghost text-sm" @click="openDataModal('export')">📦 匯出備份</button>
+              <button class="btn btn-danger text-sm" @click="openDataModal('clear-all')" :disabled="bookings.length===0"
+                :style="bookings.length===0?'opacity:.45;cursor:not-allowed':''">🗑️ 清除全部</button>
+            </div>
+            <div class="mt-3 grid grid-cols-1 gap-2">
+              <button class="btn btn-danger text-sm" @click="openDataModal('clear-cancelled')" :disabled="bookings.filter(b=>b.status==='cancelled').length===0"
+                :style="bookings.filter(b=>b.status==='cancelled').length===0?'opacity:.45;cursor:not-allowed':\'\'">🧹 清除已取消（{{bookings.filter(b=>b.status==='cancelled').length}} 筆）</button>
+            </div>
+          </div>
+
+          <!-- Restore / Seed -->
+          <div class="card p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.25);">♻️</div>
+              <div>
+                <div class="font-bold text-lg">恢復/填充測試數據</div>
+                <div class="text-xs text-muted">填入示範預約資料供測試</div>
+              </div>
+            </div>
+            <div class="space-y-2 mb-5">
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <span style="color:var(--jade2);">•</span> 插入 <strong style="color:var(--text);">10 筆</strong>示範預約資料
+              </div>
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <span style="color:var(--jade2);">•</span> 涵蓋各種狀態：待確認、已確認、已完成
+              </div>
+              <div class="flex items-center gap-2 text-sm text-muted">
+                <span style="color:var(--amber);">•</span> 使用現有設計師與服務項目
+              </div>
+            </div>
+            <button class="btn btn-primary text-sm w-full" @click="openDataModal('seed')" :disabled="designers.length===0||services.length===0"
+              :style="designers.length===0||services.length===0?'opacity:.45;cursor:not-allowed':\'\'">♻️ 填充測試預約數據</button>
+          </div>
+        </div>
+
+        <!-- Operation Log -->
+        <div class="mt-6">
+          <h3 class="text-base font-bold mb-3">操作紀錄</h3>
+          <div class="card overflow-hidden">
+            <div v-if="secLog.length===0" class="p-6 text-center text-muted text-sm">本次會話尚無操作記錄</div>
+            <table v-else>
+              <thead><tr><th>時間</th><th>操作</th><th>影響筆數</th><th>執行人</th></tr></thead>
+              <tbody>
+                <tr v-for="log in secLog" :key="log.time">
+                  <td class="text-xs text-muted whitespace-nowrap">{{log.time}}</td>
+                  <td>
+                    <span class="text-xs px-2 py-0.5 rounded-full" :class="log.type==='clear'?'badge-cancelled':log.type==='seed'?'badge-confirmed':'badge-done'">{{log.action}}</span>
+                  </td>
+                  <td class="font-bold" :style="log.type==='clear'?'color:var(--rose)':'color:var(--jade2)'">{{log.count > 0 ? (log.type==='clear'?'-':'+') : ''}}{{log.count}}</td>
+                  <td class="text-muted text-xs">{{log.user}}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Services -->
       <div v-else-if="tab==='services'" class="fade">
         <div class="flex items-center justify-between mb-5">
@@ -433,6 +597,78 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
           </table>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Data Security Confirmation Modal -->
+  <div v-if="showDataModal" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="closeDataModal()">
+    <div class="card p-7 w-full max-w-md fade">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">{{dataModalMeta.icon}}</span>
+          <h3 class="text-xl font-bold serif" :style="dataModalMeta.color ? 'color:'+dataModalMeta.color : ''">{{dataModalMeta.title}}</h3>
+        </div>
+        <button class="btn btn-ghost px-3 py-2" @click="closeDataModal()">✕</button>
+      </div>
+
+      <!-- Description -->
+      <div class="p-4 rounded-xl mb-5 text-sm" :style="'background:'+dataModalMeta.bgColor+';border:1px solid '+dataModalMeta.borderColor+';'">
+        {{dataModalMeta.description}}
+      </div>
+
+      <!-- Export: no password needed -->
+      <template v-if="dataOp==='export'">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between p-3 rounded-xl" style="background:var(--surface2);">
+            <span class="text-sm">預約記錄</span><strong>{{bookings.length}} 筆</strong>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl" style="background:var(--surface2);">
+            <span class="text-sm">設計師資料</span><strong>{{designers.length}} 位</strong>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl" style="background:var(--surface2);">
+            <span class="text-sm">服務項目</span><strong>{{services.length}} 項</strong>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button class="btn btn-ghost flex-1" @click="closeDataModal()">取消</button>
+          <button class="btn btn-gold flex-1" @click="doExport()">📦 立即匯出</button>
+        </div>
+      </template>
+
+      <!-- Other ops: password + captcha -->
+      <template v-else>
+        <!-- Captcha -->
+        <div class="mb-4">
+          <label class="block text-xs text-muted mb-2">驗證碼（數學題）</label>
+          <div class="flex items-center gap-3">
+            <div class="px-5 py-3 rounded-xl font-bold text-lg tracking-widest serif select-none" style="background:var(--surface2);border:2px solid var(--border);color:var(--jade2);letter-spacing:.15em;">{{captcha.q}}</div>
+            <span class="text-muted text-lg">=</span>
+            <input v-model="captcha.answer" type="number" class="w-28 text-center text-lg font-bold" placeholder="?"
+              @input="captcha.error=''" />
+            <button class="btn btn-ghost px-3 py-2 text-lg" @click="refreshCaptcha()" title="換一題">🔄</button>
+          </div>
+          <p v-if="captcha.error" class="text-xs mt-1" style="color:var(--rose);">{{captcha.error}}</p>
+        </div>
+
+        <!-- Admin Password -->
+        <div class="mb-5">
+          <label class="block text-xs text-muted mb-2">管理員密碼確認</label>
+          <div class="relative">
+            <input v-model="dataConfirmPwd" :type="showDataPwd?'text':'password'" class="w-full pr-10" placeholder="請輸入管理員密碼" @keyup.enter="doDataOp()" />
+            <button class="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-sm" @click="showDataPwd=!showDataPwd">{{showDataPwd?'🙈':'👁️'}}</button>
+          </div>
+          <p v-if="dataOpError" class="text-xs mt-1" style="color:var(--rose);">{{dataOpError}}</p>
+        </div>
+
+        <div class="flex gap-3">
+          <button class="btn btn-ghost flex-1" @click="closeDataModal()">取消</button>
+          <button class="btn flex-1" :class="dataModalMeta.btnClass" @click="doDataOp()" :disabled="dataOpLoading">
+            <span v-if="dataOpLoading" style="display:inline-block;animation:spin .8s linear infinite;">⏳</span>
+            <span v-else>{{dataModalMeta.btnLabel}}</span>
+          </button>
+        </div>
+      </template>
     </div>
   </div>
 
@@ -531,7 +767,7 @@ const monthPfx = todayStr.slice(0, 7);
 createApp({
   setup() {
     const tab     = ref('dashboard');
-    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'}];
+    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'},{k:'datasec',l:'🛡️安全'}];
     const loading = ref(true);
 
     const bookings  = ref([]);
@@ -540,6 +776,7 @@ createApp({
     const services  = ref([]);
     const search    = ref('');
     const bookingStatusFilter = ref('all');
+    const bookingRandomFilter = ref('all');
     const designerFilter      = ref('all');
     const toast     = ref({ show: false, msg: '' });
 
@@ -579,6 +816,8 @@ createApp({
     const filteredBookings = computed(() => {
       let list = bookings.value;
       if (bookingStatusFilter.value !== 'all') list = list.filter(b => b.status === bookingStatusFilter.value);
+      if (bookingRandomFilter.value === 'random') list = list.filter(b => b.isRandom);
+      else if (bookingRandomFilter.value === 'manual') list = list.filter(b => !b.isRandom);
       if (search.value) {
         const q = search.value.toLowerCase();
         list = list.filter(b =>
@@ -593,6 +832,21 @@ createApp({
     const filteredDesigners = computed(() => {
       if (designerFilter.value === 'all') return designers.value;
       return designers.value.filter(d => d.status === designerFilter.value);
+    });
+
+    // ── 隨機分配統計 ─────────────────────────────────────────
+    const randomStats = computed(() => {
+      const all    = bookings.value;
+      const random = all.filter(b => b.isRandom);
+      const total  = random.length;
+      const pct    = all.length ? Math.round(total / all.length * 100) : 0;
+      const done   = random.filter(b => b.status === 'done').length;
+      const cancelled = random.filter(b => b.status === 'cancelled').length;
+      const dmap = {};
+      random.forEach(b => { if (b.designerName) dmap[b.designerName] = (dmap[b.designerName]||0)+1; });
+      const sorted = Object.entries(dmap).sort((a,b) => b[1]-a[1]).slice(0,5);
+      const topDesigners = Object.fromEntries(sorted);
+      return { total, pct, done, cancelled, topDesigners };
     });
 
     // ── 初始化資料 ───────────────────────────────────────────
@@ -875,16 +1129,182 @@ createApp({
       try { await DB.deleteService(id); } catch(e) { console.warn(e); }
     }
 
+    // ── 數據安全 ─────────────────────────────────────────────
+    const showDataModal  = ref(false);
+    const dataOp         = ref('');   // 'clear-all' | 'clear-cancelled' | 'seed' | 'export'
+    const dataConfirmPwd = ref('');
+    const showDataPwd    = ref(false);
+    const dataOpLoading  = ref(false);
+    const dataOpError    = ref('');
+    const secLog         = ref([]);
+
+    const captcha = reactive({ a: 0, b: 0, op: '+', q: '', answer: '', error: '' });
+
+    function refreshCaptcha() {
+      const ops = ['+', '-', '×'];
+      captcha.op = ops[Math.floor(Math.random()*3)];
+      if (captcha.op === '+') {
+        captcha.a = Math.floor(Math.random()*50)+1;
+        captcha.b = Math.floor(Math.random()*50)+1;
+      } else if (captcha.op === '-') {
+        captcha.a = Math.floor(Math.random()*50)+10;
+        captcha.b = Math.floor(Math.random()*captcha.a)+1;
+      } else {
+        captcha.a = Math.floor(Math.random()*12)+1;
+        captcha.b = Math.floor(Math.random()*12)+1;
+      }
+      captcha.q = `${captcha.a} ${captcha.op} ${captcha.b}`;
+      captcha.answer = '';
+      captcha.error = '';
+    }
+
+    function captchaAnswer() {
+      if (captcha.op==='+') return captcha.a+captcha.b;
+      if (captcha.op==='-') return captcha.a-captcha.b;
+      return captcha.a*captcha.b;
+    }
+
+    const dataModalMetas = {
+      'clear-all':       { icon:'🗑️', title:'清除所有預約', color:'var(--rose)', bgColor:'rgba(251,113,133,.08)', borderColor:'rgba(251,113,133,.25)', btnClass:'btn-danger', btnLabel:'確認清除全部', description:'此操作將永久刪除所有預約記錄，無法撤銷。請確認您已備份所有重要數據，然後輸入驗證碼與管理員密碼以繼續。' },
+      'clear-cancelled': { icon:'🧹', title:'清除已取消預約', color:'var(--amber)', bgColor:'rgba(245,158,11,.08)', borderColor:'rgba(245,158,11,.22)', btnClass:'btn-danger', btnLabel:'確認清除已取消', description:'此操作將刪除所有狀態為「已取消」的預約記錄，確認/待確認/完成的記錄保留不變。請輸入驗證碼與管理員密碼以繼續。' },
+      'seed':            { icon:'♻️', title:'填充測試數據', color:'var(--jade2)', bgColor:'rgba(45,212,191,.07)', borderColor:'rgba(45,212,191,.22)', btnClass:'btn-primary', btnLabel:'確認填充數據', description:'此操作將在現有數據上插入示範預約記錄（不會刪除現有資料）。請輸入驗證碼與管理員密碼以繼續。' },
+      'export':          { icon:'📦', title:'匯出數據備份', color:'var(--jade2)', bgColor:'rgba(45,212,191,.07)', borderColor:'rgba(45,212,191,.22)', btnClass:'btn-gold', btnLabel:'立即匯出', description:'以 JSON 格式匯出所有預約、設計師與服務項目資料到本地端。' },
+    };
+
+    const dataModalMeta = computed(() => dataModalMetas[dataOp.value] || {});
+
+    function openDataModal(op) {
+      dataOp.value = op;
+      dataConfirmPwd.value = '';
+      showDataPwd.value = false;
+      dataOpError.value = '';
+      dataOpLoading.value = false;
+      refreshCaptcha();
+      showDataModal.value = true;
+    }
+
+    function closeDataModal() {
+      showDataModal.value = false;
+      dataConfirmPwd.value = '';
+      dataOpError.value = '';
+    }
+
+    function doExport() {
+      const data = { exportedAt: new Date().toISOString(), bookings: bookings.value, designers: designers.value, services: services.value };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `akb-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      secLog.value.unshift({ time: new Date().toLocaleString('zh-TW'), action:'匯出備份', type:'export', count: bookings.value.length, user: session.name||'管理員' });
+      showToast('✅ 備份已匯出');
+      closeDataModal();
+    }
+
+    async function doDataOp() {
+      dataOpError.value = '';
+      // 1. Validate captcha
+      const ans = parseInt(captcha.answer, 10);
+      if (isNaN(ans) || ans !== captchaAnswer()) {
+        captcha.error = `驗證碼錯誤，請重新計算 ${captcha.q}`;
+        refreshCaptcha();
+        return;
+      }
+      // 2. Validate password
+      if (!dataConfirmPwd.value) { dataOpError.value = '請輸入管理員密碼'; return; }
+      dataOpLoading.value = true;
+      // Verify password via login API
+      try {
+        const r = await Auth.loginAsync(session.username || 'admin', dataConfirmPwd.value);
+        if (!r || !r.token) { dataOpError.value = '管理員密碼錯誤，請重試'; dataOpLoading.value = false; refreshCaptcha(); return; }
+      } catch(e) {
+        dataOpError.value = '密碼驗證失敗，請稍後再試'; dataOpLoading.value = false; refreshCaptcha(); return;
+      }
+      // 3. Execute operation
+      try {
+        if (dataOp.value === 'clear-all') {
+          const count = bookings.value.length;
+          // Delete all via API
+          await Promise.all(bookings.value.map(b => DB.deleteBooking ? DB.deleteBooking(b.id) : fetch(`${window.AKB_API_URL}/api/bookings/${b.id}`, { method:'DELETE', headers:{ Authorization:'Bearer '+(Auth.getSession()?.token||'') } })));
+          bookings.value = [];
+          calcStats();
+          secLog.value.unshift({ time: new Date().toLocaleString('zh-TW'), action:'清除全部預約', type:'clear', count, user: session.name||'管理員' });
+          showToast(`🗑️ 已清除 ${count} 筆預約記錄`);
+        } else if (dataOp.value === 'clear-cancelled') {
+          const toDelete = bookings.value.filter(b => b.status === 'cancelled');
+          const count = toDelete.length;
+          await Promise.all(toDelete.map(b => DB.deleteBooking ? DB.deleteBooking(b.id) : fetch(`${window.AKB_API_URL}/api/bookings/${b.id}`, { method:'DELETE', headers:{ Authorization:'Bearer '+(Auth.getSession()?.token||'') } })));
+          bookings.value = bookings.value.filter(b => b.status !== 'cancelled');
+          calcStats();
+          secLog.value.unshift({ time: new Date().toLocaleString('zh-TW'), action:'清除已取消預約', type:'clear', count, user: session.name||'管理員' });
+          showToast(`🧹 已清除 ${count} 筆已取消記錄`);
+        } else if (dataOp.value === 'seed') {
+          const seedBookings = buildSeedData();
+          let added = 0;
+          for (const sb of seedBookings) {
+            try {
+              const created = await DB.createBooking ? DB.createBooking(sb) : null;
+              if (created) { bookings.value.unshift(created); added++; }
+              else { bookings.value.unshift({ ...sb, id: Date.now()+Math.random() }); added++; }
+            } catch(e) { console.warn('seed booking error:', e); }
+          }
+          calcStats();
+          secLog.value.unshift({ time: new Date().toLocaleString('zh-TW'), action:'填充測試數據', type:'seed', count: added, user: session.name||'管理員' });
+          showToast(`♻️ 已填充 ${added} 筆測試預約`);
+        }
+      } catch(e) {
+        console.error('doDataOp:', e);
+        dataOpError.value = '操作執行失敗：' + (e.message || e);
+        dataOpLoading.value = false;
+        return;
+      }
+      dataOpLoading.value = false;
+      closeDataModal();
+    }
+
+    function buildSeedData() {
+      const now = new Date();
+      const d = designers.value.filter(x => x.status !== 'resigned');
+      const s = services.value;
+      if (!d.length || !s.length) return [];
+      const names  = ['陳小明','林美玲','張大偉','王小芳','李志豪','劉佩瑩','吳俊宏','黃雅婷','蔡宗翰','許淑芬'];
+      const phones = ['0911-111-001','0922-222-002','0933-333-003','0944-444-004','0955-555-005','0966-666-006','0977-777-007','0988-888-008','0999-999-009','0912-345-678'];
+      const statuses = ['pending','pending','confirmed','confirmed','confirmed','done','done','done','cancelled','pending'];
+      const offsets  = [-2,-1,0,0,1,1,2,3,-3,-1];
+      return names.map((name, i) => {
+        const dt = new Date(now); dt.setDate(dt.getDate()+offsets[i]);
+        const dsgn = d[i % d.length];
+        const svc  = s[i % s.length];
+        const hrs  = 10 + (i % 8);
+        return {
+          customerName: name,
+          customerPhone: phones[i],
+          designerId: dsgn.id,
+          designerName: dsgn.name,
+          serviceId: svc.id,
+          serviceName: svc.name,
+          price: svc.price || 500,
+          date: dt.toISOString().slice(0,10),
+          time: `${String(hrs).padStart(2,'0')}:00`,
+          status: statuses[i],
+          note: i===0?'第一次來訪，請多關照':i===4?'對染髮劑過敏，請注意':'',
+        };
+      });
+    }
+
     return {
       tab, tabs, loading, bookings, designers, customers, services,
-      search, bookingStatusFilter, designerFilter,
-      stats, todayStr, topDesigners, topServices,
+      search, bookingStatusFilter, bookingRandomFilter, designerFilter,
+      stats, todayStr, topDesigners, topServices, randomStats,
       filteredBookings, filteredDesigners,
       statusText, toast, session,
       updateStatus, refreshCustomers, logout,
       showChangePwd, pwdForm, changePassword,
       showDesignerModal, isEditingDesigner, designerForm, openAddDesigner, editDesigner, saveDesigner, setDesignerStatus,
       showServiceModal, isEditingService, serviceForm, openAddService, editService, saveService, deleteService,
+      showDataModal, dataOp, dataModalMeta, dataConfirmPwd, showDataPwd, dataOpLoading, dataOpError,
+      captcha, refreshCaptcha, openDataModal, closeDataModal, doDataOp, doExport, secLog,
     };
   }
 }).mount('#app');
