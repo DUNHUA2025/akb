@@ -284,6 +284,7 @@ const DB = {
       note:           booking.note         || '',
       price:          Number(booking.price)    || 0,
       duration:       Number(booking.duration) || 60,
+      isRandom:       booking.isRandom     || false,
     };
     try {
       const nb = await apiRequest('POST', '/api/bookings', record);
@@ -320,6 +321,21 @@ const DB = {
 
   async cancelBooking(id) {
     return this.updateBookingStatus(id, 'cancelled');
+  },
+
+  async deleteBooking(id) {
+    try {
+      await apiRequest('DELETE', `/api/bookings/${id}`);
+    } catch(e) {
+      console.warn('[DB] deleteBooking API failed:', e.message);
+      // Even if API fails, clean local cache
+    }
+    // Always remove from local cache
+    for (const key of [CACHE.BOOKINGS, CACHE.BOOKINGS2]) {
+      const list = (CACHE.get(key) || []).filter(b => String(b.id) !== String(id));
+      CACHE.set(key, list);
+    }
+    EventBus.emit('booking_deleted', { id });
   },
 
   _localUpdateStatus(id, status) {
