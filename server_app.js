@@ -45,8 +45,22 @@ app.use((req, res, next) => {
 
 // ========== 資料層：優先 Supabase，否則本地 JSON ==========
 const SUPABASE_URL  = process.env.SUPABASE_URL  || '';
-const SUPABASE_KEY  = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '';
+// ⚠️  安全性重要說明：後端必須使用 service_role key（而非 anon key）
+//    service_role key 擁有完整資料庫權限，可繞過 RLS，只應在後端伺服器使用
+//    anon key 已通過 RLS 限制，無法存取 bookings / accounts 等敏感資料表
+//    環境變數優先順序：SUPABASE_SERVICE_KEY > SUPABASE_KEY > SUPABASE_ANON_KEY（最後者已不安全）
+const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY
+                   || process.env.SUPABASE_KEY
+                   || process.env.SUPABASE_ANON_KEY
+                   || '';
 const USE_SUPABASE  = !!(SUPABASE_URL && SUPABASE_KEY);
+
+// 啟動時警告：若使用的是 anon key，提醒管理員升級至 service_role key
+if (USE_SUPABASE && !process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_KEY) {
+  console.warn('[Security] ⚠️  警告：目前使用 SUPABASE_ANON_KEY 存取資料庫！');
+  console.warn('[Security] ⚠️  請改用 SUPABASE_SERVICE_KEY（service_role key）以確保安全性。');
+  console.warn('[Security] ⚠️  詳見：Supabase Dashboard → Project Settings → API → service_role key');
+}
 
 // ── 本地 JSON 後備 ──────────────────────────────────────
 const DATA_DIR = path.join(__dirname, 'server', 'data');
@@ -307,7 +321,7 @@ const DB = {
       }
     } else {
       // ── 本地 JSON 模式 ──────────────────────────────────
-      console.log('[DB] ⚠️  未設定 SUPABASE_URL/SUPABASE_ANON_KEY，使用本地 JSON 文件');
+      console.log('[DB] ⚠️  未設定 SUPABASE_URL/SUPABASE_SERVICE_KEY，使用本地 JSON 文件');
       console.log('[DB] ⚠️  重要：本地 JSON 在 Render 重啟後會遺失資料！請設定 Supabase 以持久化儲存。');
 
       bookings  = loadData(FILES.bookings, []);
@@ -453,7 +467,7 @@ app.get('/api/health', (req, res) => {
 
 // ─── Supabase 連接診斷（用於排查持久化問題）─────────────
 app.get('/api/debug/supabase', async (req, res) => {
-  if (!USE_SUPABASE) return res.json({ supabase: false, message: '未設定 SUPABASE_URL/SUPABASE_ANON_KEY' });
+  if (!USE_SUPABASE) return res.json({ supabase: false, message: '未設定 SUPABASE_URL/SUPABASE_SERVICE_KEY' });
   try {
     // 不加排序，避免 created_at vs "createdAt" 欄位名稱衝突
     const rows = await sbFetch('GET', 'bookings', null, '?select=id,status,date&limit=5');
