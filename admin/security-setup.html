@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔒 安全設置 - AKB 管理後台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+    .btn-primary { background: linear-gradient(135deg, #10b981, #059669); }
+    .btn-primary:hover { background: linear-gradient(135deg, #059669, #047857); }
+    .step-badge { background: #10b981; color: white; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }
+    .key-input { background: #0f172a; border: 2px solid #334155; color: #e2e8f0; border-radius: 8px; }
+    .key-input:focus { outline: none; border-color: #10b981; }
+    .status-box { border-radius: 8px; padding: 12px 16px; }
+    .status-ok { background: #052e16; border: 1px solid #166534; color: #86efac; }
+    .status-err { background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5; }
+    .status-info { background: #172554; border: 1px solid #1e3a8a; color: #93c5fd; }
+    pre { background: #0f172a; border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 12px; }
+    .spinner { border: 3px solid #334155; border-top-color: #10b981; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+  <div class="max-w-3xl mx-auto" id="app">
+
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-8">
+      <span class="text-3xl">🔒</span>
+      <div>
+        <h1 class="text-2xl font-bold text-white">資料庫安全設置</h1>
+        <p class="text-slate-400 text-sm">啟用 Row-Level Security (RLS) 保護 AKB Salon 資料庫</p>
+      </div>
+      <a href="./index.html" class="ml-auto text-sm text-slate-400 hover:text-white transition-colors">← 返回後台</a>
+    </div>
+
+    <!-- Warning Banner -->
+    <div class="status-box status-err mb-6 flex items-start gap-3">
+      <span class="text-xl">⚠️</span>
+      <div>
+        <div class="font-semibold">安全漏洞：RLS 未啟用</div>
+        <div class="text-sm mt-1 opacity-80">
+          Supabase 資料庫的 <code class="bg-red-900 px-1 rounded">bookings</code>、
+          <code class="bg-red-900 px-1 rounded">designers</code>、
+          <code class="bg-red-900 px-1 rounded">services</code>、
+          <code class="bg-red-900 px-1 rounded">accounts</code>
+          表格未啟用 Row-Level Security，任何人知道專案 URL 即可讀寫所有資料。
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="card p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-5 text-emerald-400">📋 修復步驟</h2>
+
+      <!-- Step 1 -->
+      <div class="flex gap-4 mb-6">
+        <div class="step-badge mt-0.5">1</div>
+        <div class="flex-1">
+          <div class="font-semibold text-white mb-1">前往 Supabase 儀表板取得 service_role key</div>
+          <div class="text-sm text-slate-400 mb-3">
+            開啟下方連結，在 <strong>Project Settings → API</strong> 頁面找到 <strong>service_role</strong> JWT token，點擊「Reveal」後複製。
+          </div>
+          <a href="https://supabase.com/dashboard/project/azluyqcxnebzdluvjisy/settings/api"
+             target="_blank"
+             class="inline-flex items-center gap-2 bg-emerald-900 hover:bg-emerald-800 text-emerald-300 px-4 py-2 rounded-lg text-sm transition-colors">
+            🔗 開啟 Supabase API 設定頁面
+          </a>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="flex gap-4 mb-6">
+        <div class="step-badge mt-0.5">2</div>
+        <div class="flex-1">
+          <div class="font-semibold text-white mb-1">貼入 service_role key</div>
+          <div class="text-sm text-slate-400 mb-3">
+            將複製的 service_role key 貼入下方輸入框（格式：<code class="bg-slate-700 px-1 rounded">eyJhbGciOi...</code>）。
+            此 key 僅用於本次 RLS 設置，不會永久儲存。
+          </div>
+          <div class="relative">
+            <input type="password" id="serviceRoleKey"
+                   class="key-input w-full px-4 py-3 pr-12 text-sm font-mono"
+                   placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+            <button onclick="toggleKeyVisible()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+              <span id="eyeIcon">👁️</span>
+            </button>
+          </div>
+          <div class="text-xs text-slate-500 mt-2">
+            💡 service_role key 與 anon key 格式相同（都是 JWT），區別在於 payload 的 role 欄位
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="flex gap-4">
+        <div class="step-badge mt-0.5">3</div>
+        <div class="flex-1">
+          <div class="font-semibold text-white mb-1">執行 RLS 啟用</div>
+          <div class="text-sm text-slate-400 mb-3">
+            點擊下方按鈕，系統將自動在所有資料表上啟用 RLS 並設置適當的存取政策。
+          </div>
+          <button id="enableBtn" onclick="enableRls()"
+                  class="btn-primary text-white font-semibold px-6 py-3 rounded-lg text-sm transition-all inline-flex items-center gap-2">
+            🔒 立即啟用 RLS 安全保護
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Box -->
+    <div id="resultBox" class="hidden card p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-4" id="resultTitle">執行結果</h2>
+      <div id="resultContent"></div>
+    </div>
+
+    <!-- After-RLS Setup: Add service_role key to Render -->
+    <div class="card p-6 mb-6" id="renderStep" style="display:none">
+      <h2 class="text-lg font-semibold mb-4 text-amber-400">🔧 最後一步：更新 Render 環境變數</h2>
+      <p class="text-sm text-slate-400 mb-4">
+        RLS 已啟用。現在後端需要改用 <strong>service_role key</strong> 才能繼續正常存取資料庫。
+        請前往 Render 設定環境變數：
+      </p>
+      <div class="flex gap-4 mb-4">
+        <div class="step-badge" style="background:#f59e0b;">1</div>
+        <div class="text-sm">
+          前往 <a href="https://dashboard.render.com" target="_blank" class="text-amber-400 hover:underline">dashboard.render.com</a>
+          → 選擇 <strong>akb-salon-server</strong> → <strong>Environment</strong>
+        </div>
+      </div>
+      <div class="flex gap-4 mb-4">
+        <div class="step-badge" style="background:#f59e0b;">2</div>
+        <div class="text-sm">
+          新增環境變數：<code class="bg-slate-700 px-2 py-0.5 rounded">SUPABASE_SERVICE_KEY</code> = 你的 service_role key
+        </div>
+      </div>
+      <div class="flex gap-4">
+        <div class="step-badge" style="background:#f59e0b;">3</div>
+        <div class="text-sm">儲存後 Render 會自動重啟伺服器，後端即可用 service_role key 繞過 RLS</div>
+      </div>
+    </div>
+
+    <!-- RLS Policy Summary -->
+    <div class="card p-6">
+      <h2 class="text-lg font-semibold mb-4 text-slate-300">📊 RLS 策略說明</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700">
+              <th class="text-left py-2 pr-4 text-slate-400">資料表</th>
+              <th class="text-left py-2 pr-4 text-slate-400">匿名讀取</th>
+              <th class="text-left py-2 pr-4 text-slate-400">匿名寫入</th>
+              <th class="text-left py-2 text-slate-400">說明</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800">
+            <tr>
+              <td class="py-2 pr-4 font-mono text-slate-300">bookings</td>
+              <td class="py-2 pr-4 text-red-400">❌ 封鎖</td>
+              <td class="py-2 pr-4 text-green-400">✅ 僅插入</td>
+              <td class="py-2 text-slate-400 text-xs">客戶可預約，不可看他人記錄</td>
+            </tr>
+            <tr>
+              <td class="py-2 pr-4 font-mono text-slate-300">designers</td>
+              <td class="py-2 pr-4 text-green-400">✅ 可讀（在職）</td>
+              <td class="py-2 pr-4 text-red-400">❌ 封鎖</td>
+              <td class="py-2 text-slate-400 text-xs">客戶可查看設計師資訊</td>
+            </tr>
+            <tr>
+              <td class="py-2 pr-4 font-mono text-slate-300">services</td>
+              <td class="py-2 pr-4 text-green-400">✅ 可讀</td>
+              <td class="py-2 pr-4 text-red-400">❌ 封鎖</td>
+              <td class="py-2 text-slate-400 text-xs">客戶可查看服務項目</td>
+            </tr>
+            <tr>
+              <td class="py-2 pr-4 font-mono text-slate-300">accounts</td>
+              <td class="py-2 pr-4 text-red-400">❌ 完全封鎖</td>
+              <td class="py-2 pr-4 text-red-400">❌ 完全封鎖</td>
+              <td class="py-2 text-slate-400 text-xs">帳號資料僅後端可存取</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-4 text-xs text-slate-500">
+        * service_role key（後端）可完整存取所有資料表，繞過 RLS 限制
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const API_BASE = 'https://akb-salon-server.onrender.com';
+    const SECRET = 'akb-reset-2026';
+    let keyVisible = false;
+
+    function toggleKeyVisible() {
+      keyVisible = !keyVisible;
+      const input = document.getElementById('serviceRoleKey');
+      const icon = document.getElementById('eyeIcon');
+      input.type = keyVisible ? 'text' : 'password';
+      icon.textContent = keyVisible ? '🙈' : '👁️';
+    }
+
+    async function enableRls() {
+      const key = document.getElementById('serviceRoleKey').value.trim();
+      if (!key) {
+        showResult('error', '請先貼入 service_role key', null);
+        return;
+      }
+      if (!key.startsWith('eyJ')) {
+        showResult('error', '金鑰格式不正確，應為 JWT 格式（以 eyJ 開頭）', null);
+        return;
+      }
+
+      const btn = document.getElementById('enableBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> 執行中...';
+
+      try {
+        const resp = await fetch(`${API_BASE}/api/admin/enable-rls`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret: SECRET, serviceRoleKey: key }),
+        });
+        const data = await resp.json();
+
+        if (data.summary && data.summary.includes('✅')) {
+          showResult('success', data.summary, data);
+          document.getElementById('renderStep').style.display = 'block';
+        } else {
+          showResult('error', data.summary || '執行失敗', data);
+        }
+      } catch (e) {
+        showResult('error', `請求失敗: ${e.message}`, null);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🔒 立即啟用 RLS 安全保護';
+      }
+    }
+
+    function showResult(type, message, data) {
+      const box = document.getElementById('resultBox');
+      const title = document.getElementById('resultTitle');
+      const content = document.getElementById('resultContent');
+      box.classList.remove('hidden');
+
+      if (type === 'success') {
+        title.className = 'text-lg font-semibold mb-4 text-emerald-400';
+        title.textContent = '✅ 執行成功';
+        content.innerHTML = `
+          <div class="status-box status-ok mb-4">${message}</div>
+          ${data ? `<details class="mt-2">
+            <summary class="text-sm text-slate-400 cursor-pointer hover:text-white">查看詳細回應</summary>
+            <pre class="mt-2 text-xs text-slate-300">${JSON.stringify(data, null, 2)}</pre>
+          </details>` : ''}
+        `;
+      } else {
+        title.className = 'text-lg font-semibold mb-4 text-red-400';
+        title.textContent = '❌ 執行失敗';
+        content.innerHTML = `
+          <div class="status-box status-err mb-4">${message}</div>
+          ${data?.howToFix ? `
+            <div class="status-box status-info mb-4">
+              <div class="font-semibold mb-2">💡 如何修復</div>
+              <ol class="text-sm space-y-1 list-decimal list-inside">
+                <li>${data.howToFix.step1}</li>
+                <li>${data.howToFix.step2}</li>
+                <li>${data.howToFix.step3}</li>
+              </ol>
+            </div>
+          ` : ''}
+          ${data ? `<details>
+            <summary class="text-sm text-slate-400 cursor-pointer hover:text-white">查看詳細回應</summary>
+            <pre class="mt-2 text-xs text-slate-300">${JSON.stringify(data, null, 2)}</pre>
+          </details>` : ''}
+        `;
+      }
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  </script>
+</body>
+</html>

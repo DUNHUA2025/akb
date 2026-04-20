@@ -516,20 +516,24 @@ app.post('/api/admin/fix-schema', async (req, res) => {
 });
 
 // ─── 啟用 RLS（Row-Level Security）端點 ────────────────
-// 方法：通過後端代理使用 Supabase REST RPC 執行 DDL
+// 方法：通過後端代理使用 Supabase REST SQL API 執行 DDL
+// 支援：使用 body.serviceRoleKey 提供 service_role key（若環境變數未設定）
 // 保護：使用 RESET_SECRET 密鑰防止未授權呼叫
 app.post('/api/admin/enable-rls', async (req, res) => {
-  const { secret } = req.body;
+  const { secret, serviceRoleKey } = req.body;
   const RESET_SECRET = process.env.RESET_SECRET || 'akb-reset-2026';
   if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
   if (!USE_SUPABASE) return res.json({ ok: false, message: '未設定 Supabase，無需操作' });
 
   const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0];
 
+  // 使用傳入的 serviceRoleKey，若未傳則使用環境變數中的 key
+  const effectiveKey = serviceRoleKey || SUPABASE_KEY;
+
   // 解碼 JWT 以偵測金鑰類型（anon vs service_role）
   let keyRole = 'unknown';
   try {
-    const payload = JSON.parse(Buffer.from(SUPABASE_KEY.split('.')[1], 'base64').toString());
+    const payload = JSON.parse(Buffer.from(effectiveKey.split('.')[1], 'base64').toString());
     keyRole = payload.role || 'unknown';
   } catch {}
 
@@ -577,14 +581,18 @@ END $$;
       method: 'POST',
       headers: {
         'Content-Type': 'application/sql',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': effectiveKey,
+        'Authorization': `Bearer ${effectiveKey}`,
       },
       body: fullRlsSql,
     });
     const text = await sqlRes.text();
     let json; try { json = JSON.parse(text); } catch { json = { raw: text }; }
     results.push({ method: 'rest-sql', status: sqlRes.status, ok: sqlRes.ok, response: json });
+    // 若成功，立即返回（不需要嘗試其他方法）
+    if (sqlRes.ok || sqlRes.status === 200 || sqlRes.status === 204) {
+      return res.json({ projectRef, keyRole, results, summary: '✅ RLS 已成功啟用！所有資料表已受到保護。' });
+    }
   } catch (e) {
     results.push({ method: 'rest-sql', ok: false, error: e.message });
   }
@@ -595,13 +603,16 @@ END $$;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Authorization': `Bearer ${effectiveKey}`,
       },
       body: JSON.stringify({ query: fullRlsSql }),
     });
     const text = await mgmtRes.text();
     let json; try { json = JSON.parse(text); } catch { json = { raw: text }; }
     results.push({ method: 'mgmt-api', status: mgmtRes.status, ok: mgmtRes.ok, response: json });
+    if (mgmtRes.ok) {
+      return res.json({ projectRef, keyRole, results, summary: '✅ RLS 已通過 Management API 成功啟用！' });
+    }
   } catch (e) {
     results.push({ method: 'mgmt-api', ok: false, error: e.message });
   }
@@ -612,8 +623,8 @@ END $$;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': effectiveKey,
+        'Authorization': `Bearer ${effectiveKey}`,
       },
       body: JSON.stringify({ sql: fullRlsSql }),
     });
@@ -625,16 +636,23 @@ END $$;
   }
 
   const anyOk = results.some(r => r.ok && r.status < 300);
+  const needsServiceRole = keyRole !== 'service_role';
   res.json({
     projectRef,
-    keyRole,                       // 顯示金鑰類型（anon/service_role）
+    keyRole,
+    usedInlineKey: !!serviceRoleKey,
     results,
     summary: anyOk
       ? '✅ RLS DDL 執行成功'
-      : `❌ 所有方法均失敗。keyRole=${keyRole}。` +
-        (keyRole !== 'service_role'
-          ? ' 需要在 Render 設定 SUPABASE_SERVICE_KEY（service_role key）'
-          : ' 請查看 results 了解錯誤詳情'),
+      : needsServiceRole
+        ? `❌ 需要 service_role key（目前: ${keyRole}）。請在請求 body 中傳入 serviceRoleKey 欄位。`
+        : '❌ 所有方法均失敗，請查看 results 了解詳情',
+    howToFix: needsServiceRole ? {
+      step1: '前往 https://supabase.com/dashboard → 選擇專案 akb-salon',
+      step2: 'Project Settings → API → service_role JWT token（點擊 Reveal）',
+      step3: '複製 service_role key，然後重新呼叫此端點，在 body 中加入 serviceRoleKey 欄位',
+      curlExample: `curl -s -X POST https://akb-salon-server.onrender.com/api/admin/enable-rls -H "Content-Type: application/json" -d '{"secret":"akb-reset-2026","serviceRoleKey":"eyJ...貼入你的key..."}'`,
+    } : null,
   });
 });
 
