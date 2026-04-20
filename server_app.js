@@ -515,6 +515,143 @@ app.post('/api/admin/fix-schema', async (req, res) => {
   res.json({ results, memoryBookings: bookings.length });
 });
 
+// ─── 啟用 RLS（Row-Level Security）端點 ────────────────
+// 使用 Supabase Management API 的 /pg/query 端點執行 DDL SQL
+// 此端點需要 SUPABASE_SERVICE_KEY（service_role key）才能執行
+// 保護：使用 RESET_SECRET 密鑰防止未授權呼叫
+app.post('/api/admin/enable-rls', async (req, res) => {
+  const { secret } = req.body;
+  const RESET_SECRET = process.env.RESET_SECRET || 'akb-reset-2026';
+  if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
+  if (!USE_SUPABASE) return res.json({ ok: false, message: '未設定 Supabase，無需操作' });
+
+  // 提取 project ref（從 URL 中取出）
+  const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0];
+
+  // SQL 語句：啟用 RLS + 建立 Policies
+  const ddlStatements = [
+    // ── bookings ──
+    'ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY',
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='bookings' AND policyname='service_role_all_bookings') THEN
+         CREATE POLICY "service_role_all_bookings" ON public.bookings
+           FOR ALL TO service_role USING (true) WITH CHECK (true);
+       END IF;
+     END $$`,
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='bookings' AND policyname='anon_insert_booking') THEN
+         CREATE POLICY "anon_insert_booking" ON public.bookings
+           FOR INSERT TO anon WITH CHECK (true);
+       END IF;
+     END $$`,
+    // ── designers ──
+    'ALTER TABLE public.designers ENABLE ROW LEVEL SECURITY',
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='designers' AND policyname='service_role_all_designers') THEN
+         CREATE POLICY "service_role_all_designers" ON public.designers
+           FOR ALL TO service_role USING (true) WITH CHECK (true);
+       END IF;
+     END $$`,
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='designers' AND policyname='public_read_active_designers') THEN
+         CREATE POLICY "public_read_active_designers" ON public.designers
+           FOR SELECT TO anon USING (status IS DISTINCT FROM 'resigned');
+       END IF;
+     END $$`,
+    // ── services ──
+    'ALTER TABLE public.services ENABLE ROW LEVEL SECURITY',
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='services' AND policyname='service_role_all_services') THEN
+         CREATE POLICY "service_role_all_services" ON public.services
+           FOR ALL TO service_role USING (true) WITH CHECK (true);
+       END IF;
+     END $$`,
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='services' AND policyname='public_read_services') THEN
+         CREATE POLICY "public_read_services" ON public.services
+           FOR SELECT TO anon USING (true);
+       END IF;
+     END $$`,
+    // ── accounts ──
+    'ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY',
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='accounts' AND policyname='service_role_all_accounts') THEN
+         CREATE POLICY "service_role_all_accounts" ON public.accounts
+           FOR ALL TO service_role USING (true) WITH CHECK (true);
+       END IF;
+     END $$`,
+  ];
+
+  const results = [];
+
+  // 方法 1：使用 Supabase Management API /pg/query（需要 service_role key）
+  for (const sql of ddlStatements) {
+    // 嘗試通過 REST API rpc 執行（如果有設定 SECURITY DEFINER 函式）
+    // 先嘗試 Management API
+    try {
+      const mgmtUrl = `https://api.supabase.com/v1/projects/${projectRef}/database/query`;
+      const mgmtRes = await fetch(mgmtUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        },
+        body: JSON.stringify({ query: sql }),
+      });
+      const text = await mgmtRes.text();
+      let json;
+      try { json = JSON.parse(text); } catch { json = { raw: text }; }
+      results.push({
+        sql: sql.slice(0, 60) + (sql.length > 60 ? '...' : ''),
+        status: mgmtRes.status,
+        ok: mgmtRes.ok,
+        response: json,
+        method: 'management-api',
+      });
+    } catch (e) {
+      // 方法 2：嘗試通過 pg/query 端點（舊版 Supabase 支援）
+      try {
+        const pgUrl = `${SUPABASE_URL}/pg/query`;
+        const pgRes = await fetch(pgUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          },
+          body: JSON.stringify({ query: sql }),
+        });
+        const text2 = await pgRes.text();
+        let json2;
+        try { json2 = JSON.parse(text2); } catch { json2 = { raw: text2 }; }
+        results.push({
+          sql: sql.slice(0, 60) + (sql.length > 60 ? '...' : ''),
+          status: pgRes.status,
+          ok: pgRes.ok,
+          response: json2,
+          method: 'pg-query',
+        });
+      } catch (e2) {
+        results.push({
+          sql: sql.slice(0, 60) + (sql.length > 60 ? '...' : ''),
+          ok: false,
+          error: e2.message,
+          method: 'failed',
+        });
+      }
+    }
+  }
+
+  // 檢查結果
+  const allOk = results.every(r => r.ok || (r.response && !r.response.error));
+  res.json({
+    projectRef,
+    ddlCount: ddlStatements.length,
+    results,
+    summary: allOk ? '✅ RLS 已成功啟用' : '⚠️ 部分 SQL 執行失敗，請查看 results',
+  });
+});
+
 // ─── 預約 ─────────────────────────────────────────────
 app.get('/api/bookings', (req, res) => {
   const { date, status, designerId } = req.query;
