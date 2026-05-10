@@ -466,6 +466,25 @@ app.get('/api/health', (req, res) => {
 });
 
 // ─── Supabase 連接診斷（用於排查持久化問題）─────────────
+// ─── Key Hint（安全診斷：只返回 role + 尾部字符，不暴露完整 key）──
+app.get('/api/admin/key-hint', (req, res) => {
+  if (!USE_SUPABASE) return res.json({ ok: false, message: '未使用 Supabase' });
+  let role = 'unknown';
+  let tail = '';
+  try {
+    const payload = JSON.parse(Buffer.from(SUPABASE_KEY.split('.')[1], 'base64').toString());
+    role = payload.role || 'unknown';
+    tail = SUPABASE_KEY.slice(-8);
+  } catch {}
+  res.json({
+    keyRole: role,
+    keyTail: `...${tail}`,
+    hint: role === 'service_role'
+      ? '✅ Render 已設定 service_role key，可直接呼叫 enable-rls（不需傳 serviceRoleKey）'
+      : `⚠️ Render 目前使用 anon key（結尾: ...${tail}）。請在 Supabase Dashboard 找到結尾不同的 service_role key`,
+  });
+});
+
 app.get('/api/debug/supabase', async (req, res) => {
   if (!USE_SUPABASE) return res.json({ supabase: false, message: '未設定 SUPABASE_URL/SUPABASE_SERVICE_KEY' });
   try {
