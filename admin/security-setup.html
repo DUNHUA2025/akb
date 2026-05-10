@@ -9,17 +9,27 @@
     body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; }
     .btn-primary { background: linear-gradient(135deg, #10b981, #059669); }
-    .btn-primary:hover { background: linear-gradient(135deg, #059669, #047857); }
+    .btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #059669, #047857); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
     .step-badge { background: #10b981; color: white; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }
-    .key-input { background: #0f172a; border: 2px solid #334155; color: #e2e8f0; border-radius: 8px; }
+    .key-input { background: #0f172a; border: 2px solid #334155; color: #e2e8f0; border-radius: 8px; transition: border-color 0.2s; }
     .key-input:focus { outline: none; border-color: #10b981; }
+    .key-input.is-anon { border-color: #dc2626; }
+    .key-input.is-service { border-color: #10b981; }
     .status-box { border-radius: 8px; padding: 12px 16px; }
     .status-ok { background: #052e16; border: 1px solid #166534; color: #86efac; }
     .status-err { background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5; }
+    .status-warn { background: #431407; border: 1px solid #9a3412; color: #fdba74; }
     .status-info { background: #172554; border: 1px solid #1e3a8a; color: #93c5fd; }
     pre { background: #0f172a; border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 12px; }
     .spinner { border: 3px solid #334155; border-top-color: #10b981; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .key-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+    .badge-anon { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+    .badge-service { background: #052e16; color: #86efac; border: 1px solid #166534; }
+    .badge-unknown { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
+    .img-guide { border: 1px solid #334155; border-radius: 8px; max-width: 100%; }
+    .supabase-ui { background: #1a1a2e; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; }
   </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
@@ -37,36 +47,82 @@
 
     <!-- Warning Banner -->
     <div class="status-box status-err mb-6 flex items-start gap-3">
-      <span class="text-xl">⚠️</span>
+      <span class="text-xl flex-shrink-0">⚠️</span>
       <div>
         <div class="font-semibold">安全漏洞：RLS 未啟用</div>
-        <div class="text-sm mt-1 opacity-80">
-          Supabase 資料庫的 <code class="bg-red-900 px-1 rounded">bookings</code>、
-          <code class="bg-red-900 px-1 rounded">designers</code>、
-          <code class="bg-red-900 px-1 rounded">services</code>、
-          <code class="bg-red-900 px-1 rounded">accounts</code>
-          表格未啟用 Row-Level Security，任何人知道專案 URL 即可讀寫所有資料。
+        <div class="text-sm mt-1 opacity-90">
+          Supabase 資料庫的 <code class="bg-red-900/50 px-1 rounded">bookings</code>、
+          <code class="bg-red-900/50 px-1 rounded">designers</code>、
+          <code class="bg-red-900/50 px-1 rounded">services</code>、
+          <code class="bg-red-900/50 px-1 rounded">accounts</code>
+          表格未啟用 Row-Level Security。任何人只要知道專案 URL 就能讀取、編輯、刪除所有資料。
         </div>
+      </div>
+    </div>
+
+    <!-- Render Key Hint -->
+    <div id="renderKeyHint" class="card p-4 mb-6">
+      <div class="flex items-center gap-2 text-sm text-slate-400">
+        <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span>
+        <span>正在確認後端目前使用的 key 類型...</span>
+      </div>
+    </div>
+
+    <!-- KEY IDENTIFICATION GUIDE - 最重要的部分 -->
+    <div class="card p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-2 text-amber-400">⚠️ anon key vs service_role key 的區別</h2>
+      <p class="text-sm text-slate-400 mb-4">
+        這兩個 key 外觀完全一樣（都是長 JWT），<strong class="text-white">你剛才貼入的是 anon key</strong>，需要找到另一個 key。
+      </p>
+
+      <!-- Visual guide of Supabase Dashboard -->
+      <div class="supabase-ui mb-4">
+        <div class="text-slate-500 text-xs mb-3">Supabase Dashboard → Project Settings → API → Project API Keys</div>
+        <div class="space-y-3">
+          <div class="bg-slate-800/50 rounded p-3 border border-slate-700">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-slate-300 text-xs font-semibold">anon public</span>
+              <span class="key-badge badge-anon">❌ 這個不行</span>
+            </div>
+            <div class="text-slate-500 text-xs">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.<span class="text-red-400">eyJyb2xlIjoiYW5vbiJ9</span>.xxxx</div>
+            <div class="text-slate-500 text-xs mt-1">用途：前端公開 key，全世界都可以看到</div>
+          </div>
+          <div class="bg-emerald-900/20 rounded p-3 border border-emerald-800">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-emerald-300 text-xs font-semibold">service_role secret ← 需要這個</span>
+              <span class="key-badge badge-service">✅ 正確</span>
+            </div>
+            <div class="text-slate-500 text-xs">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.<span class="text-emerald-400">eyJyb2xlIjoic2VydmljZV9yb2xlIn0</span>.xxxx</div>
+            <div class="text-slate-500 text-xs mt-1">在頁面較下方，標記為「secret」，預設隱藏需點 Reveal</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-box status-info text-sm">
+        <strong>💡 如何確認你複製的是哪個 key：</strong>
+        把 key 貼入下方輸入框，系統會<strong>即時告訴你</strong>這是 anon 還是 service_role key。
       </div>
     </div>
 
     <!-- Steps -->
     <div class="card p-6 mb-6">
-      <h2 class="text-lg font-semibold mb-5 text-emerald-400">📋 修復步驟</h2>
+      <h2 class="text-lg font-semibold mb-5 text-emerald-400">📋 操作步驟</h2>
 
       <!-- Step 1 -->
       <div class="flex gap-4 mb-6">
         <div class="step-badge mt-0.5">1</div>
         <div class="flex-1">
-          <div class="font-semibold text-white mb-1">前往 Supabase 儀表板取得 service_role key</div>
-          <div class="text-sm text-slate-400 mb-3">
-            開啟下方連結，在 <strong>Project Settings → API</strong> 頁面找到 <strong>service_role</strong> JWT token，點擊「Reveal」後複製。
-          </div>
+          <div class="font-semibold text-white mb-2">開啟 Supabase API 設定頁面</div>
           <a href="https://supabase.com/dashboard/project/azluyqcxnebzdluvjisy/settings/api"
              target="_blank"
-             class="inline-flex items-center gap-2 bg-emerald-900 hover:bg-emerald-800 text-emerald-300 px-4 py-2 rounded-lg text-sm transition-colors">
-            🔗 開啟 Supabase API 設定頁面
+             class="inline-flex items-center gap-2 bg-emerald-900/50 hover:bg-emerald-800/50 text-emerald-300 border border-emerald-800 px-4 py-2 rounded-lg text-sm transition-colors">
+            🔗 開啟 Supabase API 設定（akb-salon 專案）
           </a>
+          <div class="mt-3 text-sm text-slate-400">
+            在頁面找到 <strong class="text-white">「Project API Keys」</strong> 區塊，找到下方的
+            <span class="bg-emerald-900/30 text-emerald-400 px-1 rounded font-mono">service_role</span>（標記 secret），
+            點擊 <strong class="text-white">「Reveal」</strong> 再複製。
+          </div>
         </div>
       </div>
 
@@ -74,22 +130,21 @@
       <div class="flex gap-4 mb-6">
         <div class="step-badge mt-0.5">2</div>
         <div class="flex-1">
-          <div class="font-semibold text-white mb-1">貼入 service_role key</div>
-          <div class="text-sm text-slate-400 mb-3">
-            將複製的 service_role key 貼入下方輸入框（格式：<code class="bg-slate-700 px-1 rounded">eyJhbGciOi...</code>）。
-            此 key 僅用於本次 RLS 設置，不會永久儲存。
-          </div>
-          <div class="relative">
+          <div class="font-semibold text-white mb-2">貼入 <span class="text-emerald-400">service_role</span> key</div>
+          <div class="relative mb-2">
             <input type="password" id="serviceRoleKey"
-                   class="key-input w-full px-4 py-3 pr-12 text-sm font-mono"
+                   oninput="onKeyInput(this.value)"
+                   class="key-input w-full px-4 py-3 pr-28 text-sm font-mono"
                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
-            <button onclick="toggleKeyVisible()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-              <span id="eyeIcon">👁️</span>
-            </button>
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <span id="keyBadge" class="key-badge badge-unknown text-xs">?</span>
+              <button onclick="toggleKeyVisible()" class="text-slate-400 hover:text-white text-lg" title="顯示/隱藏">
+                <span id="eyeIcon">👁</span>
+              </button>
+            </div>
           </div>
-          <div class="text-xs text-slate-500 mt-2">
-            💡 service_role key 與 anon key 格式相同（都是 JWT），區別在於 payload 的 role 欄位
-          </div>
+          <!-- Real-time validation feedback -->
+          <div id="keyFeedback" class="text-xs text-slate-500">貼入 key 後系統會立即驗證類型</div>
         </div>
       </div>
 
@@ -97,14 +152,12 @@
       <div class="flex gap-4">
         <div class="step-badge mt-0.5">3</div>
         <div class="flex-1">
-          <div class="font-semibold text-white mb-1">執行 RLS 啟用</div>
-          <div class="text-sm text-slate-400 mb-3">
-            點擊下方按鈕，系統將自動在所有資料表上啟用 RLS 並設置適當的存取政策。
-          </div>
-          <button id="enableBtn" onclick="enableRls()"
-                  class="btn-primary text-white font-semibold px-6 py-3 rounded-lg text-sm transition-all inline-flex items-center gap-2">
+          <div class="font-semibold text-white mb-2">執行 RLS 啟用</div>
+          <button id="enableBtn" onclick="enableRls()" disabled
+                  class="btn-primary text-white font-semibold px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2">
             🔒 立即啟用 RLS 安全保護
           </button>
+          <div class="text-xs text-slate-500 mt-2" id="btnHint">請先貼入正確的 service_role key</div>
         </div>
       </div>
     </div>
@@ -115,42 +168,41 @@
       <div id="resultContent"></div>
     </div>
 
-    <!-- After-RLS Setup: Add service_role key to Render -->
+    <!-- After-RLS: Render env update -->
     <div class="card p-6 mb-6" id="renderStep" style="display:none">
       <h2 class="text-lg font-semibold mb-4 text-amber-400">🔧 最後一步：更新 Render 環境變數</h2>
       <p class="text-sm text-slate-400 mb-4">
-        RLS 已啟用。現在後端需要改用 <strong>service_role key</strong> 才能繼續正常存取資料庫。
-        請前往 Render 設定環境變數：
+        RLS 已啟用！後端現在需要改用 service_role key 才能繼續正常存取資料庫（繞過 RLS）。
       </p>
-      <div class="flex gap-4 mb-4">
-        <div class="step-badge" style="background:#f59e0b;">1</div>
-        <div class="text-sm">
-          前往 <a href="https://dashboard.render.com" target="_blank" class="text-amber-400 hover:underline">dashboard.render.com</a>
-          → 選擇 <strong>akb-salon-server</strong> → <strong>Environment</strong>
+      <div class="space-y-3">
+        <div class="flex gap-3">
+          <div class="step-badge flex-shrink-0" style="background:#f59e0b;">1</div>
+          <div class="text-sm">前往 <a href="https://dashboard.render.com" target="_blank" class="text-amber-400 hover:underline font-semibold">dashboard.render.com</a> → 選擇 <strong>akb-salon-server</strong> → <strong>Environment</strong></div>
         </div>
-      </div>
-      <div class="flex gap-4 mb-4">
-        <div class="step-badge" style="background:#f59e0b;">2</div>
-        <div class="text-sm">
-          新增環境變數：<code class="bg-slate-700 px-2 py-0.5 rounded">SUPABASE_SERVICE_KEY</code> = 你的 service_role key
+        <div class="flex gap-3">
+          <div class="step-badge flex-shrink-0" style="background:#f59e0b;">2</div>
+          <div class="text-sm">
+            新增變數：<code class="bg-slate-700 px-2 py-0.5 rounded text-amber-300">SUPABASE_SERVICE_KEY</code>
+            <span id="copyServiceKey" class="ml-2 text-xs text-slate-500">（值為你剛才貼入的 service_role key）</span>
+          </div>
         </div>
-      </div>
-      <div class="flex gap-4">
-        <div class="step-badge" style="background:#f59e0b;">3</div>
-        <div class="text-sm">儲存後 Render 會自動重啟伺服器，後端即可用 service_role key 繞過 RLS</div>
+        <div class="flex gap-3">
+          <div class="step-badge flex-shrink-0" style="background:#f59e0b;">3</div>
+          <div class="text-sm">儲存後 Render 自動重啟，後端即使用 service_role key 繞過 RLS，功能全部恢復正常</div>
+        </div>
       </div>
     </div>
 
     <!-- RLS Policy Summary -->
     <div class="card p-6">
-      <h2 class="text-lg font-semibold mb-4 text-slate-300">📊 RLS 策略說明</h2>
+      <h2 class="text-lg font-semibold mb-4 text-slate-300">📊 啟用後的 RLS 策略</h2>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-slate-700">
               <th class="text-left py-2 pr-4 text-slate-400">資料表</th>
-              <th class="text-left py-2 pr-4 text-slate-400">匿名讀取</th>
-              <th class="text-left py-2 pr-4 text-slate-400">匿名寫入</th>
+              <th class="text-left py-2 pr-4 text-slate-400">外部讀取</th>
+              <th class="text-left py-2 pr-4 text-slate-400">外部寫入</th>
               <th class="text-left py-2 text-slate-400">說明</th>
             </tr>
           </thead>
@@ -159,17 +211,17 @@
               <td class="py-2 pr-4 font-mono text-slate-300">bookings</td>
               <td class="py-2 pr-4 text-red-400">❌ 封鎖</td>
               <td class="py-2 pr-4 text-green-400">✅ 僅插入</td>
-              <td class="py-2 text-slate-400 text-xs">客戶可預約，不可看他人記錄</td>
+              <td class="py-2 text-slate-400 text-xs">客戶可新增預約，不可查看他人記錄</td>
             </tr>
             <tr>
               <td class="py-2 pr-4 font-mono text-slate-300">designers</td>
-              <td class="py-2 pr-4 text-green-400">✅ 可讀（在職）</td>
+              <td class="py-2 pr-4 text-green-400">✅ 僅讀（在職）</td>
               <td class="py-2 pr-4 text-red-400">❌ 封鎖</td>
               <td class="py-2 text-slate-400 text-xs">客戶可查看設計師資訊</td>
             </tr>
             <tr>
               <td class="py-2 pr-4 font-mono text-slate-300">services</td>
-              <td class="py-2 pr-4 text-green-400">✅ 可讀</td>
+              <td class="py-2 pr-4 text-green-400">✅ 僅讀</td>
               <td class="py-2 pr-4 text-red-400">❌ 封鎖</td>
               <td class="py-2 text-slate-400 text-xs">客戶可查看服務項目</td>
             </tr>
@@ -177,13 +229,13 @@
               <td class="py-2 pr-4 font-mono text-slate-300">accounts</td>
               <td class="py-2 pr-4 text-red-400">❌ 完全封鎖</td>
               <td class="py-2 pr-4 text-red-400">❌ 完全封鎖</td>
-              <td class="py-2 text-slate-400 text-xs">帳號資料僅後端可存取</td>
+              <td class="py-2 text-slate-400 text-xs">帳號密碼資料僅後端可存取</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div class="mt-4 text-xs text-slate-500">
-        * service_role key（後端）可完整存取所有資料表，繞過 RLS 限制
+      <div class="mt-3 text-xs text-slate-500">
+        ✅ 後端使用 service_role key，可完整存取所有資料表（繞過 RLS）
       </div>
     </div>
 
@@ -193,23 +245,95 @@
     const API_BASE = 'https://akb-salon-server.onrender.com';
     const SECRET = 'akb-reset-2026';
     let keyVisible = false;
+    let currentKeyRole = null;
+
+    // 頁面載入時取得 Render 目前的 key 類型
+    async function loadKeyHint() {
+      try {
+        const r = await fetch(`${API_BASE}/api/admin/key-hint`);
+        const d = await r.json();
+        const el = document.getElementById('renderKeyHint');
+        if (d.keyRole === 'service_role') {
+          el.innerHTML = `<div class="status-box status-ok text-sm">✅ Render 後端已使用 <strong>service_role key</strong>（尾部: ${d.keyTail}）。可直接點擊啟用按鈕，無需貼入 key。</div>`;
+          // 自動啟用按鈕
+          document.getElementById('enableBtn').disabled = false;
+          document.getElementById('btnHint').textContent = 'Render 已有 service_role key，可直接執行';
+        } else {
+          el.innerHTML = `<div class="status-box status-warn text-sm">⚠️ Render 後端目前使用 <strong>anon key</strong>（尾部: <code class="font-mono">${d.keyTail}</code>）。<br>請前往 Supabase 取得 <strong>service_role key</strong>（結尾字符不同），貼入下方輸入框。</div>`;
+        }
+      } catch(e) {
+        document.getElementById('renderKeyHint').innerHTML = `<div class="text-xs text-slate-500">無法連接後端: ${e.message}</div>`;
+      }
+    }
+    loadKeyHint();
 
     function toggleKeyVisible() {
       keyVisible = !keyVisible;
+      document.getElementById('serviceRoleKey').type = keyVisible ? 'text' : 'password';
+      document.getElementById('eyeIcon').textContent = keyVisible ? '🙈' : '👁';
+    }
+
+    // 實時解碼並驗證 JWT 的 role
+    function onKeyInput(val) {
+      const badge = document.getElementById('keyBadge');
+      const feedback = document.getElementById('keyFeedback');
+      const btn = document.getElementById('enableBtn');
       const input = document.getElementById('serviceRoleKey');
-      const icon = document.getElementById('eyeIcon');
-      input.type = keyVisible ? 'text' : 'password';
-      icon.textContent = keyVisible ? '🙈' : '👁️';
+      const btnHint = document.getElementById('btnHint');
+      val = val.trim();
+
+      if (!val) {
+        badge.className = 'key-badge badge-unknown text-xs'; badge.textContent = '?';
+        feedback.textContent = '貼入 key 後系統會立即驗證類型';
+        input.className = 'key-input w-full px-4 py-3 pr-28 text-sm font-mono';
+        btn.disabled = true; btnHint.textContent = '請先貼入正確的 service_role key';
+        currentKeyRole = null; return;
+      }
+      if (!val.startsWith('eyJ')) {
+        badge.className = 'key-badge badge-anon text-xs'; badge.textContent = '格式錯誤';
+        feedback.innerHTML = '<span class="text-red-400">❌ 格式不正確，JWT 應以 eyJ 開頭</span>';
+        input.className = 'key-input is-anon w-full px-4 py-3 pr-28 text-sm font-mono';
+        btn.disabled = true; btnHint.textContent = '請貼入正確格式的 key';
+        currentKeyRole = null; return;
+      }
+      try {
+        const parts = val.split('.');
+        if (parts.length !== 3) throw new Error('invalid');
+        // 修正 base64url padding
+        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(b64 + '=='.slice((b64.length % 4) || 4)));
+        const role = payload.role || 'unknown';
+        currentKeyRole = role;
+
+        if (role === 'service_role') {
+          badge.className = 'key-badge badge-service text-xs'; badge.textContent = '✅ service_role';
+          feedback.innerHTML = `<span class="text-emerald-400">✅ 正確！這是 service_role key（ref: ${payload.ref || '?'}）</span>`;
+          input.className = 'key-input is-service w-full px-4 py-3 pr-28 text-sm font-mono';
+          btn.disabled = false; btnHint.textContent = '✅ Key 已驗證，可以執行';
+        } else if (role === 'anon') {
+          badge.className = 'key-badge badge-anon text-xs'; badge.textContent = '❌ anon';
+          feedback.innerHTML = `<span class="text-red-400">❌ 這是 anon key，不是 service_role key！請在 Supabase 找到另一個 key（標記為 "service_role secret"）</span>`;
+          input.className = 'key-input is-anon w-full px-4 py-3 pr-28 text-sm font-mono';
+          btn.disabled = true; btnHint.textContent = '需要 service_role key 才能執行';
+        } else {
+          badge.className = 'key-badge badge-unknown text-xs'; badge.textContent = role;
+          feedback.innerHTML = `<span class="text-amber-400">⚠️ 未知 role: ${role}</span>`;
+          btn.disabled = true;
+        }
+      } catch(e) {
+        badge.className = 'key-badge badge-anon text-xs'; badge.textContent = '解碼失敗';
+        feedback.innerHTML = `<span class="text-red-400">❌ 無法解碼 JWT: ${e.message}</span>`;
+        input.className = 'key-input is-anon w-full px-4 py-3 pr-28 text-sm font-mono';
+        btn.disabled = true; currentKeyRole = null;
+      }
     }
 
     async function enableRls() {
       const key = document.getElementById('serviceRoleKey').value.trim();
-      if (!key) {
-        showResult('error', '請先貼入 service_role key', null);
-        return;
-      }
-      if (!key.startsWith('eyJ')) {
-        showResult('error', '金鑰格式不正確，應為 JWT 格式（以 eyJ 開頭）', null);
+
+      // 如果有傳入 key，再做最後驗證
+      if (key && currentKeyRole !== 'service_role') {
+        showResult('error', '請貼入正確的 service_role key（不是 anon key）', null);
         return;
       }
 
@@ -218,16 +342,21 @@
       btn.innerHTML = '<span class="spinner"></span> 執行中...';
 
       try {
+        const body = { secret: SECRET };
+        if (key) body.serviceRoleKey = key;
+
         const resp = await fetch(`${API_BASE}/api/admin/enable-rls`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ secret: SECRET, serviceRoleKey: key }),
+          body: JSON.stringify(body),
         });
         const data = await resp.json();
 
         if (data.summary && data.summary.includes('✅')) {
           showResult('success', data.summary, data);
           document.getElementById('renderStep').style.display = 'block';
+          // 滾動到 Render 步驟
+          setTimeout(() => document.getElementById('renderStep').scrollIntoView({ behavior: 'smooth' }), 800);
         } else {
           showResult('error', data.summary || '執行失敗', data);
         }
@@ -260,16 +389,6 @@
         title.textContent = '❌ 執行失敗';
         content.innerHTML = `
           <div class="status-box status-err mb-4">${message}</div>
-          ${data?.howToFix ? `
-            <div class="status-box status-info mb-4">
-              <div class="font-semibold mb-2">💡 如何修復</div>
-              <ol class="text-sm space-y-1 list-decimal list-inside">
-                <li>${data.howToFix.step1}</li>
-                <li>${data.howToFix.step2}</li>
-                <li>${data.howToFix.step3}</li>
-              </ol>
-            </div>
-          ` : ''}
           ${data ? `<details>
             <summary class="text-sm text-slate-400 cursor-pointer hover:text-white">查看詳細回應</summary>
             <pre class="mt-2 text-xs text-slate-300">${JSON.stringify(data, null, 2)}</pre>
