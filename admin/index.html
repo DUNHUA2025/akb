@@ -184,6 +184,7 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
       <div :class="['sidebar-item',tab==='designers'?'active':'']" @click="tab='designers'">👥 設計師管理</div>
       <div :class="['sidebar-item',tab==='customers'?'active':'']" @click="tab='customers'">👤 顧客資料</div>
       <div :class="['sidebar-item',tab==='services'?'active':'']" @click="tab='services'">⭐ 服務項目</div>
+      <div :class="['sidebar-item',tab==='hours'?'active':'']" @click="tab='hours'">🕐 營業時間</div>
       <div :class="['sidebar-item',tab==='datasec'?'active':'']" @click="tab='datasec'" style="color:var(--rose)!important">🛡️ 數據安全</div>
     </nav>
     <div class="p-3 space-y-1">
@@ -568,6 +569,139 @@ html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:
       </div>
 
       <!-- Services -->
+      <!-- ── 營業時間 ──────────────────────────────────────── -->
+      <div v-else-if="tab==='hours'" class="fade">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 class="text-2xl font-bold serif">營業時間設定</h2>
+            <p class="text-muted text-sm mt-1">設定每週各天的開放預約時段</p>
+          </div>
+          <button class="btn btn-gold" @click="saveHours" :disabled="hoursSaving">
+            <span v-if="hoursSaving">儲存中...</span>
+            <span v-else>💾 儲存設定</span>
+          </button>
+        </div>
+
+        <!-- 儲存提示 -->
+        <div v-if="hoursSavedMsg" class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold" style="background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.3);color:var(--jade2)">
+          ✅ {{hoursSavedMsg}}
+        </div>
+
+        <!-- 快速套用 -->
+        <div class="card p-4 mb-4">
+          <div class="text-sm font-semibold mb-3" style="color:var(--gold)">⚡ 快速套用</div>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn btn-ghost text-xs px-3 py-1.5" @click="applyPreset('weekday')">週一至五 10:00–19:00</button>
+            <button class="btn btn-ghost text-xs px-3 py-1.5" @click="applyPreset('weekend')">週六日 10:00–20:00</button>
+            <button class="btn btn-ghost text-xs px-3 py-1.5" @click="applyPreset('allweek')">全週相同 10:00–19:00</button>
+            <button class="btn btn-ghost text-xs px-3 py-1.5" @click="applyPreset('mon-closed')">週一公休（其餘 10:00–19:00）</button>
+          </div>
+        </div>
+
+        <!-- 每天設定 -->
+        <div class="card p-5 mb-4">
+          <div class="space-y-0">
+            <div v-for="(h, idx) in hoursForm" :key="h.day"
+                 class="flex items-center gap-4 py-4"
+                 :class="idx < hoursForm.length-1 ? 'border-b border-gray-800' : ''">
+
+              <!-- 星期標籤 -->
+              <div class="w-16 flex-shrink-0">
+                <div class="text-sm font-semibold" :style="h.open ? 'color:var(--jade2)' : 'color:var(--muted)'">{{h.label}}</div>
+                <div class="text-xs mt-0.5" :style="h.open ? 'color:var(--jade2);opacity:.7' : 'color:var(--muted);opacity:.6'">
+                  {{h.open ? '營業中' : '休息日'}}
+                </div>
+              </div>
+
+              <!-- 開/關 toggle -->
+              <label class="flex items-center cursor-pointer flex-shrink-0">
+                <div class="relative">
+                  <input type="checkbox" v-model="h.open" class="sr-only">
+                  <div class="w-11 h-6 rounded-full transition-colors"
+                       :style="h.open ? 'background:var(--jade2)' : 'background:#374151'"></div>
+                  <div class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
+                       :style="h.open ? 'transform:translateX(20px)' : ''"></div>
+                </div>
+              </label>
+
+              <!-- 時間設定（只在開放時顯示） -->
+              <template v-if="h.open">
+                <div class="flex items-center gap-2 flex-1 flex-wrap">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-muted flex-shrink-0">開始</span>
+                    <select v-model="h.start" class="input text-sm py-1.5 px-2 w-24">
+                      <option v-for="t in timeOptions" :key="t" :value="t">{{t}}</option>
+                    </select>
+                  </div>
+                  <span class="text-muted text-sm">–</span>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-muted flex-shrink-0">結束</span>
+                    <select v-model="h.end" class="input text-sm py-1.5 px-2 w-24">
+                      <option v-for="t in timeOptions" :key="t" :value="t">{{t}}</option>
+                    </select>
+                  </div>
+                  <div class="text-xs text-muted ml-2" v-if="h.start && h.end">
+                    （共 {{calcHoursDiff(h.start, h.end)}} 小時）
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <div class="text-sm text-muted">— 不接受預約 —</div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- 其他設定 -->
+        <div class="card p-5 mb-4">
+          <div class="text-sm font-semibold mb-4" style="color:var(--gold)">⚙️ 預約規則</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm text-muted mb-1.5">預約時間間隔（分鐘）</label>
+              <select v-model="hoursSlotInterval" class="input w-full text-sm">
+                <option :value="15">15 分鐘</option>
+                <option :value="30">30 分鐘</option>
+                <option :value="60">60 分鐘（整點）</option>
+              </select>
+              <div class="text-xs text-muted mt-1">客戶預約時可選擇的時段密度</div>
+            </div>
+            <div>
+              <label class="block text-sm text-muted mb-1.5">最多提前預約天數</label>
+              <select v-model="hoursMaxAdvanceDays" class="input w-full text-sm">
+                <option :value="7">7 天（一週內）</option>
+                <option :value="14">14 天（兩週內）</option>
+                <option :value="30">30 天（一個月內）</option>
+                <option :value="60">60 天（兩個月內）</option>
+                <option :value="90">90 天（三個月內）</option>
+              </select>
+              <div class="text-xs text-muted mt-1">限制客戶可預約的最遠日期</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 預覽 -->
+        <div class="card p-5">
+          <div class="text-sm font-semibold mb-3" style="color:var(--gold)">📅 本週預覽</div>
+          <div class="grid grid-cols-7 gap-1">
+            <div v-for="h in hoursForm" :key="'prev-'+h.day" class="text-center">
+              <div class="text-xs mb-1" :style="h.open ? '' : 'color:var(--muted)'">{{h.label.replace('星期','').replace('日','日')}}</div>
+              <div class="rounded-lg p-2 text-xs"
+                   :style="h.open ? 'background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.25);color:var(--jade2)' : 'background:rgba(255,255,255,.03);border:1px solid #2d3748;color:var(--muted)'">
+                <template v-if="h.open">
+                  <div class="font-semibold">{{h.start}}</div>
+                  <div class="opacity-60">–</div>
+                  <div class="font-semibold">{{h.end}}</div>
+                </template>
+                <template v-else>
+                  <div class="text-lg">休</div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 服務項目 ────────────────────────────────────────── -->
       <div v-else-if="tab==='services'" class="fade">
         <div class="flex items-center justify-between mb-5">
           <h2 class="text-2xl font-bold serif">服務項目</h2>
@@ -767,7 +901,7 @@ const monthPfx = todayStr.slice(0, 7);
 createApp({
   setup() {
     const tab     = ref('dashboard');
-    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'},{k:'datasec',l:'🛡️安全'}];
+    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'},{k:'hours',l:'🕐時間'},{k:'datasec',l:'🛡️安全'}];
     const loading = ref(true);
 
     const bookings  = ref([]);
@@ -853,10 +987,11 @@ createApp({
     async function initData() {
       loading.value = true;
       try {
-        const [bs, ds, svcs] = await Promise.all([
+        const [bs, ds, svcs, settingsData] = await Promise.all([
           DB.getBookings(),
           DB.getDesigners(),
           DB.getServices(),
+          DB.getSettings(),
         ]);
         bookings.value  = bs  || [];
         designers.value = ds  || [];
@@ -864,6 +999,14 @@ createApp({
         calcStats();
         // 計算客戶統計（從預約資料）
         refreshCustomers(false);
+        // 載入營業時間設定
+        if (settingsData) {
+          if (Array.isArray(settingsData.businessHours) && settingsData.businessHours.length === 7) {
+            hoursForm.value = settingsData.businessHours;
+          }
+          if (settingsData.slotInterval)   hoursSlotInterval.value   = settingsData.slotInterval;
+          if (settingsData.maxAdvanceDays) hoursMaxAdvanceDays.value = settingsData.maxAdvanceDays;
+        }
       } catch(e) {
         console.error('initData:', e);
       } finally {
@@ -911,6 +1054,15 @@ createApp({
         if (data.designers) designers.value = data.designers;
         if (data.services)  services.value  = data.services;
         calcStats();
+      });
+
+      // 監聽營業時間設定更新廣播（其他設備儲存後同步）
+      EventBus.on('UPDATE_SETTINGS', (data) => {
+        if (Array.isArray(data.businessHours) && data.businessHours.length === 7) {
+          hoursForm.value = data.businessHours;
+        }
+        if (data.slotInterval)   hoursSlotInterval.value   = data.slotInterval;
+        if (data.maxAdvanceDays) hoursMaxAdvanceDays.value = data.maxAdvanceDays;
       });
 
       // 監聽密碼修改廣播（其他設備修改密碼後強制重新登入）
@@ -1265,6 +1417,70 @@ createApp({
       closeDataModal();
     }
 
+    // ── 營業時間設定 ──────────────────────────────────────────
+    const DEFAULT_HOURS = [
+      { day:0, label:'星期日', open:false, start:'10:00', end:'19:00' },
+      { day:1, label:'星期一', open:true,  start:'10:00', end:'19:00' },
+      { day:2, label:'星期二', open:true,  start:'10:00', end:'19:00' },
+      { day:3, label:'星期三', open:true,  start:'10:00', end:'19:00' },
+      { day:4, label:'星期四', open:true,  start:'10:00', end:'19:00' },
+      { day:5, label:'星期五', open:true,  start:'10:00', end:'20:00' },
+      { day:6, label:'星期六', open:true,  start:'10:00', end:'20:00' },
+    ];
+    const hoursForm          = ref(DEFAULT_HOURS.map(h => ({...h})));
+    const hoursSlotInterval  = ref(30);
+    const hoursMaxAdvanceDays = ref(30);
+    const hoursSaving        = ref(false);
+    const hoursSavedMsg      = ref('');
+
+    const timeOptions = computed(() => {
+      const opts = [];
+      for (let h = 7; h <= 23; h++) {
+        opts.push(`${String(h).padStart(2,'0')}:00`);
+        if (h < 23) opts.push(`${String(h).padStart(2,'0')}:30`);
+      }
+      return opts;
+    });
+
+    function calcHoursDiff(start, end) {
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      const diff = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+      return diff > 0 ? diff.toFixed(1) : '0.0';
+    }
+
+    function applyPreset(type) {
+      hoursForm.value = hoursForm.value.map(h => {
+        if (type === 'weekday')    return (h.day >= 1 && h.day <= 5) ? {...h, open:true, start:'10:00', end:'19:00'} : {...h, open:false};
+        if (type === 'weekend')    return (h.day === 0 || h.day === 6) ? {...h, open:true, start:'10:00', end:'20:00'} : h;
+        if (type === 'allweek')    return {...h, open:true, start:'10:00', end:'19:00'};
+        if (type === 'mon-closed') return h.day === 1 ? {...h, open:false} : {...h, open:true, start:'10:00', end:'19:00'};
+        return h;
+      });
+    }
+
+    async function saveHours() {
+      hoursSaving.value = true;
+      hoursSavedMsg.value = '';
+      try {
+        const r = await DB.saveSettings({
+          businessHours: hoursForm.value,
+          slotInterval: hoursSlotInterval.value,
+          maxAdvanceDays: hoursMaxAdvanceDays.value,
+        });
+        if (r && r.ok) {
+          hoursSavedMsg.value = '營業時間設定已儲存！';
+          setTimeout(() => { hoursSavedMsg.value = ''; }, 3000);
+        } else {
+          showToast('儲存失敗：' + (r?.error || '未知錯誤'));
+        }
+      } catch(e) {
+        showToast('儲存失敗：' + e.message);
+      } finally {
+        hoursSaving.value = false;
+      }
+    }
+
     function buildSeedData() {
       const now = new Date();
       const d = designers.value.filter(x => x.status !== 'resigned');
@@ -1307,6 +1523,8 @@ createApp({
       showServiceModal, isEditingService, serviceForm, openAddService, editService, saveService, deleteService,
       showDataModal, dataOp, dataModalMeta, dataConfirmPwd, showDataPwd, dataOpLoading, dataOpError,
       captcha, refreshCaptcha, openDataModal, closeDataModal, doDataOp, doExport, secLog,
+      hoursForm, hoursSlotInterval, hoursMaxAdvanceDays, hoursSaving, hoursSavedMsg,
+      timeOptions, calcHoursDiff, applyPreset, saveHours,
     };
   }
 }).mount('#app');

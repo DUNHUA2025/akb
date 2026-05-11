@@ -544,6 +544,26 @@ const DB = {
     }
   },
 
+  // ── 店家設定（營業時間）─────────────────────────────────
+
+  async getSettings() {
+    try {
+      return await apiRequest('GET', '/api/settings');
+    } catch(e) {
+      console.warn('[DB] getSettings 降級:', e.message);
+      return null;
+    }
+  },
+
+  async saveSettings(data) {
+    try {
+      return await apiRequest('POST', '/api/settings', data);
+    } catch(e) {
+      console.warn('[DB] saveSettings 錯誤:', e.message);
+      return { ok: false, error: e.message };
+    }
+  },
+
   // ── 實時訂閱 ──────────────────────────────────────────────
 
   /**
