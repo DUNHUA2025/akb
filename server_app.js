@@ -1007,10 +1007,89 @@ app.post('/api/settings', (req, res) => {
   res.json({ ok: true, settings: siteSettings });
 });
 
+// ─── 自動啟用 RLS（僅在有 service_role key 且尚未啟用時執行）─
+async function autoEnableRLS() {
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceKey || !SUPABASE_URL) return; // 無 service_role key 則跳過
+
+  // 解析 JWT 確認是 service_role
+  try {
+    const payload = JSON.parse(Buffer.from(serviceKey.split('.')[1], 'base64').toString());
+    if (payload.role !== 'service_role') {
+      console.warn('[RLS] ⚠️  SUPABASE_SERVICE_KEY 不是 service_role key，跳過 RLS 設定');
+      return;
+    }
+  } catch(e) { return; }
+
+  const RLS_SQL_STATEMENTS = [
+    // bookings: 匿名可新增預約，service_role 可全操作
+    `ALTER TABLE bookings ENABLE ROW LEVEL SECURITY`,
+    `DROP POLICY IF EXISTS "bookings_anon_insert" ON bookings`,
+    `DROP POLICY IF EXISTS "bookings_service_all" ON bookings`,
+    `CREATE POLICY "bookings_anon_insert" ON bookings FOR INSERT TO anon WITH CHECK (true)`,
+    `CREATE POLICY "bookings_service_all" ON bookings FOR ALL TO service_role USING (true) WITH CHECK (true)`,
+    // designers: 匿名可查詢，service_role 可全操作
+    `ALTER TABLE designers ENABLE ROW LEVEL SECURITY`,
+    `DROP POLICY IF EXISTS "designers_anon_select" ON designers`,
+    `DROP POLICY IF EXISTS "designers_service_all" ON designers`,
+    `CREATE POLICY "designers_anon_select" ON designers FOR SELECT TO anon USING (true)`,
+    `CREATE POLICY "designers_service_all" ON designers FOR ALL TO service_role USING (true) WITH CHECK (true)`,
+    // services: 匿名可查詢，service_role 可全操作
+    `ALTER TABLE services ENABLE ROW LEVEL SECURITY`,
+    `DROP POLICY IF EXISTS "services_anon_select" ON services`,
+    `DROP POLICY IF EXISTS "services_service_all" ON services`,
+    `CREATE POLICY "services_anon_select" ON services FOR SELECT TO anon USING (true)`,
+    `CREATE POLICY "services_service_all" ON services FOR ALL TO service_role USING (true) WITH CHECK (true)`,
+    // accounts: 只有 service_role 可存取
+    `ALTER TABLE accounts ENABLE ROW LEVEL SECURITY`,
+    `DROP POLICY IF EXISTS "accounts_service_all" ON accounts`,
+    `CREATE POLICY "accounts_service_all" ON accounts FOR ALL TO service_role USING (true) WITH CHECK (true)`,
+  ];
+
+  console.log('[RLS] 🔐 正在自動啟用 Row Level Security...');
+  let ok = 0, fail = 0;
+  for (const sql of RLS_SQL_STATEMENTS) {
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/run_sql`, {
+        method: 'POST',
+        headers: {
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sql }),
+      });
+      if (resp.ok || resp.status === 409) { ok++; }
+      else {
+        // Supabase doesn't have run_sql — try wrapping in a DO block
+        const doResp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_ddl`, {
+          method: 'POST',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sql }),
+        });
+        if (doResp.ok) { ok++; } else { fail++; }
+      }
+    } catch(e) { fail++; }
+  }
+
+  if (ok > 0) {
+    console.log(`[RLS] ✅ RLS 設定完成 (${ok} 成功 / ${fail} 失敗)`);
+  } else {
+    console.log(`[RLS] ℹ️  RLS 設定需透過 Supabase 儀表板的 SQL Editor 手動執行`);
+    console.log(`[RLS] ℹ️  請參考 docs/SECURITY_FIX.md`);
+  }
+}
+
 // ─── 啟動（先初始化資料庫再監聽）─────────────────────
 const PORT = process.env.PORT || 3001;
 
-DB.init().then(() => {
+DB.init().then(async () => {
+  // 在 Supabase 模式下嘗試自動啟用 RLS
+  if (USE_SUPABASE) await autoEnableRLS();
   server.listen(PORT, () => {
     console.log(`\n🪭  AKB Salon Server  →  http://localhost:${PORT}`);
     console.log(`📡  WebSocket ready for real-time sync`);

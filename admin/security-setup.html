@@ -193,6 +193,68 @@
       </div>
     </div>
 
+    <!-- Manual SQL fallback — always visible -->
+    <div class="card p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-4 text-amber-400">📋 方案 B：手動在 Supabase SQL Editor 執行</h2>
+      <p class="text-sm text-slate-400 mb-4">若自動啟用失敗，請直接在 Supabase 儀表板的 SQL Editor 貼入以下 SQL 執行：</p>
+
+      <div class="flex gap-3 mb-4">
+        <div class="step-badge flex-shrink-0" style="background:#6366f1;">1</div>
+        <div class="text-sm">前往 <a href="https://supabase.com/dashboard/project/azluyqcxnebzdluvjisy/sql/new" target="_blank" class="text-indigo-400 hover:underline font-semibold">Supabase SQL Editor ↗</a></div>
+      </div>
+      <div class="flex gap-3 mb-4">
+        <div class="step-badge flex-shrink-0" style="background:#6366f1;">2</div>
+        <div class="text-sm">複製以下 SQL，貼入編輯器並按 <strong>Run</strong></div>
+      </div>
+
+      <div class="relative">
+        <button onclick="copySQL()" class="absolute top-2 right-2 text-xs bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-white z-10">📋 複製 SQL</button>
+        <pre id="rlsSQL" class="bg-slate-900 text-slate-300 text-xs p-4 rounded-xl overflow-x-auto leading-relaxed border border-slate-700">-- ============================================================
+-- AKB Salon：啟用 Row Level Security + 設定存取策略
+-- 在 Supabase SQL Editor 執行（https://supabase.com/dashboard）
+-- ============================================================
+
+-- 1. bookings：客戶可新增預約，後端可全操作
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "bookings_anon_insert" ON bookings;
+DROP POLICY IF EXISTS "bookings_service_all" ON bookings;
+CREATE POLICY "bookings_anon_insert"  ON bookings FOR INSERT TO anon         WITH CHECK (true);
+CREATE POLICY "bookings_service_all" ON bookings FOR ALL    TO service_role  USING (true) WITH CHECK (true);
+
+-- 2. designers：客戶可查詢，後端可全操作
+ALTER TABLE designers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "designers_anon_select" ON designers;
+DROP POLICY IF EXISTS "designers_service_all" ON designers;
+CREATE POLICY "designers_anon_select" ON designers FOR SELECT TO anon        USING (true);
+CREATE POLICY "designers_service_all" ON designers FOR ALL   TO service_role USING (true) WITH CHECK (true);
+
+-- 3. services：客戶可查詢，後端可全操作
+ALTER TABLE services ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "services_anon_select" ON services;
+DROP POLICY IF EXISTS "services_service_all" ON services;
+CREATE POLICY "services_anon_select"  ON services FOR SELECT TO anon        USING (true);
+CREATE POLICY "services_service_all" ON services FOR ALL    TO service_role USING (true) WITH CHECK (true);
+
+-- 4. accounts：完全封鎖外部存取，只有後端可用
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "accounts_service_all" ON accounts;
+CREATE POLICY "accounts_service_all" ON accounts FOR ALL    TO service_role USING (true) WITH CHECK (true);
+
+-- 確認 RLS 狀態
+SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';</pre>
+      </div>
+
+      <div class="flex gap-3 mt-4">
+        <div class="step-badge flex-shrink-0" style="background:#6366f1;">3</div>
+        <div class="text-sm">SQL 執行成功後，前往 <a href="https://dashboard.render.com" target="_blank" class="text-amber-400 hover:underline">Render Dashboard</a> → <strong>akb-salon-server</strong> → <strong>Environment</strong>，新增以下環境變數：
+          <div class="mt-2 bg-slate-900 rounded-lg p-3 font-mono text-xs">
+            <div class="text-amber-300">SUPABASE_SERVICE_KEY</div>
+            <div class="text-slate-400 mt-1">= 貼入你的 service_role key（eyJ...）</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- RLS Policy Summary -->
     <div class="card p-6">
       <h2 class="text-lg font-semibold mb-4 text-slate-300">📊 啟用後的 RLS 策略</h2>
@@ -366,6 +428,24 @@
         btn.disabled = false;
         btn.innerHTML = '🔒 立即啟用 RLS 安全保護';
       }
+    }
+
+    function copySQL() {
+      const sql = document.getElementById('rlsSQL').textContent;
+      navigator.clipboard.writeText(sql).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✅ 已複製！';
+        btn.style.background = '#22c55e';
+        setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2000);
+      }).catch(() => {
+        // Fallback: select all text
+        const pre = document.getElementById('rlsSQL');
+        const range = document.createRange();
+        range.selectNode(pre);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+      });
     }
 
     function showResult(type, message, data) {
