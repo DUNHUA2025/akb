@@ -950,6 +950,63 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+// ─── 店家設定（營業時間等）────────────────────────────
+// 使用本地 JSON 持久化（與 Supabase 無關，設定較少不需要雲端）
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+
+const DEFAULT_SETTINGS = {
+  businessHours: [
+    { day: 0, label: '星期日', open: false, start: '10:00', end: '19:00' },
+    { day: 1, label: '星期一', open: true,  start: '10:00', end: '19:00' },
+    { day: 2, label: '星期二', open: true,  start: '10:00', end: '19:00' },
+    { day: 3, label: '星期三', open: true,  start: '10:00', end: '19:00' },
+    { day: 4, label: '星期四', open: true,  start: '10:00', end: '19:00' },
+    { day: 5, label: '星期五', open: true,  start: '10:00', end: '20:00' },
+    { day: 6, label: '星期六', open: true,  start: '10:00', end: '20:00' },
+  ],
+  slotInterval: 30,   // 預約時間間隔（分鐘）
+  maxAdvanceDays: 30, // 最多提前幾天預約
+  updatedAt: null,
+};
+
+let siteSettings = loadData(SETTINGS_FILE, DEFAULT_SETTINGS);
+// 補齊新欄位（向下相容舊資料）
+if (!siteSettings.businessHours) siteSettings = { ...DEFAULT_SETTINGS, ...siteSettings };
+
+function saveSettings() {
+  siteSettings.updatedAt = new Date().toISOString();
+  saveData(SETTINGS_FILE, siteSettings);
+}
+
+app.get('/api/settings', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(siteSettings);
+});
+
+app.post('/api/settings', (req, res) => {
+  const { businessHours, slotInterval, maxAdvanceDays } = req.body;
+  if (businessHours && Array.isArray(businessHours)) {
+    // 驗證每筆資料格式
+    for (const h of businessHours) {
+      if (typeof h.day !== 'number' || h.day < 0 || h.day > 6) {
+        return res.status(400).json({ error: '無效的 day 值（應為 0~6）' });
+      }
+      if (h.open && !/^\d{2}:\d{2}$/.test(h.start || '')) {
+        return res.status(400).json({ error: `${h.label} 的開始時間格式不正確` });
+      }
+      if (h.open && !/^\d{2}:\d{2}$/.test(h.end || '')) {
+        return res.status(400).json({ error: `${h.label} 的結束時間格式不正確` });
+      }
+    }
+    siteSettings.businessHours = businessHours;
+  }
+  if (slotInterval !== undefined) siteSettings.slotInterval = Number(slotInterval) || 30;
+  if (maxAdvanceDays !== undefined) siteSettings.maxAdvanceDays = Number(maxAdvanceDays) || 30;
+  saveSettings();
+  broadcast('UPDATE_SETTINGS', siteSettings);
+  res.json({ ok: true, settings: siteSettings });
+});
+
 // ─── 啟動（先初始化資料庫再監聽）─────────────────────
 const PORT = process.env.PORT || 3001;
 
