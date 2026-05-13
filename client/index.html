@@ -539,6 +539,10 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
         </div>
 
+        <div v-else-if="ALL_TIMES.length === 0" class="py-6 text-center text-sm" style="color:var(--text3);">
+          🚫 本日休息，請選擇其他日期
+        </div>
+
         <div v-else class="grid grid-cols-4 gap-2 sm:grid-cols-6">
 
           <div v-for="t in ALL_TIMES" :key="t"
@@ -1189,7 +1193,22 @@ const BUILTIN_SERVICES = [
 
 
 
-const ALL_TIMES = ['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00'];
+// ALL_TIMES 會由 settings 動態替換，此為靜態降級預設值
+const DEFAULT_TIMES = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00'];
+
+// 根據 start/end 和 interval(分鐘) 生成時間槽陣列
+function generateTimeSlots(start, end, intervalMin) {
+  const slots = [];
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let cur = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+  while (cur < endMin) {
+    slots.push(String(Math.floor(cur/60)).padStart(2,'0') + ':' + String(cur%60).padStart(2,'0'));
+    cur += intervalMin;
+  }
+  return slots;
+}
 
 
 
@@ -1329,6 +1348,55 @@ createApp({
 
 
 
+    // ── 店家設定（從 /api/settings 動態載入）───────────────────
+    const siteSettings   = ref(null);  // 原始設定物件
+    const ALL_TIMES      = ref(DEFAULT_TIMES.slice());  // 時段列表（reactive）
+    const maxAdvanceDays = ref(30);    // 最多提前幾天預約
+    const closedDayNums  = ref([]);    // 公休星期幾（0=日,1=一...）
+
+    // 根據設定生成某日的時段（若各天時間不同時用到）
+    function getTimeSlotsForDate(dateStr) {
+      if (!siteSettings.value || !siteSettings.value.businessHours) return ALL_TIMES.value;
+      const d = new Date(dateStr);
+      const dayNum = d.getDay();
+      const dayConf = siteSettings.value.businessHours.find(h => h.day === dayNum);
+      if (!dayConf || !dayConf.open) return [];
+      const interval = siteSettings.value.slotInterval || 30;
+      return generateTimeSlots(dayConf.start, dayConf.end, interval);
+    }
+
+    // 當前選擇日期的時段
+    const currentDayTimes = computed(() => {
+      if (bookingForm.date) return getTimeSlotsForDate(bookingForm.date);
+      return ALL_TIMES.value;
+    });
+
+    function applySettings(s) {
+      if (!s) return;
+      siteSettings.value = s;
+      // 計算公休日
+      if (s.businessHours) {
+        closedDayNums.value = s.businessHours.filter(h => !h.open).map(h => h.day);
+      }
+      // 最多提前天數
+      if (s.maxAdvanceDays) maxAdvanceDays.value = s.maxAdvanceDays;
+      // 計算全局代表性時段（用最多天數共用的那個 start/end）
+      if (s.businessHours && s.slotInterval) {
+        const openDays = s.businessHours.filter(h => h.open);
+        if (openDays.length) {
+          // 用出現次數最多的 start/end 組合
+          const keyMap = {};
+          openDays.forEach(h => {
+            const k = h.start + '|' + h.end;
+            keyMap[k] = (keyMap[k] || 0) + 1;
+          });
+          const bestKey = Object.entries(keyMap).sort((a,b)=>b[1]-a[1])[0][0];
+          const [bestStart, bestEnd] = bestKey.split('|');
+          ALL_TIMES.value = generateTimeSlots(bestStart, bestEnd, s.slotInterval);
+        }
+      }
+    }
+
     const now = new Date();
 
     const calendarMonth = ref(now.getMonth() + 1);
@@ -1417,9 +1485,7 @@ createApp({
 
       const dateStr = `${calendarYear.value}-${m}-${dd}`;
 
-      const today = new Date(); today.setHours(0,0,0,0);
-
-      if(new Date(dateStr) < today) return;
+      if (isDatePast(d)) return; // 已過期、公休、超出預約天數
 
       bookingForm.date = dateStr;
 
@@ -1439,7 +1505,19 @@ createApp({
 
       const today = new Date(); today.setHours(0,0,0,0);
 
-      return new Date(`${calendarYear.value}-${m}-${dd}`) < today;
+      const target = new Date(`${calendarYear.value}-${m}-${dd}`);
+
+      if (target < today) return true;
+
+      // 超過最多提前天數則禁用
+      const maxDate = new Date(today);
+      maxDate.setDate(maxDate.getDate() + maxAdvanceDays.value);
+      if (target > maxDate) return true;
+
+      // 公休日禁用
+      if (closedDayNums.value.length && closedDayNums.value.includes(target.getDay())) return true;
+
+      return false;
 
     }
 
@@ -1533,6 +1611,19 @@ createApp({
 
 
     onMounted(async () => {
+
+      // ── 載入店家設定（優先於其他資料，影響日曆和時段）──────
+      try {
+        // 先用 localStorage 快取快速渲染
+        const cached = localStorage.getItem('akb_settings');
+        if (cached) applySettings(JSON.parse(cached));
+        // 再拉最新
+        const s = await DB.getSettings();
+        if (s) {
+          applySettings(s);
+          try { localStorage.setItem('akb_settings', JSON.stringify(s)); } catch(e){}
+        }
+      } catch(e) { console.warn('loadSettings:', e); }
 
       loadingDesigners.value = true;
 
@@ -1993,7 +2084,7 @@ createApp({
 
       loadingServices, loadingDesigners, loadingSlots,
 
-      ALL_TIMES, calDays, serviceCategories, isCurrentMonth,
+      ALL_TIMES: currentDayTimes, calDays, serviceCategories, isCurrentMonth,
 
       catColor, levelStyle,
 
