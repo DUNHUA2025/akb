@@ -401,13 +401,12 @@ html.light .c-icon{background:rgba(13,148,136,.08);border-color:rgba(13,148,136,
       </div>
       <a href="tel:55083339" style="color:var(--jade);text-decoration:none;font-weight:600;font-size:15px;">5508 3339</a>
     </div>
-    <div class="contact-row">
+    <div class="contact-row" id="hoursRow">
       <div class="c-icon">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--jade2)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </div>
-      <span>
-        週二 ─ 週日 &nbsp;<strong style="color:var(--text);">10:00 – 20:00</strong>
-        <span style="margin-left:8px;font-size:10px;padding:2px 9px;border-radius:100px;background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.22);">週一休息</span>
+      <span id="hoursDisplay">
+        <span style="color:var(--text3);font-size:12px;">載入中…</span>
       </span>
     </div>
     <div class="contact-row">
@@ -446,6 +445,100 @@ html.light .c-icon{background:rgba(13,148,136,.08);border-color:rgba(13,148,136,
     localStorage.setItem('akb_theme',next);
   };
   applyTheme(localStorage.getItem('akb_theme')||'dark');
+})();
+</script>
+
+<script>
+// ── 動態載入營業時間 ──────────────────────────────────────────
+(function(){
+  var API = 'https://akb-salon-server.onrender.com';
+  var DAY_NAMES = ['日','一','二','三','四','五','六'];
+
+  function renderHours(settings) {
+    var el = document.getElementById('hoursDisplay');
+    if (!el) return;
+
+    var hours = (settings && settings.businessHours) || null;
+
+    // 降級：無資料時顯示靜態文字
+    if (!hours || !hours.length) {
+      el.innerHTML = '週二 ─ 週日 &nbsp;<strong style="color:var(--text);">10:00 – 20:00</strong>' +
+        '<span style="margin-left:8px;font-size:10px;padding:2px 9px;border-radius:100px;background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.22);">週一休息</span>';
+      return;
+    }
+
+    // 把同起訖時間的連續開放日合組成區段顯示（例如：週一─五 10:00–19:00）
+    // 先按 day 排序
+    var sorted = hours.slice().sort(function(a,b){ return a.day - b.day; });
+    var openDays = sorted.filter(function(h){ return h.open; });
+    var closedDays = sorted.filter(function(h){ return !h.open; });
+
+    if (!openDays.length) {
+      el.innerHTML = '<span style="color:var(--text3);">本週暫停營業</span>';
+      return;
+    }
+
+    // 把 openDays 分成同 start+end 的組
+    var groups = [];
+    openDays.forEach(function(h) {
+      var key = h.start + '–' + h.end;
+      var g = groups.find(function(g){ return g.key === key; });
+      if (g) { g.days.push(h.day); }
+      else { groups.push({ key: key, start: h.start, end: h.end, days: [h.day] }); }
+    });
+
+    // 把每組的連續天合併成 range（如 [1,2,3,4,5] → 週一─五）
+    function daysToStr(days) {
+      days = days.slice().sort(function(a,b){return a-b;});
+      var segments = [];
+      var i = 0;
+      while (i < days.length) {
+        var j = i;
+        while (j + 1 < days.length && days[j+1] === days[j] + 1) j++;
+        if (j > i + 1) {
+          segments.push('週' + DAY_NAMES[days[i]] + '─週' + DAY_NAMES[days[j]]);
+        } else if (j === i + 1) {
+          segments.push('週' + DAY_NAMES[days[i]] + '、週' + DAY_NAMES[days[j]]);
+        } else {
+          segments.push('週' + DAY_NAMES[days[i]]);
+        }
+        i = j + 1;
+      }
+      return segments.join(' / ');
+    }
+
+    var html = groups.map(function(g, idx) {
+      return (idx > 0 ? '<br>' : '') +
+        '<span>' + daysToStr(g.days) + '&nbsp;&nbsp;<strong style="color:var(--text);">' + g.start + ' – ' + g.end + '</strong></span>';
+    }).join('');
+
+    // 顯示休息日
+    if (closedDays.length) {
+      var closedStr = closedDays.map(function(h){ return '週' + DAY_NAMES[h.day]; }).join('、');
+      html += '&nbsp;&nbsp;<span style="font-size:10px;padding:2px 9px;border-radius:100px;background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.22);">' + closedStr + '休息</span>';
+    }
+
+    el.innerHTML = html;
+  }
+
+  // 先從 localStorage 快取渲染（避免 Render 冷啟動白屏）
+  try {
+    var cached = localStorage.getItem('akb_settings');
+    if (cached) renderHours(JSON.parse(cached));
+  } catch(e){}
+
+  // 再從 API 拉最新資料
+  fetch(API + '/api/settings')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      renderHours(data);
+      try { localStorage.setItem('akb_settings', JSON.stringify(data)); } catch(e){}
+    })
+    .catch(function(){
+      // API 失敗時若沒快取則顯示靜態降級
+      var el = document.getElementById('hoursDisplay');
+      if (el && el.innerHTML.includes('載入中')) renderHours(null);
+    });
 })();
 </script>
 </body>
