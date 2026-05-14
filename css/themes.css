@@ -1,0 +1,240 @@
+/* ════════════════════════════════════════════════════════════════
+   AKB 多主題系統 — themes.css
+   包含 4 套主題：
+   1. jade  (墨玉翡翠) — 深藍底 + 翡翠色  [原始主題]
+   2. rose  (霓虹玫瑰) — 深灰底 + 玫瑰紫  [全新主題]
+   3. gold  (琥珀金沙) — 暖棕底 + 金黃色
+   4. ocean (蔚藍海洋) — 深藍底 + 天藍色
+   每套主題均支援 dark / light 雙模式
+   ════════════════════════════════════════════════════════════════ */
+
+/* ─── 預設：jade 深色 ─────────────────────────────────────────── */
+:root,
+[data-theme="jade"] {
+  --bg:       #0E1117;
+  --bg2:      #141921;
+  --surface:  #1A2332;
+  --surface2: #1F2A3C;
+  --border:   #243044;
+  --border2:  #2E3D56;
+  --text:     #E8EDF5;
+  --text2:    #9DAFC8;
+  --text3:    #5A6E8A;
+  --primary:  #2DD4BF;
+  --primary2: #5EEAD4;
+  --primary3: #99F6E4;
+  --accent:   #F59E0B;
+  --accent2:  #FCD34D;
+  --rose:     #FB7185;
+  --green:    #34D399;
+  --glass:    rgba(26,35,50,.72);
+  --glass-border: rgba(45,212,191,.14);
+  --shadow:   rgba(0,0,0,.45);
+  /* legacy aliases */
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+[data-theme="jade"].light,
+[data-theme="jade"] .light {
+  --bg:       #F7F8FA;
+  --bg2:      #EDEEF2;
+  --surface:  #FFFFFF;
+  --surface2: #F0F2F6;
+  --border:   #DDE1EB;
+  --border2:  #C8CEDC;
+  --text:     #111827;
+  --text2:    #374151;
+  --text3:    #6B7280;
+  --primary:  #0D9488;
+  --primary2: #14B8A6;
+  --primary3: #2DD4BF;
+  --accent:   #D97706;
+  --accent2:  #F59E0B;
+  --rose:     #E11D48;
+  --green:    #059669;
+  --glass:    rgba(255,255,255,.82);
+  --glass-border: rgba(13,148,136,.2);
+  --shadow:   rgba(0,0,0,.12);
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+/* ─── rose (霓虹玫瑰) 深色 ───────────────────────────────────── */
+[data-theme="rose"] {
+  --bg:       #0F0D14;
+  --bg2:      #16121F;
+  --surface:  #1E1829;
+  --surface2: #261F36;
+  --border:   #332845;
+  --border2:  #3E3254;
+  --text:     #F0EBF8;
+  --text2:    #B8A8D4;
+  --text3:    #7A6A96;
+  --primary:  #F472B6;
+  --primary2: #F9A8D4;
+  --primary3: #FBCFE8;
+  --accent:   #A78BFA;
+  --accent2:  #C4B5FD;
+  --rose:     #FB7185;
+  --green:    #34D399;
+  --glass:    rgba(30,24,41,.75);
+  --glass-border: rgba(244,114,182,.16);
+  --shadow:   rgba(0,0,0,.5);
+  /* legacy aliases */
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+[data-theme="rose"].light,
+[data-theme="rose"] .light {
+  --bg:       #FDF2F8;
+  --bg2:      #FCE7F3;
+  --surface:  #FFFFFF;
+  --surface2: #FDF4FF;
+  --border:   #F3D1E8;
+  --border2:  #E8B8D6;
+  --text:     #1F0E1A;
+  --text2:    #6B2957;
+  --text3:    #9D6B8A;
+  --primary:  #DB2777;
+  --primary2: #EC4899;
+  --primary3: #F472B6;
+  --accent:   #7C3AED;
+  --accent2:  #8B5CF6;
+  --rose:     #E11D48;
+  --green:    #059669;
+  --glass:    rgba(255,255,255,.85);
+  --glass-border: rgba(219,39,119,.2);
+  --shadow:   rgba(100,0,50,.12);
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+/* ─── gold (琥珀金沙) 深色 ───────────────────────────────────── */
+[data-theme="gold"] {
+  --bg:       #100E08;
+  --bg2:      #18150C;
+  --surface:  #221C10;
+  --surface2: #2A2315;
+  --border:   #3A2F18;
+  --border2:  #4A3D22;
+  --text:     #F8F0DC;
+  --text2:    #C8A96A;
+  --text3:    #8A7040;
+  --primary:  #F59E0B;
+  --primary2: #FCD34D;
+  --primary3: #FDE68A;
+  --accent:   #F97316;
+  --accent2:  #FB923C;
+  --rose:     #FB7185;
+  --green:    #34D399;
+  --glass:    rgba(34,28,16,.75);
+  --glass-border: rgba(245,158,11,.16);
+  --shadow:   rgba(0,0,0,.5);
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+[data-theme="gold"].light,
+[data-theme="gold"] .light {
+  --bg:       #FFFBF0;
+  --bg2:      #FEF9E6;
+  --surface:  #FFFFFF;
+  --surface2: #FEF3C7;
+  --border:   #FDE68A;
+  --border2:  #FCD34D;
+  --text:     #1C1206;
+  --text2:    #78520A;
+  --text3:    #92660B;
+  --primary:  #B45309;
+  --primary2: #D97706;
+  --primary3: #F59E0B;
+  --accent:   #C2410C;
+  --accent2:  #EA580C;
+  --rose:     #E11D48;
+  --green:    #059669;
+  --glass:    rgba(255,255,255,.85);
+  --glass-border: rgba(180,83,9,.2);
+  --shadow:   rgba(100,60,0,.12);
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+/* ─── ocean (蔚藍海洋) 深色 ──────────────────────────────────── */
+[data-theme="ocean"] {
+  --bg:       #050D1A;
+  --bg2:      #081222;
+  --surface:  #0D1C33;
+  --surface2: #122440;
+  --border:   #1B3156;
+  --border2:  #243D68;
+  --text:     #E0EEFF;
+  --text2:    #7EB5E8;
+  --text3:    #3A6EA8;
+  --primary:  #38BDF8;
+  --primary2: #7DD3FC;
+  --primary3: #BAE6FD;
+  --accent:   #06B6D4;
+  --accent2:  #67E8F9;
+  --rose:     #FB7185;
+  --green:    #34D399;
+  --glass:    rgba(13,28,51,.75);
+  --glass-border: rgba(56,189,248,.16);
+  --shadow:   rgba(0,0,0,.5);
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+[data-theme="ocean"].light,
+[data-theme="ocean"] .light {
+  --bg:       #EFF9FF;
+  --bg2:      #E0F4FF;
+  --surface:  #FFFFFF;
+  --surface2: #F0F9FF;
+  --border:   #BAE6FD;
+  --border2:  #7DD3FC;
+  --text:     #0C1A2E;
+  --text2:    #0E4A78;
+  --text3:    #2563EB;
+  --primary:  #0284C7;
+  --primary2: #0EA5E9;
+  --primary3: #38BDF8;
+  --accent:   #0891B2;
+  --accent2:  #06B6D4;
+  --rose:     #E11D48;
+  --green:    #059669;
+  --glass:    rgba(255,255,255,.85);
+  --glass-border: rgba(2,132,199,.2);
+  --shadow:   rgba(0,30,80,.12);
+  --jade:     var(--primary);
+  --jade2:    var(--primary2);
+  --jade3:    var(--primary3);
+  --amber:    var(--accent);
+  --amber2:   var(--accent2);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   主題工具腳本（內聯 JS，可複製到任意頁面 <head>）
+   ════════════════════════════════════════════════════════════════ */

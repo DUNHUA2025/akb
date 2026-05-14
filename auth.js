@@ -34,28 +34,12 @@ async function authFetch(method, path, body) {
   return data;
 }
 
-// ── 後備：本地帳號（僅在後端不可用時使用）──────────────────
-const LOCAL_ACCOUNTS = {
-  admin: { username: 'admin', password: 'Hk888888', role: 'admin', name: '店長',
-    permissions: ['dashboard','bookings','designers','customers','services'] },
-  designers: [
-    { username: 'aika',  password: 'Aa888888',  role: 'designer', name: 'A Li 亞力', designerId: 1 },
-    { username: 'ken',   password: 'ken123',    role: 'designer', name: 'QiQi',      designerId: 2 },
-    { username: 'bella', password: 'bella123',  role: 'designer', name: 'Bella',     designerId: 3 },
-    { username: 'jay',   password: 'jay123',    role: 'designer', name: 'Jay',       designerId: 4 },
-    { username: 'mia',   password: 'mia123',    role: 'designer', name: 'Mia',       designerId: 5 },
-  ]
-};
-
-function localLogin(username, password) {
-  const u = username.toLowerCase();
-  if (u === LOCAL_ACCOUNTS.admin.username && password === LOCAL_ACCOUNTS.admin.password) {
-    return { success: true, role: 'admin', name: LOCAL_ACCOUNTS.admin.name };
-  }
-  const d = LOCAL_ACCOUNTS.designers.find(x => x.username === u && x.password === password);
-  if (d) return { success: true, role: 'designer', name: d.name, designerId: d.designerId };
-  return { success: false, error: '帳號或密碼錯誤' };
-}
+// ── 後備本地帳號已移除（安全性考量）────────────────────────
+// 所有登入必須透過後端 API 驗證，本地後備存在安全風險：
+// 1. 明文密碼暴露在客戶端 JavaScript 中
+// 2. 本地後備密碼不會隨用戶修改而更新
+// 3. 任何人可在瀏覽器開發工具中看到所有帳號密碼
+// 後端無法連線時，將顯示「服務器啟動中」提示，而非允許本地繞過
 
 // ── Auth 物件 ────────────────────────────────────────────────
 const Auth = {

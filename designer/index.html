@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+<script>
+// AKB 主題初始化（防止 FOUC）
+(function(){
+  var theme = localStorage.getItem('akb_theme_name') || 'jade';
+  var dark  = localStorage.getItem('akb_dark_mode') !== 'false';
+  var legacyTheme = localStorage.getItem('akb_theme');
+  if(legacyTheme === 'light') dark = false;
+  document.documentElement.setAttribute('data-theme', theme);
+  if(!dark) document.documentElement.classList.add('light');
+})();
+</script>
 <script>window.AKB_API_URL="https://akb-salon-server.onrender.com";window.AKB_WS_URL="wss://akb-salon-server.onrender.com";</script>
 <meta charset="UTF-8"/>
 <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
@@ -10,6 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preconnect" href="https://akb-salon-server.onrender.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../css/themes.css"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.min.js"></script>
 <script src="../auth.js"></script>

@@ -3,6 +3,17 @@
 <html lang="zh-TW">
 
 <head>
+<script>
+// AKB 主題初始化（防止 FOUC）
+(function(){
+  var theme = localStorage.getItem('akb_theme_name') || 'jade';
+  var dark  = localStorage.getItem('akb_dark_mode') !== 'false';
+  var legacyTheme = localStorage.getItem('akb_theme');
+  if(legacyTheme === 'light') dark = false;
+  document.documentElement.setAttribute('data-theme', theme);
+  if(!dark) document.documentElement.classList.add('light');
+})();
+</script>
 
 <script>window.AKB_API_URL="https://akb-salon-server.onrender.com";window.AKB_WS_URL="wss://akb-salon-server.onrender.com";</script>
 
@@ -35,6 +46,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../css/themes.css"/>
 
 <script src="../js/db.js"></script>
 
@@ -164,23 +176,13 @@ input.error-field{border-color:#EF4444!important;box-shadow:0 0 0 3px rgba(239,6
 
 
 /* ══ AKB 墨玉主題 ══ */
+/* 主題變數由 css/themes.css 提供，此處保留 --jade/--amber 向下相容別名 */
 :root{
-  --bg:#0E1117;--bg2:#141921;--surface:#1A2332;--surface2:#1F2A3C;
-  --border:#243044;--border2:#2E3D56;
-  --text:#E8EDF5;--text2:#9DAFC8;--text3:#5A6E8A;
-  --jade:#2DD4BF;--jade2:#5EEAD4;--jade3:#99F6E4;
-  --amber:#F59E0B;--amber2:#FCD34D;--rose:#FB7185;--green:#34D399;
-  --glass:rgba(26,35,50,.75);--glass-border:rgba(45,212,191,.16);
-  --shadow:rgba(0,0,0,.5);
-}
-html.light{
-  --bg:#F7F8FA;--bg2:#EDEEF2;--surface:#FFFFFF;--surface2:#F0F2F6;
-  --border:#DDE1EB;--border2:#C8CEDC;
-  --text:#111827;--text2:#374151;--text3:#6B7280;
-  --jade:#0D9488;--jade2:#14B8A6;--jade3:#2DD4BF;
-  --amber:#D97706;--amber2:#F59E0B;
-  --glass:rgba(255,255,255,.84);--glass-border:rgba(13,148,136,.2);
-  --shadow:rgba(0,0,0,.12);
+  --jade: var(--primary, #2DD4BF);
+  --jade2: var(--primary2, #5EEAD4);
+  --jade3: var(--primary3, #99F6E4);
+  --amber: var(--accent, #F59E0B);
+  --amber2: var(--accent2, #FCD34D);
 }
 body{background:var(--bg)!important;color:var(--text)!important;transition:background .4s,color .4s;}
 .bg-dark{background:var(--bg)!important;}

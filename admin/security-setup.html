@@ -301,6 +301,16 @@ function toggleKeyShow() {
   document.getElementById('keyInput').type = keyShowVisible ? 'text' : 'password';
 }
 
+// 🔒 安全輔助：轉義 HTML 特殊字符，防止 XSS
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function decodeJWT(token) {
   try {
     const parts = token.split('.');
@@ -342,7 +352,7 @@ function onKeyInput(val) {
     bdgTxt.className = 'badge badge-err'; bdgTxt.textContent = '❌ anon key（錯誤）';
   } else {
     inp.className = 'key-input';
-    fb.innerHTML = `<span style="color:#fbbf24">⚠️ 未知 role: ${payload.role}</span>`;
+    fb.innerHTML = `<span style="color:#fbbf24">⚠️ 未知 role: ${escapeHtml(payload.role)}</span>`;
     bdgTxt.className = 'badge badge-gray'; bdgTxt.textContent = payload.role;
   }
 }
@@ -404,7 +414,7 @@ async function verifyRLS() {
       res.innerHTML = msg;
     }
   } catch(e) {
-    res.innerHTML = `<div class="status-box status-err text-sm">❌ 驗證請求失敗：${e.message}</div>`;
+    res.innerHTML = `<div class="status-box status-err text-sm">❌ 驗證請求失敗：${escapeHtml(e.message)}</div>`;
   }
 }
 </script>

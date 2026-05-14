@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preconnect" href="https://akb-salon-server.onrender.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../css/themes.css"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.min.js"></script>
 <script src="../auth.js"></script>
@@ -35,25 +36,7 @@
 })();
 </script>
 <style>
-/* ══ AKB 墨玉主題 ══ */
-:root{
-  --bg:#0E1117;--bg2:#141921;--surface:#1A2332;--surface2:#1F2A3C;
-  --border:#243044;--border2:#2E3D56;
-  --text:#E8EDF5;--text2:#9DAFC8;--text3:#5A6E8A;
-  --jade:#2DD4BF;--jade2:#5EEAD4;--jade3:#99F6E4;
-  --amber:#F59E0B;--amber2:#FCD34D;--rose:#FB7185;--green:#34D399;
-  --glass:rgba(26,35,50,.75);--glass-border:rgba(45,212,191,.16);
-  --shadow:rgba(0,0,0,.5);
-}
-html.light{
-  --bg:#F7F8FA;--bg2:#EDEEF2;--surface:#FFFFFF;--surface2:#F0F2F6;
-  --border:#DDE1EB;--border2:#C8CEDC;
-  --text:#111827;--text2:#374151;--text3:#6B7280;
-  --jade:#0D9488;--jade2:#14B8A6;--jade3:#2DD4BF;
-  --amber:#D97706;--amber2:#F59E0B;
-  --glass:rgba(255,255,255,.84);--glass-border:rgba(13,148,136,.2);
-  --shadow:rgba(0,0,0,.12);
-}
+/* ══ AKB 後台 — 主題感知樣式（顏色由 themes.css 的 CSS 變數提供）══ */
 *{font-family:'Noto Sans TC','DM Sans',sans-serif;box-sizing:border-box;}
 .serif{font-family:'Noto Serif TC',serif;}
 body{background:var(--bg)!important;color:var(--text)!important;transition:background .4s,color .4s;}
@@ -62,7 +45,7 @@ body{background:var(--bg)!important;color:var(--text)!important;transition:backg
 .fade{animation:fadeUp .3s ease;}
 
 /* ── 基礎類別對應 ── */
-.gold,.text-gold{color:var(--amber)!important;}
+.gold,.text-gold{color:var(--primary)!important;}
 .bg-dark{background:var(--bg)!important;}
 .bg-card{background:var(--surface)!important;}
 .text-muted,.text-gray-400,.text-gray-500,.text-gray-600{color:var(--text3)!important;}
@@ -74,36 +57,34 @@ input,select,textarea{
   color:var(--text)!important;border-radius:10px;padding:10px 14px;font-family:inherit;
 }
 input:focus,select:focus,textarea:focus{
-  border-color:var(--jade)!important;
-  box-shadow:0 0 0 3px rgba(45,212,191,.12)!important;outline:none;
+  border-color:var(--primary)!important;
+  box-shadow:0 0 0 3px rgba(128,128,128,.12)!important;outline:none;
 }
 input::placeholder,textarea::placeholder{color:var(--text3)!important;}
 
 /* ── 按鈕 ── */
 .btn{cursor:pointer;transition:all .2s;border:none;font-weight:600;border-radius:10px;}
-.btn-gold{background:linear-gradient(135deg,var(--jade),var(--jade2))!important;color:#042f2e!important;padding:10px 24px;}
-html:not(.light) .btn-gold{color:#fff!important;}
-.btn-gold:hover{opacity:.88!important;box-shadow:0 6px 20px rgba(45,212,191,.38)!important;transform:translateY(-1px);}
+.btn-gold{background:linear-gradient(135deg,var(--primary),var(--primary2))!important;color:#fff!important;padding:10px 24px;}
+.btn-gold:hover{opacity:.88!important;box-shadow:0 6px 20px rgba(128,128,128,.3)!important;transform:translateY(-1px);}
 .btn-ghost{background:transparent!important;color:var(--text2)!important;border:1px solid var(--border)!important;padding:8px 16px;}
-.btn-ghost:hover{border-color:var(--jade)!important;color:var(--jade)!important;}
+.btn-ghost:hover{border-color:var(--primary)!important;color:var(--primary)!important;}
 .btn-danger{background:rgba(251,113,133,.1)!important;color:var(--rose)!important;border:1px solid rgba(251,113,133,.28)!important;padding:8px 16px;}
-.btn-primary{background:rgba(45,212,191,.1)!important;color:var(--jade2)!important;border:1px solid rgba(45,212,191,.25)!important;padding:8px 16px;}
+.btn-primary{background:rgba(128,128,200,.1)!important;color:var(--primary2)!important;border:1px solid rgba(128,128,200,.25)!important;padding:8px 16px;}
 
 /* ── 卡片 ── */
 .card{background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:14px;}
 
 /* ── 徽章 ── */
 .badge-confirmed{background:rgba(52,211,153,.12);color:#34D399;border:1px solid rgba(52,211,153,.28);border-radius:20px;}
-.badge-pending{background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.28);border-radius:20px;}
+.badge-pending{background:rgba(245,158,11,.12);color:var(--accent);border:1px solid rgba(245,158,11,.28);border-radius:20px;}
 .badge-cancelled{background:rgba(251,113,133,.1);color:var(--rose);border:1px solid rgba(251,113,133,.26);border-radius:20px;}
-.badge-done{background:rgba(45,212,191,.1);color:var(--jade2);border:1px solid rgba(45,212,191,.25);border-radius:20px;}
+.badge-done{background:rgba(128,200,180,.1);color:var(--primary2);border:1px solid rgba(128,200,180,.25);border-radius:20px;}
 
 /* ── Sidebar ── */
 aside{background:var(--bg2)!important;border-color:var(--border)!important;}
-html.light aside{background:var(--bg2)!important;}
 .sidebar-item{padding:10px 14px;border-radius:10px!important;cursor:pointer;color:var(--text3)!important;display:flex;align-items:center;gap:10px;transition:all .2s;}
 .sidebar-item:hover{background:var(--surface)!important;color:var(--text)!important;}
-.sidebar-item.active{background:rgba(45,212,191,.12)!important;color:var(--jade2)!important;}
+.sidebar-item.active{background:rgba(128,128,200,.12)!important;color:var(--primary2)!important;}
 
 /* ── Header ── */
 header{background:var(--glass)!important;border-color:var(--glass-border)!important;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
@@ -112,64 +93,127 @@ header{background:var(--glass)!important;border-color:var(--glass-border)!import
 .stat-card{border-radius:16px!important;padding:20px;position:relative;overflow:hidden;}
 .stat-gold{background:rgba(245,158,11,.07)!important;border:1px solid rgba(245,158,11,.18)!important;}
 .stat-green{background:rgba(52,211,153,.07)!important;border:1px solid rgba(52,211,153,.18)!important;}
-.stat-blue{background:rgba(45,212,191,.07)!important;border:1px solid rgba(45,212,191,.18)!important;}
-.stat-purple{background:rgba(251,113,133,.07)!important;border:1px solid rgba(251,113,133,.18)!important;}
+.stat-blue{background:rgba(128,180,220,.07)!important;border:1px solid rgba(128,180,220,.18)!important;}
+.stat-purple{background:rgba(200,128,200,.07)!important;border:1px solid rgba(200,128,200,.18)!important;}
 
 /* ── 表格 ── */
 table{width:100%;border-collapse:collapse;}
 th,td{padding:12px 14px;text-align:left;}
 table th{font-size:12px;color:var(--text3)!important;border-bottom:1px solid var(--border)!important;background:var(--surface2)!important;}
 table td{border-bottom:1px solid var(--border)!important;font-size:14px;color:var(--text)!important;}
-table tr:hover td{background:rgba(45,212,191,.04)!important;}
+table tr:hover td{background:rgba(128,180,220,.04)!important;}
 
 /* ── Nav tab ── */
 .nav-tab{padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3)!important;font-size:13px;white-space:nowrap;transition:color .2s;}
-.nav-tab.active,.nav-tab:hover{color:var(--jade2)!important;}
-.nav-tab.active{border-color:var(--jade)!important;}
+.nav-tab.active,.nav-tab:hover{color:var(--primary2)!important;}
+.nav-tab.active{border-color:var(--primary)!important;}
 
 /* ── Modal ── */
 .modal-overlay,.fixed.inset-0.bg-black\/70{background:rgba(0,0,0,.72)!important;}
 .modal-box{background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:20px!important;}
 
-/* ── Toast ── */
-.fixed.top-5.right-5.z-50{
-  background:rgba(14,17,23,.95)!important;
-  border-color:rgba(45,212,191,.3)!important;
-  color:var(--jade3)!important;
-}
-
-/* ── 主題按鈕 ── */
-#themeBtn{
+/* ── 主題面板 ── */
+#themePanel{
   position:fixed;top:60px;right:14px;z-index:9999;
-  width:38px;height:38px;border-radius:50%;
+  background:var(--surface)!important;border:1px solid var(--border)!important;
+  border-radius:16px;padding:16px;width:280px;
+  box-shadow:0 8px 32px var(--shadow);
+  display:none;
+}
+#themePanel.open{display:block;}
+#themePanelBtn{
+  position:fixed;top:60px;right:14px;z-index:10000;
+  width:40px;height:40px;border-radius:50%;
   background:var(--surface2)!important;border:1.5px solid var(--border)!important;
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;font-size:17px;transition:all .25s;
+  cursor:pointer;font-size:18px;transition:all .25s;
   box-shadow:0 2px 12px var(--shadow);
 }
-#themeBtn:hover{border-color:var(--jade)!important;transform:scale(1.1);}
+#themePanelBtn:hover{border-color:var(--primary)!important;transform:scale(1.1);}
+.theme-swatch{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:10px;cursor:pointer;transition:all .2s;
+  border:1.5px solid transparent;
+}
+.theme-swatch:hover{background:var(--surface2)!important;}
+.theme-swatch.selected{border-color:var(--primary)!important;background:var(--surface2)!important;}
+.theme-dot{width:12px;height:12px;border-radius:50%;}
 
 /* Misc Tailwind overrides */
 .bg-gray-800,.bg-gray-900{background:var(--surface2)!important;}
 .bg-gray-800\/50{background:rgba(31,42,60,.5)!important;}
 .border-gray-700,.border-gray-800{border-color:var(--border)!important;}
 .text-green-400{color:#34D399!important;}
-.text-blue-400{color:var(--jade2)!important;}
-.text-purple-400{color:var(--rose)!important;}
-.text-yellow-400{color:var(--amber)!important;}
+.text-blue-400{color:var(--primary2)!important;}
+.text-purple-400{color:var(--accent)!important;}
+.text-yellow-400{color:var(--accent)!important;}
 .divide-y.divide-gray-800>*+*{border-top:1px solid var(--border)!important;}
 .bg-gold,.w-14.h-14.rounded-full.bg-gold,.w-20.h-20.rounded-full.bg-gold{
-  background:linear-gradient(135deg,var(--jade),var(--jade2))!important;
-  color:#042f2e!important;
+  background:linear-gradient(135deg,var(--primary),var(--primary2))!important;
+  color:#fff!important;
 }
-html:not(.light) .bg-gold,html:not(.light) .w-14.h-14.rounded-full.bg-gold,html:not(.light) .w-20.h-20.rounded-full.bg-gold{color:#fff!important;}
 .h-1\.5.bg-gray-800.rounded-full,.h-2.bg-gray-800.rounded-full{background:var(--border)!important;}
-.bg-gold.h-full.rounded-full,.bg-gold.h-2.bg-gold{background:linear-gradient(90deg,var(--jade),var(--jade2))!important;}
+.bg-gold.h-full.rounded-full,.bg-gold.h-2.bg-gold{background:linear-gradient(90deg,var(--primary),var(--primary2))!important;}
 .px-4.py-2.rounded-full.bg-gray-800{background:var(--surface2)!important;color:var(--text2)!important;}
 </style>
 </head>
 <body class="bg-dark text-white min-h-screen">
-<button id="themeBtn" onclick="toggleTheme()" title="切換主題">🌙</button>
+<!-- ── 主題切換面板按鈕 ── -->
+<button id="themePanelBtn" onclick="toggleThemePanel()" title="切換主題">🎨</button>
+<div id="themePanel">
+  <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;">🎨 介面主題</div>
+
+  <!-- 深色/淺色切換 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+    <span style="font-size:13px;color:var(--text2);">深色模式</span>
+    <button onclick="toggleDarkMode()" id="darkModeBtn"
+      style="width:52px;height:28px;border-radius:14px;border:none;cursor:pointer;position:relative;transition:all .3s;background:var(--primary);">
+      <span id="darkModeKnob" style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .3s;"></span>
+    </button>
+  </div>
+
+  <!-- 主題色選擇 -->
+  <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">色彩主題</div>
+  <div id="themeSwatches" style="display:flex;flex-direction:column;gap:4px;">
+    <div class="theme-swatch" onclick="setTheme('jade')" data-theme-opt="jade">
+      <div style="display:flex;gap:4px;">
+        <div class="theme-dot" style="background:#2DD4BF;"></div>
+        <div class="theme-dot" style="background:#0E1117;"></div>
+        <div class="theme-dot" style="background:#F59E0B;"></div>
+      </div>
+      <span style="font-size:13px;">🪭 墨玉翡翠</span>
+      <span id="check-jade" style="margin-left:auto;color:var(--primary);display:none;">✓</span>
+    </div>
+    <div class="theme-swatch" onclick="setTheme('rose')" data-theme-opt="rose">
+      <div style="display:flex;gap:4px;">
+        <div class="theme-dot" style="background:#F472B6;"></div>
+        <div class="theme-dot" style="background:#0F0D14;"></div>
+        <div class="theme-dot" style="background:#A78BFA;"></div>
+      </div>
+      <span style="font-size:13px;">🌸 霓虹玫瑰</span>
+      <span id="check-rose" style="margin-left:auto;color:var(--primary);display:none;">✓</span>
+    </div>
+    <div class="theme-swatch" onclick="setTheme('gold')" data-theme-opt="gold">
+      <div style="display:flex;gap:4px;">
+        <div class="theme-dot" style="background:#F59E0B;"></div>
+        <div class="theme-dot" style="background:#100E08;"></div>
+        <div class="theme-dot" style="background:#F97316;"></div>
+      </div>
+      <span style="font-size:13px;">✨ 琥珀金沙</span>
+      <span id="check-gold" style="margin-left:auto;color:var(--primary);display:none;">✓</span>
+    </div>
+    <div class="theme-swatch" onclick="setTheme('ocean')" data-theme-opt="ocean">
+      <div style="display:flex;gap:4px;">
+        <div class="theme-dot" style="background:#38BDF8;"></div>
+        <div class="theme-dot" style="background:#050D1A;"></div>
+        <div class="theme-dot" style="background:#06B6D4;"></div>
+      </div>
+      <span style="font-size:13px;">🌊 蔚藍海洋</span>
+      <span id="check-ocean" style="margin-left:auto;color:var(--primary);display:none;">✓</span>
+    </div>
+  </div>
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);text-align:center;">主題設定同步至所有頁面</div>
+</div>
 
 <div id="app" class="flex min-h-screen">
   <!-- Sidebar -->
@@ -1530,22 +1574,97 @@ createApp({
 }).mount('#app');
 </script>
 
+<script src="../js/theme-manager.js"></script>
 <script>
-// ── 深色/淺色模式切換 ──
+// ── 主題面板控制 ──
 (function(){
-  function applyTheme(t){
-    if(t==='light'){document.documentElement.classList.add('light');}
-    else{document.documentElement.classList.remove('light');}
-    var btn=document.getElementById('themeBtn');
-    if(btn) btn.textContent=(t==='light'?'☀️':'🌙');
-  }
-  window.toggleTheme=function(){
-    var isLight=document.documentElement.classList.contains('light');
-    var next=isLight?'dark':'light';
-    applyTheme(next);
-    localStorage.setItem('akb_theme',next);
+  var THEMES = {
+    jade:  { label: '墨玉翡翠', primary: '#2DD4BF' },
+    rose:  { label: '霓虹玫瑰', primary: '#F472B6' },
+    gold:  { label: '琥珀金沙', primary: '#F59E0B' },
+    ocean: { label: '蔚藍海洋', primary: '#38BDF8' },
   };
-  applyTheme(localStorage.getItem('akb_theme')||'dark');
+
+  function updatePanelUI(){
+    var theme = localStorage.getItem('akb_theme_name') || 'jade';
+    var dark  = localStorage.getItem('akb_dark_mode') !== 'false';
+    // highlight selected swatch
+    document.querySelectorAll('[data-theme-opt]').forEach(function(el){
+      var t = el.getAttribute('data-theme-opt');
+      el.classList.toggle('selected', t === theme);
+      var check = document.getElementById('check-'+t);
+      if(check) check.style.display = (t === theme) ? '' : 'none';
+    });
+    // dark mode toggle knob
+    var knob = document.getElementById('darkModeKnob');
+    var btn  = document.getElementById('darkModeBtn');
+    if(knob && btn){
+      knob.style.left = dark ? '3px' : '27px';
+      btn.style.background = dark ? 'var(--primary)' : 'var(--border2)';
+    }
+  }
+
+  window.toggleThemePanel = function(){
+    var panel = document.getElementById('themePanel');
+    if(!panel) return;
+    panel.classList.toggle('open');
+    updatePanelUI();
+  };
+
+  window.toggleDarkMode = function(){
+    var dark = localStorage.getItem('akb_dark_mode') !== 'false';
+    var newDark = !dark;
+    localStorage.setItem('akb_dark_mode', String(newDark));
+    var theme = localStorage.getItem('akb_theme_name') || 'jade';
+    applyFullTheme(theme, newDark);
+    updatePanelUI();
+    syncThemeToServer(theme, newDark);
+  };
+
+  window.setTheme = function(theme){
+    if(!THEMES[theme]) return;
+    var dark = localStorage.getItem('akb_dark_mode') !== 'false';
+    localStorage.setItem('akb_theme_name', theme);
+    applyFullTheme(theme, dark);
+    updatePanelUI();
+    syncThemeToServer(theme, dark);
+  };
+
+  function applyFullTheme(theme, dark){
+    var html = document.documentElement;
+    html.setAttribute('data-theme', theme);
+    if(dark){ html.classList.remove('light'); }
+    else { html.classList.add('light'); }
+    // 更新 legacy localStorage key for other pages
+    localStorage.setItem('akb_theme', dark ? 'dark' : 'light');
+    localStorage.setItem('akb_theme_name', theme);
+  }
+
+  function syncThemeToServer(theme, dark){
+    var apiBase = window.AKB_API_URL || 'https://akb-salon-server.onrender.com';
+    fetch(apiBase + '/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uiTheme: theme, uiDark: dark }),
+    }).catch(function(){});
+  }
+
+  // 初始化：先讀 localStorage
+  var savedTheme = localStorage.getItem('akb_theme_name') || 'jade';
+  var savedDark  = localStorage.getItem('akb_dark_mode') !== 'false';
+  // 也讀取老的 akb_theme key 作為回退
+  var legacyTheme = localStorage.getItem('akb_theme');
+  if(legacyTheme === 'light') savedDark = false;
+  applyFullTheme(savedTheme, savedDark);
+
+  // 點擊外部關閉面板
+  document.addEventListener('click', function(e){
+    var panel = document.getElementById('themePanel');
+    var btn = document.getElementById('themePanelBtn');
+    if(panel && btn && !panel.contains(e.target) && !btn.contains(e.target)){
+      panel.classList.remove('open');
+    }
+  });
 })();
 </script>
 </body>

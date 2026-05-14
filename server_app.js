@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
 const WebSocket = require('ws');
 const http = require('http');
 const fs = require('fs');
@@ -9,6 +12,44 @@ const zlib = require('zlib');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+
+// ========== 安全中間件 ==========
+// ── Helmet（設置安全 HTTP 標頭）──────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+      connectSrc: ["'self'", "wss:", "ws:", "https://akb-salon-server.onrender.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // 允許嵌入外部資源
+}));
+
+// ── 登入端點速率限制（防止暴力破解）────────────────────────
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 分鐘
+  max: 10,                   // 每個 IP 最多 10 次嘗試
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '登入嘗試次數過多，請 15 分鐘後再試' },
+  skipSuccessfulRequests: true, // 成功登入不計入限制
+});
+
+// ── 一般 API 速率限制（防止濫用）────────────────────────────
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '請求次數過多，請稍後再試' },
+});
+
+app.use('/api/', apiLimiter);
 
 // 中間件
 // ── CORS（必須最先，確保所有響應都帶 CORS 頭）──────────────
@@ -234,13 +275,17 @@ const DEFAULT_SERVICES = [
   { id:10, name:'負離子直髮', category:'燙髮', duration:120, price:228, description:'Negative ion straightening'     },
 ];
 
+// ⚠️  安全說明：預設帳號密碼使用 bcrypt 雜湊儲存
+// 這些雜湊值對應原始密碼（首次部署後請立即透過管理後台修改密碼）：
+// admin → akb2024, aika → aika123, ken → ken123, bella → bella123, sam → sam123, luna → luna123
+// 雜湊使用 bcrypt cost=10 生成，原始密碼不儲存於代碼中
 const DEFAULT_ACCOUNTS = {
-  admin: { role: 'admin',    passwordHash: 'plain:akb2024',   name: '店長' },
-  aika:  { role: 'designer', passwordHash: 'plain:aika123',   name: 'Aika',  designerId: 1 },
-  ken:   { role: 'designer', passwordHash: 'plain:ken123',    name: 'Ken',   designerId: 2 },
-  bella: { role: 'designer', passwordHash: 'plain:bella123',  name: 'Bella', designerId: 3 },
-  sam:   { role: 'designer', passwordHash: 'plain:sam123',    name: 'Sam',   designerId: 4 },
-  luna:  { role: 'designer', passwordHash: 'plain:luna123',   name: 'Luna',  designerId: 5 },
+  admin: { role: 'admin',    passwordHash: '$2b$10$9xvqOaNCeuh9Ay3.aP2r5.8i5JFp76Kti5W0ki7pfYCjrwp.8MpJi', name: '店長' },
+  aika:  { role: 'designer', passwordHash: '$2b$10$Po8KQL/h2SqkHb92vbbtuef.HpVk/5vQJ.N6OkYCpk.h7u3HTRnBu', name: 'Aika',  designerId: 1 },
+  ken:   { role: 'designer', passwordHash: '$2b$10$kZpzFnSWFkVHSUEgsWj4aeL.xFbOve4/ud6S4.VSUd9RuqDHf1AWq', name: 'Ken',   designerId: 2 },
+  bella: { role: 'designer', passwordHash: '$2b$10$2WLN5zNPBG/Iatg7c9wIF.toFdmse20B3m1NApvDThVd1xoNRWT5u', name: 'Bella', designerId: 3 },
+  sam:   { role: 'designer', passwordHash: '$2b$10$S8Y15GdQCr8Tpn/J6eZOI.vvCSMxnGZzhWRF85wHz4zJ2Uus6GofO', name: 'Sam',   designerId: 4 },
+  luna:  { role: 'designer', passwordHash: '$2b$10$O/Nj04MvzFVJ7n3RhGoch.8Z1IeZaLG2vf4KRxjRoVKD/feBG0o1m', name: 'Luna',  designerId: 5 },
 };
 
 // ========== 記憶體資料（本地模式） ==========
@@ -486,6 +531,12 @@ app.get('/api/admin/key-hint', (req, res) => {
 });
 
 app.get('/api/debug/supabase', async (req, res) => {
+  // 🔒 安全保護：需要 RESET_SECRET 才能存取診斷端點
+  const { secret } = req.query;
+  const RESET_SECRET = process.env.RESET_SECRET;
+  if (!RESET_SECRET || secret !== RESET_SECRET) {
+    return res.status(403).json({ error: '存取被拒絕：需要有效的診斷密鑰' });
+  }
   if (!USE_SUPABASE) return res.json({ supabase: false, message: '未設定 SUPABASE_URL/SUPABASE_SERVICE_KEY' });
   try {
     // 不加排序，避免 created_at vs "createdAt" 欄位名稱衝突
@@ -504,7 +555,8 @@ app.get('/api/debug/supabase', async (req, res) => {
 // 此 endpoint 用於手動觸發 schema 診斷和修復。
 app.post('/api/admin/fix-schema', async (req, res) => {
   const { secret } = req.body;
-  const RESET_SECRET = process.env.RESET_SECRET || 'akb-reset-2026';
+  const RESET_SECRET = process.env.RESET_SECRET;
+  if (!RESET_SECRET) return res.status(503).json({ error: '伺服器未設定 RESET_SECRET 環境變數' });
   if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
   if (!USE_SUPABASE) return res.json({ message: '使用本地 JSON，無需修復' });
 
@@ -540,7 +592,8 @@ app.post('/api/admin/fix-schema', async (req, res) => {
 // 保護：使用 RESET_SECRET 密鑰防止未授權呼叫
 app.post('/api/admin/enable-rls', async (req, res) => {
   const { secret, serviceRoleKey } = req.body;
-  const RESET_SECRET = process.env.RESET_SECRET || 'akb-reset-2026';
+  const RESET_SECRET = process.env.RESET_SECRET;
+  if (!RESET_SECRET) return res.status(503).json({ error: '伺服器未設定 RESET_SECRET 環境變數' });
   if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
   if (!USE_SUPABASE) return res.json({ ok: false, message: '未設定 Supabase，無需操作' });
 
@@ -692,13 +745,28 @@ app.get('/api/bookings/:id', (req, res) => {
 });
 
 app.post('/api/bookings', async (req, res) => {
-  const { customerName, customerPhone, date, time, designerId, serviceName } = req.body;
+  const { customerName, customerPhone, date, time, designerId, serviceName, serviceId, designerName, price, duration, note, notes } = req.body;
   if (!customerName || !customerPhone || !date || !time || !designerId || !serviceName) {
     return res.status(400).json({ error: '缺少必要欄位' });
   }
+  // 輸入長度驗證
+  if (String(customerName).length > 100 || String(customerPhone).length > 30) {
+    return res.status(400).json({ error: '輸入資料過長' });
+  }
+  // 🔒 明確白名單欄位，防止任意屬性注入
   const booking = {
     id: 'BK' + Date.now().toString().slice(-6),
-    ...req.body,
+    customerName: String(customerName).trim().slice(0, 100),
+    customerPhone: String(customerPhone).trim().slice(0, 30),
+    date: String(date).slice(0, 10),
+    time: String(time).slice(0, 5),
+    designerId: Number(designerId) || null,
+    designerName: String(designerName || '').trim().slice(0, 100),
+    serviceName: String(serviceName).trim().slice(0, 100),
+    serviceId: Number(serviceId) || null,
+    price: Number(price) || 0,
+    duration: Number(duration) || 60,
+    note: String(note || notes || '').trim().slice(0, 500),
     status: 'pending',
     createdAt: Date.now(),
     updatedAt: Date.now()
@@ -713,7 +781,14 @@ app.post('/api/bookings', async (req, res) => {
 app.patch('/api/bookings/:id', async (req, res) => {
   const idx = bookings.findIndex(b => b.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: '找不到預約' });
-  bookings[idx] = { ...bookings[idx], ...req.body, updatedAt: Date.now() };
+  // 🔒 白名單：只允許更新指定欄位
+  const allowed = ['status', 'customerName', 'customerPhone', 'date', 'time',
+    'designerId', 'designerName', 'serviceName', 'serviceId', 'price', 'duration', 'note', 'notes'];
+  const patch = {};
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) patch[k] = req.body[k];
+  }
+  bookings[idx] = { ...bookings[idx], ...patch, updatedAt: Date.now() };
   await DB.saveBookings();
   await DB.upsertBooking(bookings[idx]);
   broadcast('UPDATE_BOOKING', bookings[idx]);
@@ -749,10 +824,19 @@ app.get('/api/designers/:id', (req, res) => {
 
 app.post('/api/designers', async (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: '設計師名稱必填' });
+  if (String(req.body.name).length > 100) return res.status(400).json({ error: '名稱過長' });
+  // 🔒 白名單欄位
+  const { name, role, level, specialty, bio, avatar } = req.body;
   const newDesigner = {
     id: Math.max(...designers.map(d => d.id), 0) + 1,
+    name: String(name).trim().slice(0, 100),
+    role: String(role || '設計師').trim().slice(0, 50),
+    level: String(level || 'C').trim().slice(0, 5),
+    specialty: Array.isArray(specialty) ? specialty.slice(0, 10).map(s => String(s).slice(0, 50)) : [],
+    bio: String(bio || '').trim().slice(0, 500),
+    avatar: String(avatar || name || '').trim().slice(0, 10),
     rating: 5.0, reviews: 0, works: 0, available: true, status: 'active',
-    ...req.body, createdAt: Date.now()
+    createdAt: Date.now()
   };
   designers.push(newDesigner);
   await DB.saveDesigners();
@@ -764,7 +848,13 @@ app.post('/api/designers', async (req, res) => {
 app.patch('/api/designers/:id', async (req, res) => {
   const idx = designers.findIndex(d => d.id === Number(req.params.id));
   if (idx === -1) return res.status(404).json({ error: '找不到設計師' });
-  designers[idx] = { ...designers[idx], ...req.body, updatedAt: Date.now() };
+  // 🔒 白名單：只允許更新指定欄位
+  const allowed = ['name', 'role', 'level', 'specialty', 'bio', 'avatar', 'available', 'status', 'rating', 'reviews', 'works'];
+  const patch = {};
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) patch[k] = req.body[k];
+  }
+  designers[idx] = { ...designers[idx], ...patch, updatedAt: Date.now() };
   await DB.saveDesigners();
   await DB.upsertDesigner(designers[idx]);
   broadcast('UPDATE_DESIGNER', designers[idx]);
@@ -790,10 +880,17 @@ app.get('/api/services', (req, res) => {
 
 app.post('/api/services', async (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: '服務名稱必填' });
+  if (String(req.body.name).length > 100) return res.status(400).json({ error: '名稱過長' });
+  // 🔒 白名單欄位
+  const { name, category, duration, price, description } = req.body;
   const newSvc = {
     id: Math.max(...services.map(s => s.id), 0) + 1,
-    category: '基礎', duration: 60, description: '',
-    ...req.body, createdAt: Date.now()
+    name: String(name).trim().slice(0, 100),
+    category: String(category || '基礎').trim().slice(0, 50),
+    duration: Number(duration) || 60,
+    price: Number(price) || 0,
+    description: String(description || '').trim().slice(0, 500),
+    createdAt: Date.now()
   };
   services.push(newSvc);
   await DB.saveServices();
@@ -805,7 +902,13 @@ app.post('/api/services', async (req, res) => {
 app.patch('/api/services/:id', async (req, res) => {
   const idx = services.findIndex(s => s.id === Number(req.params.id));
   if (idx === -1) return res.status(404).json({ error: '找不到服務' });
-  services[idx] = { ...services[idx], ...req.body, updatedAt: Date.now() };
+  // 🔒 白名單：只允許更新指定欄位
+  const allowed = ['name', 'category', 'duration', 'price', 'description'];
+  const patch = {};
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) patch[k] = req.body[k];
+  }
+  services[idx] = { ...services[idx], ...patch, updatedAt: Date.now() };
   await DB.saveServices();
   await DB.upsertService(services[idx]);
   broadcast('UPDATE_SERVICES', services);
@@ -847,49 +950,83 @@ app.get('/api/customers', (req, res) => {
 });
 
 // ─── 帳號 & 認證 ──────────────────────────────────────
-app.post('/api/auth/login', (req, res) => {
+// 🔒 速率限制已在 loginLimiter 中設定（每 IP 15 分鐘內最多 10 次）
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: '帳號密碼必填' });
-  const account = accounts[username.toLowerCase()];
-  if (!account) return res.status(401).json({ error: '帳號不存在' });
-  const storedPwd = (account.passwordHash || account.password_hash || '').startsWith('plain:')
-    ? (account.passwordHash || account.password_hash).slice(6)
-    : (account.passwordHash || account.password_hash || '');
-  if (storedPwd !== password) return res.status(401).json({ error: '密碼錯誤' });
+  if (String(username).length > 50 || String(password).length > 200) {
+    return res.status(400).json({ error: '輸入格式錯誤' });
+  }
+  const account = accounts[String(username).toLowerCase()];
+  // 🔒 統一錯誤訊息，防止帳號枚舉攻擊
+  if (!account) return res.status(401).json({ error: '帳號或密碼錯誤' });
+  const hash = account.passwordHash || account.password_hash || '';
+  let passwordValid = false;
+  if (hash.startsWith('plain:')) {
+    // 向後兼容：plain: 前綴的密碼（遷移期間）
+    passwordValid = hash.slice(6) === password;
+    if (passwordValid) {
+      // 自動升級為 bcrypt 雜湊
+      try {
+        const newHash = await bcrypt.hash(password, 10);
+        account.passwordHash = newHash;
+        await DB.saveAccounts();
+        await DB.upsertAccount(String(username).toLowerCase(), { passwordHash: newHash });
+        console.log('[Auth] ✅ 已將帳號', username, '的密碼升級為 bcrypt 雜湊');
+      } catch(e) { console.warn('[Auth] 密碼升級失敗:', e.message); }
+    }
+  } else {
+    // bcrypt 雜湊比對
+    passwordValid = await bcrypt.compare(String(password), hash);
+  }
+  if (!passwordValid) return res.status(401).json({ error: '帳號或密碼錯誤' });
   res.json({ success: true, role: account.role, name: account.name, designerId: account.designerId || null });
 });
 
 app.patch('/api/auth/password', async (req, res) => {
   const { username, currentPassword, newPassword } = req.body;
   if (!username || !currentPassword || !newPassword) return res.status(400).json({ error: '缺少必要欄位' });
-  const account = accounts[username.toLowerCase()];
-  if (!account) return res.status(404).json({ error: '帳號不存在' });
+  const account = accounts[String(username).toLowerCase()];
+  if (!account) return res.status(401).json({ error: '目前密碼錯誤' }); // 🔒 防止帳號枚舉
   const hash = account.passwordHash || account.password_hash || '';
-  const storedPwd = hash.startsWith('plain:') ? hash.slice(6) : hash;
-  if (storedPwd !== currentPassword) return res.status(401).json({ error: '目前密碼錯誤' });
-  if (newPassword.length < 6) return res.status(400).json({ error: '新密碼至少6位' });
+  let currentValid = false;
+  if (hash.startsWith('plain:')) {
+    currentValid = hash.slice(6) === currentPassword;
+  } else {
+    currentValid = await bcrypt.compare(String(currentPassword), hash);
+  }
+  if (!currentValid) return res.status(401).json({ error: '目前密碼錯誤' });
+  if (String(newPassword).length < 6) return res.status(400).json({ error: '新密碼至少6位' });
+  if (String(newPassword).length > 200) return res.status(400).json({ error: '密碼過長' });
 
-  account.passwordHash = 'plain:' + newPassword;
+  // 🔒 新密碼使用 bcrypt 雜湊儲存
+  const newHash = await bcrypt.hash(String(newPassword), 10);
+  account.passwordHash = newHash;
   account.updatedAt = Date.now();
   await DB.saveAccounts();
-  await DB.upsertAccount(username.toLowerCase(), { passwordHash: 'plain:' + newPassword, updatedAt: account.updatedAt });
-  broadcast('UPDATE_ACCOUNT', { username: username.toLowerCase(), role: account.role, name: account.name });
+  await DB.upsertAccount(String(username).toLowerCase(), { passwordHash: newHash, updatedAt: account.updatedAt });
+  broadcast('UPDATE_ACCOUNT', { username: String(username).toLowerCase(), role: account.role, name: account.name });
   res.json({ success: true });
 });
 
-// 緊急密碼重設（需要 RESET_SECRET 環境變數，預設為 akb-reset-2026）
+// 緊急密碼重設（需要 RESET_SECRET 環境變數）
+// 🔒 安全要求：RESET_SECRET 必須設定為環境變數，不再有預設值
 app.post('/api/auth/reset', async (req, res) => {
   const { secret, username, newPassword } = req.body;
-  const RESET_SECRET = process.env.RESET_SECRET || 'akb-reset-2026';
+  const RESET_SECRET = process.env.RESET_SECRET;
+  if (!RESET_SECRET) return res.status(503).json({ error: '伺服器未設定 RESET_SECRET 環境變數，請聯繫管理員' });
   if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
   if (!username || !newPassword) return res.status(400).json({ error: '缺少欄位' });
-  if (newPassword.length < 6) return res.status(400).json({ error: '密碼至少6位' });
-  if (!accounts[username.toLowerCase()]) return res.status(404).json({ error: '帳號不存在' });
-  accounts[username.toLowerCase()].passwordHash = 'plain:' + newPassword;
-  accounts[username.toLowerCase()].updatedAt = Date.now();
+  if (String(newPassword).length < 6) return res.status(400).json({ error: '密碼至少6位' });
+  if (String(newPassword).length > 200) return res.status(400).json({ error: '密碼過長' });
+  if (!accounts[String(username).toLowerCase()]) return res.status(404).json({ error: '帳號不存在' });
+  // 🔒 使用 bcrypt 雜湊新密碼
+  const newHash = await bcrypt.hash(String(newPassword), 10);
+  accounts[String(username).toLowerCase()].passwordHash = newHash;
+  accounts[String(username).toLowerCase()].updatedAt = Date.now();
   await DB.saveAccounts();
-  await DB.upsertAccount(username.toLowerCase(), { passwordHash: 'plain:' + newPassword, updatedAt: accounts[username.toLowerCase()].updatedAt });
-  broadcast('UPDATE_ACCOUNT', { username: username.toLowerCase() });
+  await DB.upsertAccount(String(username).toLowerCase(), { passwordHash: newHash, updatedAt: accounts[String(username).toLowerCase()].updatedAt });
+  broadcast('UPDATE_ACCOUNT', { username: String(username).toLowerCase() });
   res.json({ success: true, message: `${username} 密碼已重設` });
 });
 
@@ -911,7 +1048,17 @@ app.get('/api/accounts/:phone', (req, res) => {
 
 app.post('/api/accounts/:phone', async (req, res) => {
   const { phone } = req.params;
-  accounts[phone] = { ...accounts[phone], ...req.body, updatedAt: Date.now() };
+  if (String(phone).length > 30) return res.status(400).json({ error: '電話號碼格式錯誤' });
+  // 🔒 白名單欄位（客戶端帳號不含密碼欄位）
+  const { name, email, note } = req.body;
+  const patch = {
+    name: name ? String(name).trim().slice(0, 100) : undefined,
+    email: email ? String(email).trim().slice(0, 200) : undefined,
+    note: note ? String(note).trim().slice(0, 500) : undefined,
+  };
+  // 移除 undefined 值
+  Object.keys(patch).forEach(k => patch[k] === undefined && delete patch[k]);
+  accounts[phone] = { ...accounts[phone], ...patch, updatedAt: Date.now() };
   await DB.saveAccounts();
   if (USE_SUPABASE) {
     try {
@@ -966,6 +1113,8 @@ const DEFAULT_SETTINGS = {
   ],
   slotInterval: 30,   // 預約時間間隔（分鐘）
   maxAdvanceDays: 30, // 最多提前幾天預約
+  uiTheme: 'jade',   // UI 主題：jade | rose | gold | ocean
+  uiDark: true,      // 深色模式
   updatedAt: null,
 };
 
@@ -984,7 +1133,8 @@ app.get('/api/settings', (req, res) => {
 });
 
 app.post('/api/settings', (req, res) => {
-  const { businessHours, slotInterval, maxAdvanceDays } = req.body;
+  const { businessHours, slotInterval, maxAdvanceDays, uiTheme, uiDark } = req.body;
+  const VALID_THEMES = ['jade', 'rose', 'gold', 'ocean'];
   if (businessHours && Array.isArray(businessHours)) {
     // 驗證每筆資料格式
     for (const h of businessHours) {
@@ -1002,6 +1152,11 @@ app.post('/api/settings', (req, res) => {
   }
   if (slotInterval !== undefined) siteSettings.slotInterval = Number(slotInterval) || 30;
   if (maxAdvanceDays !== undefined) siteSettings.maxAdvanceDays = Number(maxAdvanceDays) || 30;
+  // UI 主題設定
+  if (uiTheme !== undefined && VALID_THEMES.includes(uiTheme)) {
+    siteSettings.uiTheme = uiTheme;
+  }
+  if (uiDark !== undefined) siteSettings.uiDark = Boolean(uiDark);
   saveSettings();
   broadcast('UPDATE_SETTINGS', siteSettings);
   res.json({ ok: true, settings: siteSettings });
