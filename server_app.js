@@ -49,6 +49,25 @@ const apiLimiter = rateLimit({
   message: { error: '請求次數過多，請稍後再試' },
 });
 
+// 會員註冊速率限制（每 IP 每小時最多 5 次）
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '註冊次數過多，請 1 小時後再試' },
+});
+
+// 會員登入速率限制（每 IP 15 分鐘最多 10 次）
+const memberLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: '登入嘗試過多，請 15 分鐘後再試' },
+});
+
 app.use('/api/', apiLimiter);
 
 // 中間件
@@ -110,6 +129,7 @@ const FILES = {
   designers: path.join(DATA_DIR, 'designers.json'),
   services:  path.join(DATA_DIR, 'services.json'),
   accounts:  path.join(DATA_DIR, 'accounts.json'),
+  members:   path.join(DATA_DIR, 'members.json'),
 };
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -293,6 +313,7 @@ let bookings  = [];
 let designers = [];
 let services  = [];
 let accounts  = {};
+let members   = {}; // key: phone (手機號作為唯一識別)
 
 // ── Supabase 資料層 ──────────────────────────────────────
 const DB = {
@@ -364,6 +385,17 @@ const DB = {
         console.warn('[DB] 帳號表錯誤，使用本地預設:', e.message);
         accounts = { ...DEFAULT_ACCOUNTS };
       }
+      // Supabase 模式：會員資料從本地 JSON 載入（members 表可選，降級到本地）
+      try {
+        const mRows = await sbFetch('GET', 'members', null, '?order=created_at.desc&limit=1000');
+        members = {};
+        mRows.forEach(r => { members[r.phone] = r; });
+        console.log('[DB] 會員載入成功（Supabase），共', Object.keys(members).length, '位');
+      } catch(e) {
+        console.warn('[DB] Supabase members 表不存在，使用本地 JSON:', e.message);
+        members = loadData(FILES.members, {});
+        if (!members) members = {};
+      }
     } else {
       // ── 本地 JSON 模式 ──────────────────────────────────
       console.log('[DB] ⚠️  未設定 SUPABASE_URL/SUPABASE_SERVICE_KEY，使用本地 JSON 文件');
@@ -409,6 +441,11 @@ const DB = {
       }
 
       if (!fs.existsSync(FILES.bookings)) saveData(FILES.bookings, bookings);
+
+      // 載入會員資料
+      members = loadData(FILES.members, {});
+      if (!members) members = {};
+      console.log('[DB] 載入已有會員資料，共', Object.keys(members).length, '位');
     }
   },
 
@@ -428,6 +465,15 @@ const DB = {
   async saveAccounts() {
     if (USE_SUPABASE) return;
     saveData(FILES.accounts, accounts);
+  },
+  async saveMembers() {
+    saveData(FILES.members, members); // 本地模式始終寫入
+  },
+  async upsertMember(phone, data) {
+    if (!USE_SUPABASE) return;
+    try {
+      await sbFetch('POST', 'members', { phone, ...data }, '?on_conflict=phone');
+    } catch(e) { console.warn('[DB] upsertMember 失敗:', e.message); }
   },
 
   // ── Supabase 逐筆寫入 ────────────────────────────────
@@ -1160,6 +1206,250 @@ app.post('/api/settings', (req, res) => {
   saveSettings();
   broadcast('UPDATE_SETTINGS', siteSettings);
   res.json({ ok: true, settings: siteSettings });
+});
+
+// ════════════════════════════════════════════════════════════
+// ─── 會員系統 API ─────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+
+// ── 工具：產生會員 JWT-like token（簡化版，不依賴外部套件）
+function genMemberToken(phone) {
+  const payload = Buffer.from(JSON.stringify({ phone, ts: Date.now() })).toString('base64');
+  const sig = require('crypto').createHmac('sha256', process.env.MEMBER_JWT_SECRET || 'akb-member-secret-2026').update(payload).digest('base64');
+  return `${payload}.${sig}`;
+}
+
+function verifyMemberToken(token) {
+  try {
+    const [payload, sig] = token.split('.');
+    const expected = require('crypto').createHmac('sha256', process.env.MEMBER_JWT_SECRET || 'akb-member-secret-2026').update(payload).digest('base64');
+    if (sig !== expected) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64').toString());
+    // Token 有效期 30 天
+    if (Date.now() - data.ts > 30 * 24 * 60 * 60 * 1000) return null;
+    return data;
+  } catch { return null; }
+}
+
+// ── 會員認證中間件
+function requireMemberAuth(req, res, next) {
+  const auth = req.headers['authorization'] || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : req.query.token;
+  if (!token) return res.status(401).json({ error: '請先登入會員' });
+  const data = verifyMemberToken(token);
+  if (!data || !members[data.phone]) return res.status(401).json({ error: '登入已過期，請重新登入' });
+  req.memberPhone = data.phone;
+  req.member = members[data.phone];
+  next();
+}
+
+// ── 會員積分計算
+function calcPoints(price) {
+  return Math.floor((Number(price) || 0) / 10); // 每消費 $10 得 1 點
+}
+
+// ── 會員等級判定
+function getMemberTier(totalSpent, visits) {
+  if (totalSpent >= 5000 || visits >= 20) return { tier: 'diamond', label: '💎 鑽石會員', discount: 0.85 };
+  if (totalSpent >= 2000 || visits >= 10) return { tier: 'gold',    label: '🥇 金牌會員', discount: 0.90 };
+  if (totalSpent >= 500  || visits >= 3)  return { tier: 'silver',  label: '🥈 銀牌會員', discount: 0.95 };
+  return { tier: 'regular', label: '🌱 普通會員', discount: 1.00 };
+}
+
+// POST /api/member/register — 會員自助註冊
+app.post('/api/member/register', registerLimiter, async (req, res) => {
+  const { phone, password, name, email, birthday, gender } = req.body;
+  if (!phone || !password || !name) {
+    return res.status(400).json({ error: '手機號、密碼、姓名為必填' });
+  }
+  // 格式驗證
+  if (!/^[0-9+\-\s]{8,20}$/.test(String(phone))) {
+    return res.status(400).json({ error: '手機號格式不正確（8-20位數字）' });
+  }
+  if (String(password).length < 6) return res.status(400).json({ error: '密碼至少6位' });
+  if (String(password).length > 200) return res.status(400).json({ error: '密碼過長' });
+  if (String(name).length > 50) return res.status(400).json({ error: '姓名過長' });
+
+  const normalizedPhone = String(phone).replace(/[\s\-]/g, '');
+  if (members[normalizedPhone]) {
+    return res.status(409).json({ error: '此手機號已註冊，請直接登入' });
+  }
+
+  const passwordHash = await bcrypt.hash(String(password), 10);
+  const now = Date.now();
+  const member = {
+    phone:        normalizedPhone,
+    name:         String(name).trim().slice(0, 50),
+    email:        String(email || '').trim().slice(0, 100),
+    birthday:     String(birthday || '').slice(0, 10),
+    gender:       ['M','F','other'].includes(gender) ? gender : '',
+    passwordHash,
+    points:       0,
+    totalSpent:   0,
+    visits:       0,
+    tier:         'regular',
+    tierLabel:    '🌱 普通會員',
+    status:       'active',
+    createdAt:    now,
+    updatedAt:    now,
+  };
+  members[normalizedPhone] = member;
+  await DB.saveMembers();
+  await DB.upsertMember(normalizedPhone, member);
+
+  const token = genMemberToken(normalizedPhone);
+  const { passwordHash: _, ...safeMember } = member;
+  broadcast('NEW_MEMBER', { phone: normalizedPhone, name: member.name, tier: member.tier });
+  res.status(201).json({ success: true, token, member: safeMember });
+});
+
+// POST /api/member/login — 會員登入
+app.post('/api/member/login', memberLoginLimiter, async (req, res) => {
+  const { phone, password } = req.body;
+  if (!phone || !password) return res.status(400).json({ error: '手機號和密碼必填' });
+  const normalizedPhone = String(phone).replace(/[\s\-]/g, '');
+  const member = members[normalizedPhone];
+  if (!member) return res.status(401).json({ error: '手機號或密碼錯誤' });
+  if (member.status === 'banned') return res.status(403).json({ error: '帳號已被停用，請聯絡客服' });
+
+  const valid = await bcrypt.compare(String(password), member.passwordHash || '');
+  if (!valid) return res.status(401).json({ error: '手機號或密碼錯誤' });
+
+  // 更新最後登入時間
+  member.lastLoginAt = Date.now();
+  await DB.saveMembers();
+
+  const token = genMemberToken(normalizedPhone);
+  const { passwordHash: _, ...safeMember } = member;
+  res.json({ success: true, token, member: safeMember });
+});
+
+// GET /api/member/profile — 取得會員資料
+app.get('/api/member/profile', requireMemberAuth, (req, res) => {
+  const { passwordHash: _, ...safe } = req.member;
+  // 計算目前等級
+  const tierInfo = getMemberTier(req.member.totalSpent, req.member.visits);
+  res.json({ ...safe, ...tierInfo });
+});
+
+// PATCH /api/member/profile — 更新會員資料
+app.patch('/api/member/profile', requireMemberAuth, async (req, res) => {
+  const { name, email, birthday, gender } = req.body;
+  const member = req.member;
+  if (name) member.name = String(name).trim().slice(0, 50);
+  if (email !== undefined) member.email = String(email).trim().slice(0, 100);
+  if (birthday !== undefined) member.birthday = String(birthday).slice(0, 10);
+  if (gender !== undefined && ['M','F','other',''].includes(gender)) member.gender = gender;
+  member.updatedAt = Date.now();
+  await DB.saveMembers();
+  await DB.upsertMember(req.memberPhone, member);
+  const { passwordHash: _, ...safe } = member;
+  res.json({ success: true, member: safe });
+});
+
+// PATCH /api/member/password — 修改會員密碼
+app.patch('/api/member/password', requireMemberAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: '缺少必要欄位' });
+  if (String(newPassword).length < 6) return res.status(400).json({ error: '新密碼至少6位' });
+  const valid = await bcrypt.compare(String(currentPassword), req.member.passwordHash || '');
+  if (!valid) return res.status(401).json({ error: '目前密碼錯誤' });
+  req.member.passwordHash = await bcrypt.hash(String(newPassword), 10);
+  req.member.updatedAt = Date.now();
+  await DB.saveMembers();
+  await DB.upsertMember(req.memberPhone, req.member);
+  res.json({ success: true });
+});
+
+// GET /api/member/bookings — 取得會員預約記錄
+app.get('/api/member/bookings', requireMemberAuth, (req, res) => {
+  const phone = req.memberPhone;
+  const myBookings = bookings
+    .filter(b => String(b.customerPhone || '').replace(/[\s\-]/g, '') === phone.replace(/[\s\-]/g, ''))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, 100);
+  res.json(myBookings);
+});
+
+// GET /api/member/stats — 取得會員統計
+app.get('/api/member/stats', requireMemberAuth, (req, res) => {
+  const phone = req.memberPhone;
+  const myBookings = bookings.filter(b =>
+    String(b.customerPhone || '').replace(/[\s\-]/g, '') === phone.replace(/[\s\-]/g, '')
+  );
+  const completed = myBookings.filter(b => b.status === 'confirmed' || b.status === 'done');
+  const totalSpent = completed.reduce((s, b) => s + (Number(b.price) || 0), 0);
+  const visits = completed.length;
+  const tierInfo = getMemberTier(totalSpent, visits);
+  // 同步更新會員統計
+  const member = req.member;
+  if (member.totalSpent !== totalSpent || member.visits !== visits) {
+    member.totalSpent = totalSpent;
+    member.visits = visits;
+    member.points = completed.reduce((s, b) => s + calcPoints(b.price), 0);
+    member.tier = tierInfo.tier;
+    member.tierLabel = tierInfo.label;
+    member.updatedAt = Date.now();
+    DB.saveMembers().catch(() => {});
+  }
+  res.json({
+    totalBookings: myBookings.length,
+    completedVisits: visits,
+    totalSpent,
+    points: member.points,
+    pending: myBookings.filter(b => b.status === 'pending').length,
+    cancelled: myBookings.filter(b => b.status === 'cancelled').length,
+    ...tierInfo,
+  });
+});
+
+// POST /api/member/forgot-password — 重設密碼（需要管理員 RESET_SECRET，或由管理員操作）
+// 因無 Email/SMS 服務，此端點供管理員後台重設會員密碼用
+app.post('/api/member/reset-password', async (req, res) => {
+  const { secret, phone, newPassword } = req.body;
+  const RESET_SECRET = process.env.RESET_SECRET;
+  if (!RESET_SECRET) return res.status(503).json({ error: '服務器未設定 RESET_SECRET 環境變數' });
+  if (secret !== RESET_SECRET) return res.status(403).json({ error: '密鑰錯誤' });
+  const normalizedPhone = String(phone || '').replace(/[\s\-]/g, '');
+  if (!normalizedPhone || !members[normalizedPhone]) return res.status(404).json({ error: '會員不存在' });
+  if (!newPassword || String(newPassword).length < 6) return res.status(400).json({ error: '新密碼至少6位' });
+  members[normalizedPhone].passwordHash = await bcrypt.hash(String(newPassword), 10);
+  members[normalizedPhone].updatedAt = Date.now();
+  await DB.saveMembers();
+  await DB.upsertMember(normalizedPhone, members[normalizedPhone]);
+  res.json({ success: true });
+});
+
+// ── 管理員：取得所有會員列表
+app.get('/api/admin/members', (req, res) => {
+  // 簡單 admin 認證（使用 Authorization header 或 query secret）
+  // 前端已有 session 控制，這裡額外驗證 header
+  const safe = Object.entries(members).map(([phone, m]) => {
+    const { passwordHash: _, ...rest } = m;
+    const tierInfo = getMemberTier(m.totalSpent, m.visits);
+    return { ...rest, ...tierInfo };
+  }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  res.json(safe);
+});
+
+// ── 管理員：更新會員狀態（啟用/停用）
+app.patch('/api/admin/members/:phone', async (req, res) => {
+  const phone = req.params.phone;
+  if (!members[phone]) return res.status(404).json({ error: '會員不存在' });
+  const { status, points, tier } = req.body;
+  if (status && ['active','banned','vip'].includes(status)) members[phone].status = status;
+  if (points !== undefined) members[phone].points = Math.max(0, Number(points) || 0);
+  if (tier && ['regular','silver','gold','diamond'].includes(tier)) {
+    members[phone].tier = tier;
+    const TIER_LABELS = { regular:'🌱 普通會員', silver:'🥈 銀牌會員', gold:'🥇 金牌會員', diamond:'💎 鑽石會員' };
+    members[phone].tierLabel = TIER_LABELS[tier];
+  }
+  members[phone].updatedAt = Date.now();
+  await DB.saveMembers();
+  await DB.upsertMember(phone, members[phone]);
+  broadcast('UPDATE_MEMBER', { phone, status: members[phone].status });
+  const { passwordHash: _, ...safe } = members[phone];
+  res.json(safe);
 });
 
 // ─── 自動啟用 RLS（僅在有 service_role key 且尚未啟用時執行）─

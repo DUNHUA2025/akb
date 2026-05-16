@@ -275,13 +275,22 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
       </a>
 
-      <div class="flex overflow-x-auto">
+      <div class="flex overflow-x-auto items-center gap-1">
 
         <button :class="['nav-tab text-sm',bookingStep<5?'active':'']" @click="bookingStep===5?resetBooking():null">預約服務</button>
 
         <button class="nav-tab text-sm" @click="showModal='designers'">認識設計師</button>
 
         <button class="nav-tab text-sm" @click="openMyBookings()">我的預約</button>
+
+        <!-- Member portal link -->
+        <a id="memberNavBtn" href="../member/index.html"
+           style="display:none; padding:6px 12px; border-radius:2rem; font-size:0.8rem; font-weight:600; text-decoration:none; background:linear-gradient(135deg,var(--primary),var(--accent)); color:#fff; white-space:nowrap; transition:opacity 0.2s;"
+           onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">💎 <span id="memberNavName">會員中心</span></a>
+
+        <a id="memberLoginBtn" href="../member/login.html"
+           style="display:none; padding:6px 12px; border-radius:2rem; font-size:0.8rem; font-weight:600; text-decoration:none; color:var(--primary); border:1px solid color-mix(in srgb,var(--primary) 40%,transparent); white-space:nowrap; transition:opacity 0.2s;"
+           onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">🔑 會員登入</a>
 
       </div>
 
@@ -1613,6 +1622,30 @@ createApp({
 
 
     onMounted(async () => {
+
+      // ── 會員 Session 偵測：自動填入姓名/電話 ──────────────
+      (function initMemberSession() {
+        const mToken  = localStorage.getItem('akb_member_token');
+        const mCached = localStorage.getItem('akb_member');
+        const navBtn   = document.getElementById('memberNavBtn');
+        const loginBtn = document.getElementById('memberLoginBtn');
+        const nameSpan = document.getElementById('memberNavName');
+        if (mToken && mCached) {
+          try {
+            const m = JSON.parse(mCached);
+            // Auto-fill booking form if empty
+            if (!bookingForm.name  && m.name)  bookingForm.name  = m.name;
+            if (!bookingForm.phone && m.phone) bookingForm.phone = m.phone;
+            if (!bookingForm.email && m.email) bookingForm.email = m.email;
+            // Show member portal button
+            if (navBtn)   { navBtn.style.display = 'inline-flex'; navBtn.style.alignItems = 'center'; }
+            if (nameSpan && m.name) nameSpan.textContent = m.name.length > 5 ? m.name.slice(0,5)+'…' : m.name;
+          } catch(e) { /* ignore */ }
+        } else {
+          // Not logged in — show login button
+          if (loginBtn) loginBtn.style.display = 'inline-flex';
+        }
+      })();
 
       // ── 載入店家設定（優先於其他資料，影響日曆和時段）──────
       try {

@@ -275,11 +275,41 @@ html.light .c-icon{background:rgba(13,148,136,.08);border-color:rgba(13,148,136,
 <!-- 頂欄 -->
 <nav class="topbar">
   <div class="topbar-logo jade-text">AKB</div>
-  <div class="topbar-right">
+  <div class="topbar-right" style="display:flex;align-items:center;gap:8px;">
+    <!-- Member nav button (shown by JS if logged in) -->
+    <a id="memberPortalBtn" href="./member/index.html"
+       style="display:none;padding:7px 14px;border-radius:2rem;font-size:12px;font-weight:700;text-decoration:none;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;transition:opacity .2s;"
+       onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+      💎 <span id="memberPortalName">會員中心</span>
+    </a>
+    <a id="memberLoginLink" href="./member/login.html"
+       style="display:none;padding:7px 14px;border-radius:2rem;font-size:12px;font-weight:600;text-decoration:none;color:var(--primary);border:1px solid color-mix(in srgb,var(--primary) 35%,transparent);transition:opacity .2s;"
+       onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+      🔑 會員登入
+    </a>
     <a href="./client/index.html" class="btn-jade" style="padding:8px 18px;font-size:13px;">立即預約</a>
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切換主題">🌙</button>
   </div>
 </nav>
+<script>
+// 會員 Session 偵測
+(function(){
+  var t = localStorage.getItem('akb_member_token');
+  var m = localStorage.getItem('akb_member');
+  var portal = document.getElementById('memberPortalBtn');
+  var login  = document.getElementById('memberLoginLink');
+  var nameEl = document.getElementById('memberPortalName');
+  if (t && m) {
+    try {
+      var member = JSON.parse(m);
+      if (nameEl && member.name) nameEl.textContent = member.name.length > 5 ? member.name.slice(0,5)+'…' : member.name;
+    } catch(e) {}
+    if (portal) portal.style.display = 'inline-flex';
+  } else {
+    if (login) login.style.display = 'inline-flex';
+  }
+})();
+</script>
 
 <!-- ── Hero ── -->
 <section class="hero">
@@ -313,11 +343,27 @@ html.light .c-icon{background:rgba(13,148,136,.08);border-color:rgba(13,148,136,
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/></svg>
       立即線上預約
     </a>
+    <a href="./member/login.html" id="heroMemberBtn"
+       style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:50px;border:1.5px solid color-mix(in srgb,var(--primary) 40%,transparent);color:var(--primary);font-size:14px;font-weight:600;text-decoration:none;transition:background .2s,opacity .2s;">
+      💎 會員登入 / 加入
+    </a>
     <a href="tel:55083339" class="btn-ghost">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 5.51 5.51l1.47-1.48a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 21.73 14z"/></svg>
       致電 5508 3339
     </a>
   </div>
+  <script>
+  // 若已登入會員，將 hero 按鈕改指向會員中心
+  (function(){
+    var t = localStorage.getItem('akb_member_token');
+    var m = localStorage.getItem('akb_member');
+    var btn = document.getElementById('heroMemberBtn');
+    if (btn && t && m) {
+      btn.href = './member/index.html';
+      btn.textContent = '💎 會員中心';
+    }
+  })();
+  </script>
 
   <div class="fade-in scroll-hint" style="margin-top:56px;animation-delay:1.2s;">
     <span>向下探索</span>

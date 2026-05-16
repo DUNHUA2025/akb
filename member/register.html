@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<script>
+// AKB 主題初始化（防止 FOUC）
+(function(){
+  var theme=localStorage.getItem('akb_theme_name')||'jade';
+  var dark=localStorage.getItem('akb_dark_mode')!=='false';
+  if(localStorage.getItem('akb_theme')==='light') dark=false;
+  document.documentElement.setAttribute('data-theme',theme);
+  if(!dark) document.documentElement.classList.add('light');
+})();
+</script>
+<meta charset="UTF-8"/>
+<link rel="icon" href="../favicon.ico" type="image/x-icon"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>會員註冊 — AKB 多元化音樂發廊</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="../css/themes.css"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+*{font-family:'Noto Sans TC','DM Sans',sans-serif;box-sizing:border-box;}
+.serif{font-family:'Noto Serif TC',serif;}
+body{background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.fade{animation:fadeUp .4s ease;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:36px 32px;width:100%;max-width:480px;}
+label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px;font-weight:500;}
+input,select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:12px 16px;font-size:14px;font-family:inherit;transition:border .2s;}
+input:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(128,128,200,.13);}
+input::placeholder{color:var(--text3);}
+input.err{border-color:var(--rose)!important;}
+.btn{width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:700;border:none;cursor:pointer;transition:all .25s;}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 8px 24px rgba(128,128,200,.3);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.field{margin-bottom:18px;}
+.err-msg{font-size:12px;color:var(--rose);margin-top:5px;display:none;}
+.strength-bar{height:4px;border-radius:2px;background:var(--border);margin-top:6px;overflow:hidden;}
+.strength-fill{height:100%;border-radius:2px;transition:width .3s,background .3s;}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text3);font-size:13px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+a.link{color:var(--primary);text-decoration:none;font-weight:600;}
+a.link:hover{text-decoration:underline;}
+.step-dot{width:8px;height:8px;border-radius:50%;background:var(--border);}
+.step-dot.active{background:var(--primary);}
+.tier-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;background:rgba(128,128,200,.1);border:1px solid rgba(128,128,200,.2);}
+</style>
+</head>
+<body>
+<div class="card fade">
+  <!-- Logo -->
+  <div class="text-center mb-6">
+    <div class="serif text-2xl font-bold" style="color:var(--primary)">AKB</div>
+    <div class="text-sm mt-1" style="color:var(--text3)">多元化音樂發廊</div>
+  </div>
+
+  <h1 class="serif text-xl font-bold text-center mb-1">會員自助註冊</h1>
+  <p class="text-center text-sm mb-6" style="color:var(--text3)">加入 AKB 會員享受專屬折扣與積分獎勵</p>
+
+  <!-- Benefits row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:24px;">
+    <div style="text-align:center;padding:10px 6px;background:var(--surface2);border-radius:10px;font-size:12px;">
+      <div style="font-size:20px;margin-bottom:4px;">🎁</div>
+      <div style="color:var(--text2);">消費積分</div>
+    </div>
+    <div style="text-align:center;padding:10px 6px;background:var(--surface2);border-radius:10px;font-size:12px;">
+      <div style="font-size:20px;margin-bottom:4px;">🏷️</div>
+      <div style="color:var(--text2);">會員折扣</div>
+    </div>
+    <div style="text-align:center;padding:10px 6px;background:var(--surface2);border-radius:10px;font-size:12px;">
+      <div style="font-size:20px;margin-bottom:4px;">📋</div>
+      <div style="color:var(--text2);">預約記錄</div>
+    </div>
+  </div>
+
+  <form id="regForm" novalidate>
+    <div class="field">
+      <label>手機號碼 <span style="color:var(--rose)">*</span></label>
+      <input type="tel" id="phone" placeholder="例：91234567" maxlength="20"/>
+      <div class="err-msg" id="phoneErr"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div class="field">
+        <label>姓名 <span style="color:var(--rose)">*</span></label>
+        <input type="text" id="name" placeholder="您的稱呼" maxlength="50"/>
+        <div class="err-msg" id="nameErr"></div>
+      </div>
+      <div class="field">
+        <label>性別</label>
+        <select id="gender">
+          <option value="">不願透露</option>
+          <option value="F">女</option>
+          <option value="M">男</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>電子郵件（選填）</label>
+      <input type="email" id="email" placeholder="your@email.com" maxlength="100"/>
+      <div class="err-msg" id="emailErr"></div>
+    </div>
+
+    <div class="field">
+      <label>生日（選填）</label>
+      <input type="date" id="birthday"/>
+    </div>
+
+    <div class="field">
+      <label>設定密碼 <span style="color:var(--rose)">*</span></label>
+      <div style="position:relative;">
+        <input type="password" id="password" placeholder="至少6位，建議含字母及數字" maxlength="100" oninput="checkStrength(this.value)"/>
+        <button type="button" onclick="togglePwd('password',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;">👁️</button>
+      </div>
+      <div class="strength-bar"><div class="strength-fill" id="strengthFill" style="width:0;background:#ef4444;"></div></div>
+      <div id="strengthLabel" style="font-size:11px;color:var(--text3);margin-top:4px;"></div>
+      <div class="err-msg" id="passwordErr"></div>
+    </div>
+
+    <div class="field">
+      <label>確認密碼 <span style="color:var(--rose)">*</span></label>
+      <div style="position:relative;">
+        <input type="password" id="confirmPassword" placeholder="再次輸入密碼" maxlength="100"/>
+        <button type="button" onclick="togglePwd('confirmPassword',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;">👁️</button>
+      </div>
+      <div class="err-msg" id="confirmErr"></div>
+    </div>
+
+    <!-- Terms -->
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:20px;font-size:13px;color:var(--text2);">
+      <input type="checkbox" id="agree" style="width:16px;height:16px;margin-top:2px;flex-shrink:0;border-radius:4px;accent-color:var(--primary);"/>
+      <label for="agree" style="margin:0;cursor:pointer;">我同意 AKB 多元化音樂發廊的<a href="#" class="link">服務條款</a>及<a href="#" class="link">隱私政策</a>，並同意接收預約提醒通知</label>
+    </div>
+
+    <div id="globalErr" style="display:none;margin-bottom:14px;padding:12px;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.25);border-radius:10px;color:var(--rose);font-size:13px;"></div>
+
+    <button type="submit" class="btn btn-primary" id="submitBtn">立即免費註冊</button>
+  </form>
+
+  <div class="divider">已有帳號</div>
+  <a href="./login.html" style="display:block;text-align:center;padding:12px;border:1px solid var(--border);border-radius:12px;color:var(--text2);text-decoration:none;font-weight:500;font-size:14px;transition:all .2s;" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">登入會員帳號</a>
+
+  <div class="text-center mt-5" style="font-size:12px;color:var(--text3);">
+    <a href="../index.html" class="link">← 返回首頁</a>
+    &nbsp;·&nbsp;
+    <a href="../client/index.html" class="link">線上預約</a>
+  </div>
+</div>
+
+<script>
+const API = 'https://akb-salon-server.onrender.com';
+
+function getApi() {
+  const h = location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:3001';
+  return API;
+}
+
+function togglePwd(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
+}
+
+function checkStrength(pwd) {
+  const fill = document.getElementById('strengthFill');
+  const label = document.getElementById('strengthLabel');
+  if (!pwd) { fill.style.width = '0'; label.textContent = ''; return; }
+  let score = 0;
+  if (pwd.length >= 6) score++;
+  if (pwd.length >= 10) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  const map = [
+    { w: '0%', c: '#ef4444', t: '' },
+    { w: '25%', c: '#ef4444', t: '弱' },
+    { w: '50%', c: '#f97316', t: '中等' },
+    { w: '75%', c: '#eab308', t: '強' },
+    { w: '100%', c: '#22c55e', t: '非常強' },
+  ];
+  const m = map[Math.min(score, 4)];
+  fill.style.width = m.w;
+  fill.style.background = m.c;
+  label.textContent = m.t ? `密碼強度：${m.t}` : '';
+  label.style.color = m.c;
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function clearErr(id) { showErr(id, ''); }
+
+document.getElementById('regForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  // Clear all errors
+  ['phone','name','email','password','confirm','global'].forEach(f => {
+    const el = document.getElementById(f + 'Err');
+    if (el) { el.textContent = ''; el.style.display = 'none'; }
+  });
+
+  const phone = document.getElementById('phone').value.trim();
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const birthday = document.getElementById('birthday').value;
+  const gender = document.getElementById('gender').value;
+  const password = document.getElementById('password').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+  const agree = document.getElementById('agree').checked;
+
+  let hasErr = false;
+  if (!phone || !/^[0-9+\-\s]{8,20}$/.test(phone)) {
+    showErr('phoneErr', '請輸入正確的手機號碼（8-20位）');
+    document.getElementById('phone').classList.add('err'); hasErr = true;
+  } else document.getElementById('phone').classList.remove('err');
+
+  if (!name) {
+    showErr('nameErr', '請輸入姓名');
+    document.getElementById('name').classList.add('err'); hasErr = true;
+  } else document.getElementById('name').classList.remove('err');
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showErr('emailErr', '電子郵件格式不正確');
+    document.getElementById('email').classList.add('err'); hasErr = true;
+  } else document.getElementById('email').classList.remove('err');
+
+  if (password.length < 6) {
+    showErr('passwordErr', '密碼至少需要6位');
+    document.getElementById('password').classList.add('err'); hasErr = true;
+  } else document.getElementById('password').classList.remove('err');
+
+  if (password !== confirmPassword) {
+    showErr('confirmErr', '兩次密碼不一致');
+    document.getElementById('confirmPassword').classList.add('err'); hasErr = true;
+  } else document.getElementById('confirmPassword').classList.remove('err');
+
+  if (!agree) {
+    const g = document.getElementById('globalErr');
+    g.textContent = '請閱讀並同意服務條款後繼續';
+    g.style.display = 'block';
+    hasErr = true;
+  }
+
+  if (hasErr) return;
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '註冊中…';
+
+  try {
+    const resp = await fetch(getApi() + '/api/member/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, name, email, birthday, gender, password }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      const g = document.getElementById('globalErr');
+      g.textContent = data.error || '註冊失敗，請稍後再試';
+      g.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '立即免費註冊';
+      return;
+    }
+    // 儲存 token 和會員資料
+    localStorage.setItem('akb_member_token', data.token);
+    localStorage.setItem('akb_member', JSON.stringify(data.member));
+    // 跳轉到會員中心並顯示歡迎
+    window.location.href = './index.html?welcome=1';
+  } catch(err) {
+    const g = document.getElementById('globalErr');
+    g.textContent = '網路連線失敗，請稍後再試';
+    g.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '立即免費註冊';
+  }
+});
+
+// Real-time field validation
+document.getElementById('phone').addEventListener('blur', function() {
+  if (this.value && !/^[0-9+\-\s]{8,20}$/.test(this.value.trim())) {
+    showErr('phoneErr', '手機號格式不正確');
+  } else clearErr('phoneErr');
+});
+document.getElementById('confirmPassword').addEventListener('input', function() {
+  const pwd = document.getElementById('password').value;
+  if (this.value && this.value !== pwd) {
+    showErr('confirmErr', '兩次密碼不一致');
+  } else clearErr('confirmErr');
+});
+</script>
+</body>
+</html>

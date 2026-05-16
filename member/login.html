@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="jade">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>會員登入 — AKB Beauty</title>
+  <!-- FOUC prevention: apply theme before render -->
+  <script>
+    (function(){
+      var t = localStorage.getItem('akb_theme_name') || 'jade';
+      var d = localStorage.getItem('akb_dark_mode');
+      var isDark = d === null ? true : d === 'true';
+      document.documentElement.setAttribute('data-theme', t);
+      if (!isDark) document.documentElement.classList.add('light');
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/themes.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Back link ── */
+    .back-link {
+      position: fixed;
+      top: 1rem; left: 1rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      display: flex; align-items: center; gap: 0.4rem;
+      transition: color 0.2s;
+      z-index: 10;
+    }
+    .back-link:hover { color: var(--primary); }
+
+    /* ── Card ── */
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    }
+
+    /* ── Logo / Header ── */
+    .logo {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .logo-icon {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 1rem;
+      box-shadow: 0 4px 20px color-mix(in srgb, var(--primary) 40%, transparent);
+    }
+    .logo h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .logo p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+    }
+
+    /* ── Form ── */
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      letter-spacing: 0.03em;
+    }
+    label span.required { color: #f87171; margin-left: 2px; }
+
+    .input-wrap {
+      position: relative;
+    }
+    input[type="tel"],
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--input-bg, color-mix(in srgb, var(--surface) 60%, var(--bg)));
+      border: 1.5px solid var(--border);
+      border-radius: 0.75rem;
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+    input.has-toggle { padding-right: 3rem; }
+    input.error { border-color: #f87171; }
+    input.ok { border-color: #34d399; }
+
+    .toggle-pw {
+      position: absolute;
+      right: 0.75rem; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none;
+      color: var(--text-muted);
+      cursor: pointer; font-size: 1.1rem;
+      padding: 0.25rem;
+      transition: color 0.2s;
+    }
+    .toggle-pw:hover { color: var(--primary); }
+
+    .field-err {
+      font-size: 0.78rem;
+      color: #f87171;
+      margin-top: 0.3rem;
+      display: none;
+    }
+    .field-err.show { display: block; }
+
+    /* ── Remember me ── */
+    .remember-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.4rem;
+    }
+    .remember-label {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.85rem; color: var(--text-muted);
+      cursor: pointer;
+    }
+    .remember-label input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--primary);
+    }
+    .forgot-link {
+      font-size: 0.82rem;
+      color: var(--primary);
+      text-decoration: none;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    .forgot-link:hover { opacity: 1; text-decoration: underline; }
+
+    /* ── Submit button ── */
+    .btn-login {
+      width: 100%;
+      padding: 0.85rem;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      border: none;
+      border-radius: 0.75rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      margin-bottom: 1.2rem;
+    }
+    .btn-login:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .btn-login:active:not(:disabled) { transform: translateY(0); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── Alert banner ── */
+    .alert {
+      display: none;
+      padding: 0.75rem 1rem;
+      border-radius: 0.6rem;
+      font-size: 0.88rem;
+      margin-bottom: 1.2rem;
+      text-align: center;
+    }
+    .alert.show { display: block; }
+    .alert.error { background: rgba(248,113,113,0.15); border: 1px solid #f87171; color: #f87171; }
+    .alert.success { background: rgba(52,211,153,0.15); border: 1px solid #34d399; color: #34d399; }
+    .alert.warn { background: rgba(251,191,36,0.15); border: 1px solid #fbbf24; color: #fbbf24; }
+
+    /* ── Divider ── */
+    .divider {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin: 1.2rem 0;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Register link ── */
+    .register-row {
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .register-row a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .register-row a:hover { opacity: 0.8; text-decoration: underline; }
+
+    /* ── Benefits strip ── */
+    .benefits {
+      margin-top: 2rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+    .benefit-item {
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+      border-radius: 0.75rem;
+    }
+    .benefit-item .icon { font-size: 1.3rem; margin-bottom: 0.3rem; }
+    .benefit-item .label { font-size: 0.72rem; color: var(--text-muted); }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 1rem; height: 1rem;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .card { padding: 2rem 1.25rem; border-radius: 1rem; }
+      .benefits { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <a href="../index.html" class="back-link">← 返回首頁</a>
+
+  <div class="card">
+    <!-- Logo -->
+    <div class="logo">
+      <div class="logo-icon">💎</div>
+      <h1>會員登入</h1>
+      <p>歡迎回來！登入您的 AKB 會員帳號</p>
+    </div>
+
+    <!-- Alert -->
+    <div class="alert" id="alertBox"></div>
+
+    <!-- Form -->
+    <form id="loginForm" novalidate>
+      <!-- Phone -->
+      <div class="form-group">
+        <label for="phone">手機號碼 <span class="required">*</span></label>
+        <div class="input-wrap">
+          <input type="tel" id="phone" placeholder="09XXXXXXXX"
+                 autocomplete="username" maxlength="20"/>
+        </div>
+        <div class="field-err" id="phoneErr">請輸入有效的手機號碼</div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label for="password">密碼 <span class="required">*</span></label>
+        <div class="input-wrap">
+          <input type="password" id="password" class="has-toggle"
+                 placeholder="請輸入密碼" autocomplete="current-password" maxlength="128"/>
+          <button type="button" class="toggle-pw" id="togglePw" aria-label="顯示/隱藏密碼">👁</button>
+        </div>
+        <div class="field-err" id="passwordErr">請輸入密碼</div>
+      </div>
+
+      <!-- Remember + Forgot -->
+      <div class="remember-row">
+        <label class="remember-label">
+          <input type="checkbox" id="rememberMe" checked/>
+          記住我
+        </label>
+        <a href="#" class="forgot-link" id="forgotLink">忘記密碼？</a>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn-login" id="submitBtn">登入</button>
+    </form>
+
+    <div class="divider">還沒有帳號？</div>
+
+    <div class="register-row">
+      <a href="./register.html">立即免費加入會員 →</a>
+    </div>
+
+    <!-- Benefits -->
+    <div class="benefits">
+      <div class="benefit-item">
+        <div class="icon">⭐</div>
+        <div class="label">消費積點</div>
+      </div>
+      <div class="benefit-item">
+        <div class="icon">🎁</div>
+        <div class="label">專屬折扣</div>
+      </div>
+      <div class="benefit-item">
+        <div class="icon">📋</div>
+        <div class="label">預約記錄</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── API base ──────────────────────────────────────────
+    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3000'
+      : '';
+
+    // ── Redirect if already logged in ────────────────────
+    (function checkSession() {
+      const token = localStorage.getItem('akb_member_token');
+      const member = localStorage.getItem('akb_member');
+      if (token && member) {
+        window.location.replace('./index.html');
+      }
+    })();
+
+    // ── DOM refs ──────────────────────────────────────────
+    const form       = document.getElementById('loginForm');
+    const phoneEl    = document.getElementById('phone');
+    const passwordEl = document.getElementById('password');
+    const phoneErr   = document.getElementById('phoneErr');
+    const passwordErr= document.getElementById('passwordErr');
+    const alertBox   = document.getElementById('alertBox');
+    const submitBtn  = document.getElementById('submitBtn');
+    const togglePw   = document.getElementById('togglePw');
+    const rememberMe = document.getElementById('rememberMe');
+    const forgotLink = document.getElementById('forgotLink');
+
+    // ── Pre-fill from localStorage if remember was set ────
+    const savedPhone = localStorage.getItem('akb_remember_phone');
+    if (savedPhone) phoneEl.value = savedPhone;
+
+    // ── Toggle password visibility ────────────────────────
+    togglePw.addEventListener('click', () => {
+      const show = passwordEl.type === 'password';
+      passwordEl.type = show ? 'text' : 'password';
+      togglePw.textContent = show ? '🙈' : '👁';
+    });
+
+    // ── Alert helper ──────────────────────────────────────
+    function showAlert(msg, type = 'error') {
+      alertBox.textContent = msg;
+      alertBox.className = `alert ${type} show`;
+    }
+    function hideAlert() {
+      alertBox.className = 'alert';
+    }
+
+    // ── Field error helpers ───────────────────────────────
+    function setFieldError(el, errEl, msg) {
+      el.classList.add('error'); el.classList.remove('ok');
+      errEl.textContent = msg; errEl.classList.add('show');
+    }
+    function clearFieldError(el, errEl) {
+      el.classList.remove('error'); el.classList.add('ok');
+      errEl.classList.remove('show');
+    }
+    function resetField(el, errEl) {
+      el.classList.remove('error', 'ok');
+      errEl.classList.remove('show');
+    }
+
+    // ── Validation ────────────────────────────────────────
+    function validatePhone() {
+      const v = phoneEl.value.trim();
+      if (!v) { setFieldError(phoneEl, phoneErr, '請輸入手機號碼'); return false; }
+      if (!/^09\d{8}$/.test(v.replace(/\s|-/g, ''))) {
+        setFieldError(phoneEl, phoneErr, '請輸入有效的台灣手機號碼（09XXXXXXXX）'); return false;
+      }
+      clearFieldError(phoneEl, phoneErr); return true;
+    }
+    function validatePassword() {
+      const v = passwordEl.value;
+      if (!v) { setFieldError(passwordEl, passwordErr, '請輸入密碼'); return false; }
+      clearFieldError(passwordEl, passwordErr); return true;
+    }
+
+    phoneEl.addEventListener('blur', validatePhone);
+    passwordEl.addEventListener('blur', validatePassword);
+    phoneEl.addEventListener('input', () => resetField(phoneEl, phoneErr));
+    passwordEl.addEventListener('input', () => resetField(passwordEl, passwordErr));
+
+    // ── Loading state ─────────────────────────────────────
+    function setLoading(on) {
+      submitBtn.disabled = on;
+      submitBtn.innerHTML = on
+        ? '<span class="spinner"></span>登入中…'
+        : '登入';
+    }
+
+    // ── Forgot password handler ───────────────────────────
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showAlert('如需重設密碼，請聯繫沙龍工作人員或來電辦理。', 'warn');
+    });
+
+    // ── Main submit ───────────────────────────────────────
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert();
+
+      const okPhone    = validatePhone();
+      const okPassword = validatePassword();
+      if (!okPhone || !okPassword) return;
+
+      const phone    = phoneEl.value.trim().replace(/\s|-/g, '');
+      const password = passwordEl.value;
+
+      setLoading(true);
+
+      try {
+        const res = await fetch(`${API}/api/member/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          // Handle specific errors
+          if (res.status === 403) {
+            showAlert('⛔ 您的帳號已被停用，請聯繫沙龍工作人員。', 'error');
+          } else if (res.status === 429) {
+            showAlert('⚠️ 嘗試次數過多，請稍後再試。', 'warn');
+          } else if (res.status === 401) {
+            showAlert('❌ 手機號碼或密碼錯誤，請重新輸入。', 'error');
+            passwordEl.value = '';
+            resetField(passwordEl, passwordErr);
+            passwordEl.focus();
+          } else {
+            showAlert(data.error || '登入失敗，請稍後再試。', 'error');
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Success — save session
+        localStorage.setItem('akb_member_token', data.token);
+        localStorage.setItem('akb_member', JSON.stringify(data.member));
+
+        // Remember phone if checkbox checked
+        if (rememberMe.checked) {
+          localStorage.setItem('akb_remember_phone', phone);
+        } else {
+          localStorage.removeItem('akb_remember_phone');
+        }
+
+        showAlert('✅ 登入成功！正在跳轉…', 'success');
+
+        setTimeout(() => {
+          window.location.href = './index.html';
+        }, 800);
+
+      } catch (err) {
+        showAlert('網路連線失敗，請檢查網路後重試。', 'error');
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>

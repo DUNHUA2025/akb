@@ -229,6 +229,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
       <div :class="['sidebar-item',tab==='customers'?'active':'']" @click="tab='customers'">👤 顧客資料</div>
       <div :class="['sidebar-item',tab==='services'?'active':'']" @click="tab='services'">⭐ 服務項目</div>
       <div :class="['sidebar-item',tab==='hours'?'active':'']" @click="tab='hours'">🕐 營業時間</div>
+      <div :class="['sidebar-item',tab==='members'?'active':'']" @click="tab='members'; loadMembers()">👥 會員管理</div>
       <div :class="['sidebar-item',tab==='datasec'?'active':'']" @click="tab='datasec'" style="color:var(--rose)!important">🛡️ 數據安全</div>
     </nav>
     <div class="p-3 space-y-1">
@@ -488,6 +489,104 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Members Management -->
+      <div v-else-if="tab==='members'" class="fade">
+        <div class="flex justify-between items-center mb-5 flex-wrap gap-3">
+          <h2 class="text-2xl font-bold serif">👥 會員管理</h2>
+          <div class="flex gap-2 items-center">
+            <input v-model="membersSearch" placeholder="搜尋姓名/手機/Email…" style="width:200px;padding:7px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.87rem;outline:none;"/>
+            <button @click="loadMembers()" class="btn btn-gold text-sm">↺ 刷新</button>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="membersLoading" class="text-center text-muted py-12">載入會員資料中…</div>
+
+        <!-- Table -->
+        <div v-else class="card overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>手機</th>
+                <th>等級</th>
+                <th>積分</th>
+                <th>累計消費</th>
+                <th>到訪</th>
+                <th>狀態</th>
+                <th>加入日期</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in filteredMembers" :key="m.phone">
+                <td class="font-semibold">{{m.name||'—'}}</td>
+                <td class="text-muted">{{m.phone}}</td>
+                <td><span :style="{'color': m.tier==='diamond'?'#a78bfa':m.tier==='gold'?'#f59e0b':m.tier==='silver'?'#94a3b8':'#6ee7b7'}">{{memberTierLabel(m.tier)}}</span></td>
+                <td class="text-gold font-bold">{{m.points||0}}</td>
+                <td class="font-semibold text-green-400">${{(m.totalSpent||0).toLocaleString()}}</td>
+                <td>{{m.visits||0}} 次</td>
+                <td>
+                  <span v-if="m.status==='banned'" style="color:#f87171;font-size:0.8rem;font-weight:700;">🚫 已停用</span>
+                  <span v-else style="color:#34d399;font-size:0.8rem;font-weight:700;">✅ 正常</span>
+                </td>
+                <td class="text-muted text-xs">{{(m.createdAt||'').slice(0,10)||'—'}}</td>
+                <td>
+                  <button @click="openMemberEdit(m)" class="btn text-xs" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);color:#a5b4fc;padding:4px 10px;">✏️ 編輯</button>
+                </td>
+              </tr>
+              <tr v-if="filteredMembers.length===0">
+                <td colspan="9" class="text-center text-muted py-8">
+                  <span v-if="members.length===0">尚無會員資料</span>
+                  <span v-else>找不到符合的會員</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Edit Modal -->
+        <div v-if="memberEditModal" class="modal-bg" @click.self="memberEditModal=false" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;">
+          <div class="modal-box" style="width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);border-radius:1.25rem;padding:1.75rem;">
+            <div class="flex justify-between items-center mb-5">
+              <h3 class="text-lg font-bold">✏️ 編輯會員 — {{memberEditData.phone}}</h3>
+              <button @click="memberEditModal=false" style="background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;">✕</button>
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs text-muted mb-1.5">姓名（僅顯示）</label>
+                <input :value="memberEditData.name" readonly style="width:100%;padding:8px 12px;background:color-mix(in srgb,var(--surface) 60%,var(--bg));border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:0.95rem;opacity:.7;"/>
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1.5">帳號狀態</label>
+                <select v-model="memberEditData.status" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.95rem;outline:none;">
+                  <option value="active">✅ 正常</option>
+                  <option value="banned">🚫 停用</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1.5">積分調整</label>
+                <input type="number" v-model.number="memberEditData.points" min="0" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.95rem;outline:none;"/>
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1.5">強制等級（留空=自動計算）</label>
+                <select v-model="memberEditData.tier" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.95rem;outline:none;">
+                  <option value="regular">🌱 普通會員</option>
+                  <option value="silver">🥈 銀牌會員</option>
+                  <option value="gold">🥇 金牌會員</option>
+                  <option value="diamond">💎 鑽石會員</option>
+                </select>
+              </div>
+            </div>
+            <div v-if="memberEditMsg" :style="{marginTop:'0.75rem',padding:'0.5rem 0.75rem',borderRadius:'6px',fontSize:'0.85rem',background:memberEditMsg.startsWith('✅')?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)',border:memberEditMsg.startsWith('✅')?'1px solid #34d399':'1px solid #f87171',color:memberEditMsg.startsWith('✅')?'#34d399':'#f87171'}">{{memberEditMsg}}</div>
+            <div class="flex gap-2 mt-5 justify-end">
+              <button @click="memberEditModal=false" class="btn" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:8px 18px;">取消</button>
+              <button @click="saveMemberEdit()" :disabled="memberEditSaving" class="btn btn-gold" style="padding:8px 20px;">{{memberEditSaving?'儲存中…':'儲存變更'}}</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -945,13 +1044,21 @@ const monthPfx = todayStr.slice(0, 7);
 createApp({
   setup() {
     const tab     = ref('dashboard');
-    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'services',l:'服務'},{k:'hours',l:'🕐時間'},{k:'datasec',l:'🛡️安全'}];
+    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'members',l:'👥會員'},{k:'services',l:'服務'},{k:'hours',l:'🕐時間'},{k:'datasec',l:'🛡️安全'}];
     const loading = ref(true);
 
     const bookings  = ref([]);
     const designers = ref([]);
     const customers = ref([]);
     const services  = ref([]);
+    // Members
+    const members         = ref([]);
+    const membersLoading  = ref(false);
+    const membersSearch   = ref('');
+    const memberEditModal = ref(false);
+    const memberEditData  = reactive({ phone:'', name:'', status:'active', points:0, tier:'', note:'' });
+    const memberEditSaving = ref(false);
+    const memberEditMsg    = ref('');
     const search    = ref('');
     const bookingStatusFilter = ref('all');
     const bookingRandomFilter = ref('all');
@@ -1555,6 +1662,74 @@ createApp({
       });
     }
 
+    // ── Member management ─────────────────────────────────────
+    const filteredMembers = computed(() => {
+      const q = membersSearch.value.trim().toLowerCase();
+      if (!q) return members.value;
+      return members.value.filter(m =>
+        (m.name||'').toLowerCase().includes(q) ||
+        (m.phone||'').includes(q) ||
+        (m.email||'').toLowerCase().includes(q)
+      );
+    });
+
+    const ADMIN_API = window.AKB_API_URL || '';
+
+    async function loadMembers() {
+      if (membersLoading.value) return;
+      membersLoading.value = true;
+      try {
+        const res = await fetch(`${ADMIN_API}/api/admin/members`);
+        if (res.ok) members.value = await res.json();
+      } catch(e) { console.warn('loadMembers:', e); }
+      finally { membersLoading.value = false; }
+    }
+
+    function openMemberEdit(m) {
+      Object.assign(memberEditData, {
+        phone:  m.phone,
+        name:   m.name   || '',
+        status: m.status || 'active',
+        points: m.points || 0,
+        tier:   m.tier   || 'regular',
+        note:   m.note   || '',
+      });
+      memberEditMsg.value = '';
+      memberEditModal.value = true;
+    }
+
+    async function saveMemberEdit() {
+      memberEditSaving.value = true;
+      memberEditMsg.value = '';
+      try {
+        const phone = encodeURIComponent(memberEditData.phone);
+        const res = await fetch(`${ADMIN_API}/api/admin/members/${phone}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({
+            status: memberEditData.status,
+            points: Number(memberEditData.points),
+            tier:   memberEditData.tier,
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          memberEditMsg.value = '✅ 已更新';
+          // Update local list
+          const idx = members.value.findIndex(m => m.phone === memberEditData.phone);
+          if (idx >= 0) members.value[idx] = { ...members.value[idx], ...data };
+          setTimeout(() => { memberEditModal.value = false; }, 800);
+        } else {
+          memberEditMsg.value = '❌ ' + (data.error || '更新失敗');
+        }
+      } catch(e) { memberEditMsg.value = '❌ 網路錯誤'; }
+      finally { memberEditSaving.value = false; }
+    }
+
+    function memberTierLabel(tier) {
+      return { diamond:'💎 鑽石', gold:'🥇 金牌', silver:'🥈 銀牌', regular:'🌱 普通' }[tier] || '🌱 普通';
+    }
+
     return {
       tab, tabs, loading, bookings, designers, customers, services,
       search, bookingStatusFilter, bookingRandomFilter, designerFilter,
@@ -1569,6 +1744,10 @@ createApp({
       captcha, refreshCaptcha, openDataModal, closeDataModal, doDataOp, doExport, secLog,
       hoursForm, hoursSlotInterval, hoursMaxAdvanceDays, hoursSaving, hoursSavedMsg,
       timeOptions, calcHoursDiff, applyPreset, saveHours,
+      // Members
+      members, membersLoading, membersSearch, filteredMembers,
+      memberEditModal, memberEditData, memberEditSaving, memberEditMsg,
+      loadMembers, openMemberEdit, saveMemberEdit, memberTierLabel,
     };
   }
 }).mount('#app');

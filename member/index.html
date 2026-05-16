@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="jade">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>會員中心 — AKB Beauty</title>
+  <!-- FOUC prevention -->
+  <script>
+    (function(){
+      var t = localStorage.getItem('akb_theme_name') || 'jade';
+      var d = localStorage.getItem('akb_dark_mode');
+      var isDark = d === null ? true : d === 'true';
+      document.documentElement.setAttribute('data-theme', t);
+      if (!isDark) document.documentElement.classList.add('light');
+    })();
+  </script>
+  <link rel="stylesheet" href="../css/themes.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Top nav ── */
+    .topnav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-decoration: none;
+    }
+    .nav-actions {
+      display: flex; gap: 0.75rem; align-items: center;
+    }
+    .nav-btn {
+      padding: 0.4rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .nav-btn.home {
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .nav-btn.logout {
+      color: #f87171;
+      border: 1px solid rgba(248,113,113,0.3);
+    }
+    .nav-btn:hover { opacity: 0.75; }
+
+    /* ── Main layout ── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    /* ── Hero card ── */
+    .hero-card {
+      background: linear-gradient(135deg,
+        color-mix(in srgb, var(--primary) 18%, var(--surface)),
+        color-mix(in srgb, var(--accent) 12%, var(--surface)));
+      border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .hero-avatar {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px color-mix(in srgb, var(--primary) 40%, transparent);
+    }
+    .hero-info { flex: 1; min-width: 0; }
+    .hero-name {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+    }
+    .hero-tier {
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
+    }
+    .hero-meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .hero-stats {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .stat-item { text-align: center; }
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .stat-lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Points progress bar ── */
+    .tier-progress {
+      margin-top: 1.5rem;
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+      border-radius: 1rem;
+      padding: 1.25rem 1.5rem;
+    }
+    .tier-progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 0.6rem;
+    }
+    .tier-progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .tier-progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      transition: width 0.8s ease;
+    }
+    .tier-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    /* ── Tab nav ── */
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 0.35rem;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      flex: 1;
+      min-width: 80px;
+      padding: 0.6rem 1rem;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-radius: 0.75rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+    }
+    .tab-btn:not(.active):hover {
+      background: color-mix(in srgb, var(--primary) 12%, transparent);
+      color: var(--text);
+    }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Section card ── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    /* ── Profile form ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+    .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .form-group input,
+    .form-group select {
+      padding: 0.65rem 0.9rem;
+      background: color-mix(in srgb, var(--surface) 60%, var(--bg));
+      border: 1.5px solid var(--border);
+      border-radius: 0.6rem;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus { border-color: var(--primary); }
+    .form-group input:read-only {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .form-group select option { background: var(--bg); }
+
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+      margin-top: 1rem;
+    }
+    .btn {
+      padding: 0.6rem 1.4rem;
+      border-radius: 0.6rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--text-muted);
+    }
+    .btn-danger {
+      background: rgba(248,113,113,0.15);
+      border: 1.5px solid #f87171;
+      color: #f87171;
+    }
+
+    /* ── Password section ── */
+    .pw-group {
+      position: relative;
+    }
+    .pw-group input { padding-right: 3rem; }
+    .pw-toggle {
+      position: absolute;
+      right: 0.7rem; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none;
+      color: var(--text-muted);
+      cursor: pointer; font-size: 1rem;
+    }
+
+    /* ── Inline alert ── */
+    .inline-alert {
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .inline-alert.show { display: block; }
+    .inline-alert.ok  { background: rgba(52,211,153,0.15); border: 1px solid #34d399; color: #34d399; }
+    .inline-alert.err { background: rgba(248,113,113,0.15); border: 1px solid #f87171; color: #f87171; }
+
+    /* ── Booking history ── */
+    .booking-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .booking-item {
+      background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+      border: 1px solid var(--border);
+      border-radius: 0.875rem;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .booking-icon {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--primary) 15%, transparent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .booking-details { flex: 1; min-width: 0; }
+    .booking-service {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+    .booking-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;
+    }
+    .booking-right { text-align: right; flex-shrink: 0; }
+    .booking-price {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .booking-pts {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+    .booking-status {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 2rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-top: 0.3rem;
+    }
+    .status-confirmed { background: rgba(52,211,153,0.15); color: #34d399; }
+    .status-pending   { background: rgba(251,191,36,0.15);  color: #fbbf24; }
+    .status-cancelled { background: rgba(248,113,113,0.15); color: #f87171; }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 0.75rem; }
+    .empty-state p { font-size: 0.9rem; }
+    .empty-state a { color: var(--primary); text-decoration: none; }
+
+    /* ── Points tab ── */
+    .points-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .points-card {
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      text-align: center;
+    }
+    .points-val {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .points-lbl {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.3rem;
+    }
+
+    /* Tier badges */
+    .tier-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem;
+    }
+    .tier-card {
+      border-radius: 1rem;
+      padding: 1rem 1.25rem;
+      border: 2px solid transparent;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .tier-card.active-tier { border-color: var(--primary); }
+    .tier-card.active-tier::after {
+      content: '目前等級';
+      position: absolute;
+      top: -0.6rem; right: 0.75rem;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.5rem;
+      border-radius: 2rem;
+    }
+    .tier-card.regular { background: rgba(148,163,184,0.1); }
+    .tier-card.silver  { background: rgba(148,163,184,0.15); }
+    .tier-card.gold    { background: rgba(245,158,11,0.1); }
+    .tier-card.diamond { background: rgba(139,92,246,0.1); }
+    .tier-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .tier-req  { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+    .tier-disc { font-size: 0.82rem; font-weight: 700; margin-top: 0.5rem; color: var(--primary); }
+
+    /* ── Loading overlay ── */
+    .loading-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 1rem;
+      gap: 1rem;
+      color: var(--text-muted);
+    }
+    .spinner-lg {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Welcome toast ── */
+    .toast {
+      position: fixed;
+      top: 4.5rem; right: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--primary);
+      border-radius: 0.875rem;
+      padding: 0.875rem 1.25rem;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .hero-card { gap: 1rem; }
+      .hero-stats { gap: 1rem; }
+      .stat-val { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top nav -->
+  <nav class="topnav">
+    <a href="../index.html" class="nav-brand">✨ AKB Beauty</a>
+    <div class="nav-actions">
+      <a href="../client/index.html" class="nav-btn home">📅 立即預約</a>
+      <button class="nav-btn logout" id="logoutBtn">登出</button>
+    </div>
+  </nav>
+
+  <!-- Welcome toast -->
+  <div class="toast" id="welcomeToast">👋 歡迎加入 AKB Beauty 會員！</div>
+
+  <!-- Main -->
+  <div class="container" id="mainContent">
+    <div class="loading-overlay">
+      <div class="spinner-lg"></div>
+      <span>載入會員資料中…</span>
+    </div>
+  </div>
+
+  <script>
+    // ── Config ────────────────────────────────────────────
+    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3000'
+      : '';
+
+    // ── Auth check ────────────────────────────────────────
+    const token  = localStorage.getItem('akb_member_token');
+    const cached = localStorage.getItem('akb_member');
+    if (!token) {
+      window.location.replace('./login.html');
+    }
+
+    // ── Global state ──────────────────────────────────────
+    let memberData = cached ? JSON.parse(cached) : {};
+    let statsData  = {};
+    let bookings   = [];
+
+    // ── Helpers ───────────────────────────────────────────
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    }
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function fmtDate(str) {
+      if (!str) return '—';
+      return new Date(str).toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' });
+    }
+    function fmtDateTime(str) {
+      if (!str) return '—';
+      return new Date(str).toLocaleString('zh-TW', {
+        year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit'
+      });
+    }
+    function calcPoints(price) { return Math.floor((Number(price) || 0) / 10); }
+
+    // ── Tier data ─────────────────────────────────────────
+    function getTierInfo(tier) {
+      const map = {
+        diamond: { label: '💎 鑽石會員', color: '#a78bfa' },
+        gold:    { label: '🥇 金牌會員', color: '#f59e0b' },
+        silver:  { label: '🥈 銀牌會員', color: '#94a3b8' },
+        regular: { label: '🌱 普通會員', color: '#6ee7b7' },
+      };
+      return map[tier] || map.regular;
+    }
+
+    // ── Fetch all data ────────────────────────────────────
+    async function loadAll() {
+      try {
+        const [profileRes, statsRes, bookingsRes] = await Promise.all([
+          fetch(`${API}/api/member/profile`,  { headers: authHeaders() }),
+          fetch(`${API}/api/member/stats`,    { headers: authHeaders() }),
+          fetch(`${API}/api/member/bookings`, { headers: authHeaders() }),
+        ]);
+
+        if (profileRes.status === 401) {
+          localStorage.removeItem('akb_member_token');
+          localStorage.removeItem('akb_member');
+          window.location.replace('./login.html');
+          return;
+        }
+
+        if (profileRes.ok) {
+          memberData = await profileRes.json();
+          localStorage.setItem('akb_member', JSON.stringify(memberData));
+        }
+        if (statsRes.ok)    statsData = await statsRes.json();
+        if (bookingsRes.ok) bookings  = await bookingsRes.json();
+
+        renderAll();
+      } catch(e) {
+        document.getElementById('mainContent').innerHTML = `
+          <div class="section-card" style="text-align:center; padding:3rem;">
+            <div style="font-size:2rem; margin-bottom:1rem;">⚠️</div>
+            <p style="color:var(--text-muted);">無法連線到伺服器，請重新整理頁面。</p>
+          </div>`;
+      }
+    }
+
+    // ── Render everything ─────────────────────────────────
+    function renderAll() {
+      const m = memberData;
+      const s = statsData;
+      const tier = s.tier || m.tier || 'regular';
+      const tierInfo = getTierInfo(tier);
+      const totalSpent = s.totalSpent || m.totalSpent || 0;
+      const visits     = s.visits     || m.visits     || 0;
+      const points     = s.points     || m.points     || 0;
+
+      // Tier progress calculation
+      const tierThresholds = [
+        { tier: 'regular', next: 'silver',  spent: 500,  v: 3,  label: '銀牌' },
+        { tier: 'silver',  next: 'gold',    spent: 2000, v: 10, label: '金牌' },
+        { tier: 'gold',    next: 'diamond', spent: 5000, v: 20, label: '鑽石' },
+        { tier: 'diamond', next: null,      spent: 5000, v: 20, label: null   },
+      ];
+      const tierIdx = ['regular','silver','gold','diamond'].indexOf(tier);
+      const nextTier = tierThresholds[tierIdx];
+      let progressPct = 100, progressHint = '您已達最高等級！';
+      if (nextTier && nextTier.next) {
+        const spentPct = Math.min(100, (totalSpent / nextTier.spent) * 100);
+        const visitPct = Math.min(100, (visits / nextTier.v) * 100);
+        progressPct = Math.max(spentPct, visitPct);
+        const spentNeed = Math.max(0, nextTier.spent - totalSpent);
+        const visitNeed = Math.max(0, nextTier.v - visits);
+        progressHint = `升級至${nextTier.label}：再消費 NT$${spentNeed} 或再到訪 ${visitNeed} 次`;
+      }
+
+      document.getElementById('mainContent').innerHTML = `
+        <!-- Hero -->
+        <div class="hero-card">
+          <div class="hero-avatar">${escHtml(m.name ? m.name.charAt(0) : '👤')}</div>
+          <div class="hero-info">
+            <div class="hero-name">${escHtml(m.name || '會員')}</div>
+            <div class="hero-tier" style="color:${tierInfo.color}">${tierInfo.label}</div>
+            <div class="hero-meta">📱 ${escHtml(m.phone || '')}　加入時間：${fmtDate(m.createdAt)}</div>
+          </div>
+          <div class="hero-stats">
+            <div class="stat-item">
+              <div class="stat-val">${points}</div>
+              <div class="stat-lbl">積分</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val">${visits}</div>
+              <div class="stat-lbl">到訪次數</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val">NT$${Number(totalSpent).toLocaleString()}</div>
+              <div class="stat-lbl">累計消費</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tier progress -->
+        <div class="tier-progress" style="margin-bottom:1.5rem;">
+          <div class="tier-progress-header">
+            <span>${tierInfo.label}</span>
+            <span style="color:var(--primary)">${Math.round(progressPct)}%</span>
+          </div>
+          <div class="tier-progress-bar">
+            <div class="tier-progress-fill" style="width:${progressPct}%"></div>
+          </div>
+          <div class="tier-hint">${progressHint}</div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="profile">👤 個人資料</button>
+          <button class="tab-btn" data-tab="bookings">📋 預約記錄</button>
+          <button class="tab-btn" data-tab="points">⭐ 積分等級</button>
+          <button class="tab-btn" data-tab="security">🔒 帳號安全</button>
+        </div>
+
+        <!-- Tab: Profile -->
+        <div class="tab-panel active" id="tab-profile">
+          <div class="section-card">
+            <div class="section-title">📝 基本資料</div>
+            <form id="profileForm">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>手機號碼（不可修改）</label>
+                  <input type="tel" value="${escHtml(m.phone || '')}" readonly/>
+                </div>
+                <div class="form-group">
+                  <label>姓名</label>
+                  <input type="text" id="pf-name" value="${escHtml(m.name || '')}" maxlength="50" placeholder="請輸入姓名"/>
+                </div>
+                <div class="form-group">
+                  <label>Email</label>
+                  <input type="email" id="pf-email" value="${escHtml(m.email || '')}" maxlength="100" placeholder="請輸入電子郵件"/>
+                </div>
+                <div class="form-group">
+                  <label>生日</label>
+                  <input type="date" id="pf-birthday" value="${escHtml(m.birthday || '')}"/>
+                </div>
+                <div class="form-group">
+                  <label>性別</label>
+                  <select id="pf-gender">
+                    <option value="">請選擇</option>
+                    <option value="female" ${m.gender==='female'?'selected':''}>女</option>
+                    <option value="male"   ${m.gender==='male'  ?'selected':''}>男</option>
+                    <option value="other"  ${m.gender==='other' ?'selected':''}>其他</option>
+                  </select>
+                </div>
+              </div>
+              <div class="inline-alert" id="profileAlert"></div>
+              <div class="btn-row">
+                <button type="submit" class="btn btn-primary" id="saveProfileBtn">儲存變更</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab: Bookings -->
+        <div class="tab-panel" id="tab-bookings">
+          <div class="section-card">
+            <div class="section-title">📋 我的預約記錄</div>
+            <div id="bookingList">${renderBookings()}</div>
+          </div>
+        </div>
+
+        <!-- Tab: Points -->
+        <div class="tab-panel" id="tab-points">
+          <div class="section-card">
+            <div class="section-title">⭐ 積分概況</div>
+            <div class="points-grid">
+              <div class="points-card">
+                <div class="points-val">${points}</div>
+                <div class="points-lbl">目前積分</div>
+              </div>
+              <div class="points-card">
+                <div class="points-val">${visits}</div>
+                <div class="points-lbl">到訪次數</div>
+              </div>
+              <div class="points-card">
+                <div class="points-val">NT$${Number(totalSpent).toLocaleString()}</div>
+                <div class="points-lbl">累計消費</div>
+              </div>
+            </div>
+            <div class="tier-hint" style="margin-bottom:1.25rem; padding:0.75rem 1rem; background:color-mix(in srgb, var(--primary) 8%, transparent); border-radius:0.5rem; border:1px solid color-mix(in srgb, var(--primary) 20%, transparent);">
+              💡 每消費 NT$10 = 1 積分，積分可於店內折抵消費。
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-title">🏆 會員等級說明</div>
+            <div class="tier-cards">
+              <div class="tier-card regular ${tier==='regular'?'active-tier':''}">
+                <div class="tier-name">🌱 普通會員</div>
+                <div class="tier-req">加入即享<br/>無消費門檻</div>
+                <div class="tier-disc">一般定價</div>
+              </div>
+              <div class="tier-card silver ${tier==='silver'?'active-tier':''}">
+                <div class="tier-name">🥈 銀牌會員</div>
+                <div class="tier-req">累計消費 NT$500<br/>或到訪 3 次</div>
+                <div class="tier-disc">95 折優惠</div>
+              </div>
+              <div class="tier-card gold ${tier==='gold'?'active-tier':''}">
+                <div class="tier-name">🥇 金牌會員</div>
+                <div class="tier-req">累計消費 NT$2,000<br/>或到訪 10 次</div>
+                <div class="tier-disc">9 折優惠</div>
+              </div>
+              <div class="tier-card diamond ${tier==='diamond'?'active-tier':''}">
+                <div class="tier-name">💎 鑽石會員</div>
+                <div class="tier-req">累計消費 NT$5,000<br/>或到訪 20 次</div>
+                <div class="tier-disc">85 折優惠</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Security -->
+        <div class="tab-panel" id="tab-security">
+          <div class="section-card">
+            <div class="section-title">🔒 修改密碼</div>
+            <form id="pwForm" style="max-width:400px;">
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label>目前密碼</label>
+                <div class="pw-group">
+                  <input type="password" id="pw-current" placeholder="請輸入目前密碼" maxlength="128"/>
+                  <button type="button" class="pw-toggle" data-target="pw-current">👁</button>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label>新密碼（至少 8 位）</label>
+                <div class="pw-group">
+                  <input type="password" id="pw-new" placeholder="請輸入新密碼" maxlength="128"/>
+                  <button type="button" class="pw-toggle" data-target="pw-new">👁</button>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label>確認新密碼</label>
+                <div class="pw-group">
+                  <input type="password" id="pw-confirm" placeholder="請再次輸入新密碼" maxlength="128"/>
+                  <button type="button" class="pw-toggle" data-target="pw-confirm">👁</button>
+                </div>
+              </div>
+              <div class="inline-alert" id="pwAlert"></div>
+              <div class="btn-row">
+                <button type="submit" class="btn btn-primary" id="savePwBtn">更新密碼</button>
+              </div>
+            </form>
+          </div>
+          <div class="section-card">
+            <div class="section-title" style="color:#f87171;">⚠️ 登出所有裝置</div>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+              登出後需重新登入才能使用會員功能。
+            </p>
+            <button class="btn btn-danger" id="logoutAllBtn">登出所有裝置</button>
+          </div>
+        </div>
+      `;
+
+      bindEvents();
+    }
+
+    // ── Render booking list ───────────────────────────────
+    function renderBookings() {
+      if (!bookings.length) {
+        return `<div class="empty-state">
+          <div class="icon">📭</div>
+          <p>尚無預約記錄</p>
+          <p style="margin-top:0.75rem;"><a href="../client/index.html">立即預約服務 →</a></p>
+        </div>`;
+      }
+      return `<div class="booking-list">${bookings.map(b => {
+        const pts = calcPoints(b.price);
+        const statusMap = {
+          confirmed: ['status-confirmed', '已確認'],
+          pending:   ['status-pending',   '待確認'],
+          cancelled: ['status-cancelled', '已取消'],
+        };
+        const [sc, sl] = statusMap[b.status] || ['status-pending','待確認'];
+        return `<div class="booking-item">
+          <div class="booking-icon">💅</div>
+          <div class="booking-details">
+            <div class="booking-service">${escHtml(b.service || '—')}</div>
+            <div class="booking-meta">
+              <span>📅 ${escHtml(b.date || '—')}</span>
+              <span>🕐 ${escHtml(b.time || '—')}</span>
+              <span>✂️ ${escHtml(b.designer || '—')}</span>
+            </div>
+            <span class="booking-status ${sc}">${sl}</span>
+          </div>
+          <div class="booking-right">
+            <div class="booking-price">NT$${Number(b.price||0).toLocaleString()}</div>
+            ${pts ? `<div class="booking-pts">+${pts} 積分</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    // ── Bind events after render ──────────────────────────
+    function bindEvents() {
+      // Tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tab = btn.dataset.tab;
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById(`tab-${tab}`).classList.add('active');
+        });
+      });
+
+      // Profile form
+      const profileForm = document.getElementById('profileForm');
+      if (profileForm) {
+        profileForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const btn = document.getElementById('saveProfileBtn');
+          const alert = document.getElementById('profileAlert');
+          btn.disabled = true; btn.textContent = '儲存中…';
+          try {
+            const res = await fetch(`${API}/api/member/profile`, {
+              method: 'PATCH',
+              headers: authHeaders(),
+              body: JSON.stringify({
+                name:     document.getElementById('pf-name').value.trim(),
+                email:    document.getElementById('pf-email').value.trim(),
+                birthday: document.getElementById('pf-birthday').value,
+                gender:   document.getElementById('pf-gender').value,
+              })
+            });
+            const data = await res.json();
+            if (res.ok) {
+              memberData = data;
+              localStorage.setItem('akb_member', JSON.stringify(data));
+              showInlineAlert(alert, '✅ 資料已更新', 'ok');
+            } else {
+              showInlineAlert(alert, data.error || '更新失敗', 'err');
+            }
+          } catch { showInlineAlert(alert, '網路錯誤，請重試', 'err'); }
+          btn.disabled = false; btn.textContent = '儲存變更';
+        });
+      }
+
+      // Password form
+      const pwForm = document.getElementById('pwForm');
+      if (pwForm) {
+        pwForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const btn   = document.getElementById('savePwBtn');
+          const alert = document.getElementById('pwAlert');
+          const curr  = document.getElementById('pw-current').value;
+          const nw    = document.getElementById('pw-new').value;
+          const conf  = document.getElementById('pw-confirm').value;
+          if (!curr || !nw || !conf) { showInlineAlert(alert, '請填寫所有密碼欄位', 'err'); return; }
+          if (nw.length < 8) { showInlineAlert(alert, '新密碼至少需要 8 個字元', 'err'); return; }
+          if (nw !== conf)   { showInlineAlert(alert, '兩次密碼輸入不一致', 'err'); return; }
+          btn.disabled = true; btn.textContent = '更新中…';
+          try {
+            const res = await fetch(`${API}/api/member/password`, {
+              method: 'PATCH',
+              headers: authHeaders(),
+              body: JSON.stringify({ currentPassword: curr, newPassword: nw })
+            });
+            const data = await res.json();
+            if (res.ok) {
+              showInlineAlert(alert, '✅ 密碼已更新', 'ok');
+              pwForm.reset();
+            } else {
+              showInlineAlert(alert, data.error || '密碼更新失敗', 'err');
+            }
+          } catch { showInlineAlert(alert, '網路錯誤，請重試', 'err'); }
+          btn.disabled = false; btn.textContent = '更新密碼';
+        });
+      }
+
+      // Password toggles
+      document.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const inp = document.getElementById(btn.dataset.target);
+          inp.type = inp.type === 'password' ? 'text' : 'password';
+          btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+        });
+      });
+
+      // Logout all
+      const logoutAllBtn = document.getElementById('logoutAllBtn');
+      if (logoutAllBtn) {
+        logoutAllBtn.addEventListener('click', () => {
+          if (!confirm('確定要登出所有裝置嗎？')) return;
+          doLogout();
+        });
+      }
+    }
+
+    // ── Inline alert helper ───────────────────────────────
+    function showInlineAlert(el, msg, type) {
+      el.textContent = msg;
+      el.className = `inline-alert ${type} show`;
+      setTimeout(() => { el.classList.remove('show'); }, 4000);
+    }
+
+    // ── Logout ────────────────────────────────────────────
+    function doLogout() {
+      localStorage.removeItem('akb_member_token');
+      localStorage.removeItem('akb_member');
+      window.location.href = './login.html';
+    }
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      if (confirm('確定要登出嗎？')) doLogout();
+    });
+
+    // ── Welcome toast (from register redirect) ────────────
+    if (new URLSearchParams(location.search).get('welcome') === '1') {
+      const toast = document.getElementById('welcomeToast');
+      setTimeout(() => toast.classList.add('show'), 500);
+      setTimeout(() => toast.classList.remove('show'), 4000);
+      // Clean URL
+      history.replaceState({}, '', location.pathname);
+    }
+
+    // ── Boot ──────────────────────────────────────────────
+    loadAll();
+  </script>
+</body>
+</html>
