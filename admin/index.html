@@ -242,7 +242,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
   <div class="flex-1 overflow-auto">
     <!-- Mobile nav -->
     <div class="md:hidden flex border-b border-gray-800 overflow-x-auto bg-gray-900">
-      <button v-for="t in tabs" :key="t.k" :class="['px-4 py-3 text-sm whitespace-nowrap',tab===t.k?'text-gold border-b-2 border-gold':'text-muted']" @click="tab=t.k">{{t.l}}</button>
+      <button v-for="t in tabs" :key="t.k" :class="['px-4 py-3 text-sm whitespace-nowrap',tab===t.k?'text-gold border-b-2 border-gold':'text-muted']" @click="tab=t.k; if(t.k==='members') loadMembers()">{{t.l}}</button>
     </div>
 
     <div class="p-6">
@@ -262,7 +262,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
           </div>
           <div class="stat-card stat-green">
             <div class="text-muted text-xs mb-2">本月營收</div>
-            <div class="text-3xl font-bold text-green-400">${{(stats.revenue/1000).toFixed(1)}}K</div>
+            <div class="text-3xl font-bold text-green-400">HK${{(stats.revenue/1000).toFixed(1)}}K</div>
           </div>
           <div class="stat-card stat-blue">
             <div class="text-muted text-xs mb-2">顧客總數</div>
@@ -306,7 +306,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                   <div class="flex-1">
                     <div class="flex justify-between text-sm mb-1">
                       <span class="font-medium">{{d.name}}</span>
-                      <span class="text-gold">${{d.revenue.toLocaleString()}}</span>
+                      <span class="text-gold">HK${{d.revenue.toLocaleString()}}</span>
                     </div>
                     <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div class="h-full bg-gold rounded-full" :style="{width: (d.revenue/(topDesigners[0].revenue||1)*100)+'%'}"></div>
@@ -401,7 +401,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                 </td>
                 <td>{{b.serviceName}}</td>
                 <td class="text-sm text-muted whitespace-nowrap">{{b.date}}<br/>{{b.time}}</td>
-                <td class="text-gold font-semibold whitespace-nowrap">${{(b.price||0).toLocaleString()}}</td>
+                <td class="text-gold font-semibold whitespace-nowrap">HK${{(b.price||0).toLocaleString()}}</td>
                 <td class="text-xs text-muted max-w-24 truncate" :title="b.note">{{b.note||'—'}}</td>
                 <td><span class="text-xs px-2 py-1 rounded-full whitespace-nowrap" :class="'badge-'+b.status">{{statusText[b.status]}}</span></td>
                 <td>
@@ -480,7 +480,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                 <td class="text-muted">{{c.phone}}</td>
                 <td class="text-gold font-bold">{{c.visits||c.visit_count||0}} 次</td>
                 <td><span v-if="c.pendingCount>0" class="text-yellow-400 text-xs">{{c.pendingCount}} 筆待確認</span><span v-else class="text-muted text-xs">—</span></td>
-                <td class="font-semibold text-green-400">${{(c.totalSpent||c.total_spent||0).toLocaleString()}}</td>
+                <td class="font-semibold text-green-400">HK${{(c.totalSpent||c.total_spent||0).toLocaleString()}}</td>
                 <td class="text-muted text-xs">{{(c.firstVisit||c.first_visit||'').slice(0,10)||'—'}}</td>
                 <td class="text-muted text-xs">{{(c.lastVisit||c.last_visit||'').slice(0,10)||'—'}}</td>
               </tr>
@@ -527,7 +527,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                 <td class="text-muted">{{m.phone}}</td>
                 <td><span :style="{'color': m.tier==='diamond'?'#a78bfa':m.tier==='gold'?'#f59e0b':m.tier==='silver'?'#94a3b8':'#6ee7b7'}">{{memberTierLabel(m.tier)}}</span></td>
                 <td class="text-gold font-bold">{{m.points||0}}</td>
-                <td class="font-semibold text-green-400">${{(m.totalSpent||0).toLocaleString()}}</td>
+                <td class="font-semibold text-green-400">HK${{(m.totalSpent||0).toLocaleString()}}</td>
                 <td>{{m.visits||0}} 次</td>
                 <td>
                   <span v-if="m.status==='banned'" style="color:#f87171;font-size:0.8rem;font-weight:700;">🚫 已停用</span>
@@ -858,7 +858,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                 <td class="font-semibold">{{s.name}}</td>
                 <td><span class="text-xs px-2 py-0.5 rounded-full bg-gray-800">{{s.category}}</span></td>
                 <td class="text-muted">{{s.duration}} 分</td>
-                <td class="text-gold font-bold">${{(s.price||0).toLocaleString()}}</td>
+                <td class="text-gold font-bold">HK${{(s.price||0).toLocaleString()}}</td>
                 <td class="text-xs text-muted max-w-32 truncate" :title="s.description">{{s.description||'—'}}</td>
                 <td>
                   <div class="flex gap-1">
@@ -972,7 +972,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
           </div>
           <div><label class="block text-xs text-muted mb-1">時長（分鐘）</label><input v-model.number="serviceForm.duration" type="number" min="15" step="15" class="w-full"/></div>
         </div>
-        <div><label class="block text-xs text-muted mb-1">定價（NT$）</label><input v-model.number="serviceForm.price" type="number" min="0" class="w-full"/></div>
+        <div><label class="block text-xs text-muted mb-1">定價（HK$）</label><input v-model.number="serviceForm.price" type="number" min="0" class="w-full"/></div>
         <div><label class="block text-xs text-muted mb-1">說明</label><textarea v-model="serviceForm.description" rows="2" class="w-full" placeholder="服務說明..."></textarea></div>
       </div>
       <div class="flex gap-3 mt-6">
@@ -1229,6 +1229,8 @@ createApp({
     onMounted(async () => {
       await initData();
       setupSubscriptions();
+      // Pre-load members in background so the tab is ready when clicked
+      loadMembers();
     });
 
     onUnmounted(() => {

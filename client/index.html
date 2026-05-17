@@ -376,7 +376,7 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
               <div class="flex flex-col items-end gap-1 ml-3">
 
-                <div class="text-gold font-bold">${{s.price.toLocaleString()}}</div>
+                <div class="text-gold font-bold">HK${{s.price.toLocaleString()}}</div>
 
                 <span class="duration-badge">{{s.duration}}分鐘</span>
 
@@ -648,7 +648,7 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
         <div class="flex justify-between py-2 border-b border-gray-800"><span class="text-muted">預計時長</span><span class="text-muted">約 {{bookingForm.duration}} 分鐘</span></div>
 
-        <div class="flex justify-between py-2"><span class="text-muted">費用</span><span class="font-bold text-gold text-base">${{bookingForm.price?.toLocaleString()}}</span></div>
+        <div class="flex justify-between py-2"><span class="text-muted">費用</span><span class="font-bold text-gold text-base">HK${{bookingForm.price?.toLocaleString()}}</span></div>
 
       </div>
 
@@ -788,7 +788,7 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
           <div class="flex justify-between"><span class="text-muted">時間</span><span>{{bookingDone.date}} {{bookingDone.time}}</span></div>
 
-          <div class="flex justify-between"><span class="text-muted">費用</span><span class="font-bold text-gold">${{bookingDone.price.toLocaleString()}}</span></div>
+          <div class="flex justify-between"><span class="text-muted">費用</span><span class="font-bold text-gold">HK${{bookingDone.price.toLocaleString()}}</span></div>
 
           <div class="flex justify-between items-center"><span class="text-muted">狀態</span><span class="badge-status badge-pending">待確認</span></div>
 
@@ -1080,7 +1080,7 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
             <div class="flex justify-between items-center">
 
-              <span class="text-gold font-bold">${{b.price.toLocaleString()}}</span>
+              <span class="text-gold font-bold">HK${{b.price.toLocaleString()}}</span>
 
               <button v-if="b.status==='pending'" class="btn btn-ghost px-3 py-1 text-xs text-red-400 hover:border-red-500 hover:text-red-300" @click="cancelBooking(b.id)">取消預約</button>
 

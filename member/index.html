@@ -602,7 +602,7 @@
         progressPct = Math.max(spentPct, visitPct);
         const spentNeed = Math.max(0, nextTier.spent - totalSpent);
         const visitNeed = Math.max(0, nextTier.v - visits);
-        progressHint = `升級至${nextTier.label}：再消費 NT$${spentNeed} 或再到訪 ${visitNeed} 次`;
+        progressHint = `升級至${nextTier.label}：再消費 HK$${spentNeed} 或再到訪 ${visitNeed} 次`;
       }
 
       document.getElementById('mainContent').innerHTML = `
@@ -624,7 +624,7 @@
               <div class="stat-lbl">到訪次數</div>
             </div>
             <div class="stat-item">
-              <div class="stat-val">NT$${Number(totalSpent).toLocaleString()}</div>
+              <div class="stat-val">HK$${Number(totalSpent).toLocaleString()}</div>
               <div class="stat-lbl">累計消費</div>
             </div>
           </div>
@@ -712,12 +712,12 @@
                 <div class="points-lbl">到訪次數</div>
               </div>
               <div class="points-card">
-                <div class="points-val">NT$${Number(totalSpent).toLocaleString()}</div>
+                <div class="points-val">HK$${Number(totalSpent).toLocaleString()}</div>
                 <div class="points-lbl">累計消費</div>
               </div>
             </div>
             <div class="tier-hint" style="margin-bottom:1.25rem; padding:0.75rem 1rem; background:color-mix(in srgb, var(--primary) 8%, transparent); border-radius:0.5rem; border:1px solid color-mix(in srgb, var(--primary) 20%, transparent);">
-              💡 每消費 NT$10 = 1 積分，積分可於店內折抵消費。
+              💡 每消費 HK$10 = 1 積分，積分可於店內折抵消費。
             </div>
           </div>
           <div class="section-card">
@@ -730,17 +730,17 @@
               </div>
               <div class="tier-card silver ${tier==='silver'?'active-tier':''}">
                 <div class="tier-name">🥈 銀牌會員</div>
-                <div class="tier-req">累計消費 NT$500<br/>或到訪 3 次</div>
+                <div class="tier-req">累計消費 HK$500<br/>或到訪 3 次</div>
                 <div class="tier-disc">95 折優惠</div>
               </div>
               <div class="tier-card gold ${tier==='gold'?'active-tier':''}">
                 <div class="tier-name">🥇 金牌會員</div>
-                <div class="tier-req">累計消費 NT$2,000<br/>或到訪 10 次</div>
+                <div class="tier-req">累計消費 HK$2,000<br/>或到訪 10 次</div>
                 <div class="tier-disc">9 折優惠</div>
               </div>
               <div class="tier-card diamond ${tier==='diamond'?'active-tier':''}">
                 <div class="tier-name">💎 鑽石會員</div>
-                <div class="tier-req">累計消費 NT$5,000<br/>或到訪 20 次</div>
+                <div class="tier-req">累計消費 HK$5,000<br/>或到訪 20 次</div>
                 <div class="tier-disc">85 折優惠</div>
               </div>
             </div>
@@ -821,7 +821,7 @@
             <span class="booking-status ${sc}">${sl}</span>
           </div>
           <div class="booking-right">
-            <div class="booking-price">NT$${Number(b.price||0).toLocaleString()}</div>
+            <div class="booking-price">HK$${Number(b.price||0).toLocaleString()}</div>
             ${pts ? `<div class="booking-pts">+${pts} 積分</div>` : ''}
           </div>
         </div>`;
