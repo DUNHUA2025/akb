@@ -283,7 +283,7 @@
       <div class="form-group">
         <label for="phone">手機號碼 <span class="required">*</span></label>
         <div class="input-wrap">
-          <input type="tel" id="phone" placeholder="09XXXXXXXX"
+          <input type="tel" id="phone" placeholder="例：91234567"
                  autocomplete="username" maxlength="20"/>
         </div>
         <div class="field-err" id="phoneErr">請輸入有效的手機號碼</div>
@@ -401,8 +401,8 @@
     function validatePhone() {
       const v = phoneEl.value.trim();
       if (!v) { setFieldError(phoneEl, phoneErr, '請輸入手機號碼'); return false; }
-      if (!/^09\d{8}$/.test(v.replace(/\s|-/g, ''))) {
-        setFieldError(phoneEl, phoneErr, '請輸入有效的台灣手機號碼（09XXXXXXXX）'); return false;
+      if (!/^[0-9]{8,11}$/.test(v.replace(/\s|-/g, ''))) {
+        setFieldError(phoneEl, phoneErr, '請輸入有效的手機號碼（至少8位數字）'); return false;
       }
       clearFieldError(phoneEl, phoneErr); return true;
     }

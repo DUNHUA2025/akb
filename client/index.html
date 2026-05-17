@@ -668,7 +668,7 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
           <label class="block text-xs text-muted mb-1.5">手機號碼 <span class="text-red-400">*</span></label>
 
-          <input v-model="bookingForm.phone" :class="['',formErrors.phone?'error-field':'']" placeholder="例：91234567 或 09XX-XXX-XXX" @input="formErrors.phone=''"/>
+          <input v-model="bookingForm.phone" :class="['',formErrors.phone?'error-field':'']" placeholder="例：91234567" @input="formErrors.phone=''"/>
 
           <div v-if="formErrors.phone" class="text-red-400 text-xs mt-1">{{formErrors.phone}}</div>
 
@@ -892,7 +892,7 @@ html.light .calendar-cell.selected{color:#042f2e!important;}
 
             <label class="block text-xs text-muted mb-1">手機號碼</label>
 
-            <input v-model="myBookings.phone" placeholder="09XX-XXX-XXX 或 9XXXXXXX" @keyup.enter="verifyPhone()"/>
+            <input v-model="myBookings.phone" placeholder="例：91234567" @keyup.enter="verifyPhone()"/>
 
           </div>
 
@@ -1232,7 +1232,6 @@ function isValidPhone(p) {
   const n = normalizePhone(p);
 
   // 支持香港（8位）或台灣（10位）手機號
-
   return n.length >= 8 && n.length <= 11;
 
 }

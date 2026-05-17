@@ -218,7 +218,7 @@ document.getElementById('regForm').addEventListener('submit', async (e) => {
 
   let hasErr = false;
   if (!phone || !/^[0-9+\-\s]{8,20}$/.test(phone)) {
-    showErr('phoneErr', '請輸入正確的手機號碼（8-20位）');
+    showErr('phoneErr', '請輸入正確的手機號碼（至少8位）');
     document.getElementById('phone').classList.add('err'); hasErr = true;
   } else document.getElementById('phone').classList.remove('err');
 
@@ -287,7 +287,7 @@ document.getElementById('regForm').addEventListener('submit', async (e) => {
 // Real-time field validation
 document.getElementById('phone').addEventListener('blur', function() {
   if (this.value && !/^[0-9+\-\s]{8,20}$/.test(this.value.trim())) {
-    showErr('phoneErr', '手機號格式不正確');
+    showErr('phoneErr', '手機號格式不正確（至少8位）');
   } else clearErr('phoneErr');
 });
 document.getElementById('confirmPassword').addEventListener('input', function() {
