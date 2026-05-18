@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<script>window.AKB_API_URL="https://akb-salon-server.onrender.com";window.AKB_WS_URL="wss://akb-salon-server.onrender.com";</script>
+<script>
+  window.AKB_API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : window.location.origin;
+  window.AKB_WS_URL = window.AKB_API_URL.replace('http', 'ws');
+</script>
 <meta charset="UTF-8"/>
 <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>

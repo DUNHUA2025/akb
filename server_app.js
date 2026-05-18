@@ -1530,7 +1530,7 @@ async function autoEnableRLS() {
 }
 
 // ─── 啟動（先初始化資料庫再監聽）─────────────────────
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 DB.init().then(async () => {
   // 在 Supabase 模式下嘗試自動啟用 RLS
