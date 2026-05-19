@@ -49,6 +49,9 @@ body{background:var(--bg)!important;color:var(--text)!important;transition:backg
 @keyframes spin{to{transform:rotate(360deg);}}
 .fade{animation:fadeUp .3s ease;}
 
+/* CSS var alias */
+:root,[data-theme]{--text-muted:var(--text2);}
+
 /* ── 基礎類別對應 ── */
 .gold,.text-gold{color:var(--primary)!important;}
 .bg-dark{background:var(--bg)!important;}
@@ -544,8 +547,16 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                 </td>
               </tr>
               <tr v-if="filteredMembers.length===0">
-                <td colspan="9" class="text-center text-muted py-8">
-                  <span v-if="members.length===0">尚無會員資料</span>
+                <td colspan="9" class="text-center text-muted py-10">
+                  <div v-if="members.length===0" style="padding:1rem 0;">
+                    <div style="font-size:2.5rem;margin-bottom:0.75rem;">👥</div>
+                    <div style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">尚無會員資料</div>
+                    <div style="font-size:0.82rem;opacity:.65;max-width:320px;margin:0 auto;line-height:1.6;">
+                      目前還沒有會員完成註冊。<br/>
+                      請分享下方連結讓客人加入會員：<br/>
+                      <code style="font-size:0.75rem;word-break:break-all;opacity:.8;">/member/register.html</code>
+                    </div>
+                  </div>
                   <span v-else>找不到符合的會員</span>
                 </td>
               </tr>
@@ -1680,7 +1691,11 @@ createApp({
       );
     });
 
-    const ADMIN_API = window.AKB_API_URL || '';
+    const ADMIN_API = (function(){
+      const h = location.hostname;
+      if (h === 'localhost' || h === '127.0.0.1') return 'http://' + h + ':3001';
+      return window.AKB_API_URL || 'https://akb-salon-server.onrender.com';
+    })();
 
     async function loadMembers() {
       if (membersLoading.value) return;

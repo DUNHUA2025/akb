@@ -18,6 +18,10 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Map --text-muted to themes.css --text2 */
+    :root, [data-theme] { --text-muted: var(--text2); }
+    .light { --text-muted: var(--text3); }
+
     body {
       font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
       background: var(--bg);
@@ -283,7 +287,7 @@
       <div class="form-group">
         <label for="phone">手機號碼 <span class="required">*</span></label>
         <div class="input-wrap">
-          <input type="tel" id="phone" placeholder="例：91234567"
+          <input type="tel" id="phone" placeholder="例：91234567 或 09XXXXXXXX"
                  autocomplete="username" maxlength="20"/>
         </div>
         <div class="field-err" id="phoneErr">請輸入有效的手機號碼</div>
@@ -338,9 +342,11 @@
 
   <script>
     // ── API base ──────────────────────────────────────────
-    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:3000'
-      : '';
+    const API = (function(){
+      const h = location.hostname;
+      if (h === 'localhost' || h === '127.0.0.1') return 'http://' + h + ':3000';
+      return window.AKB_API_URL || 'https://akb-salon-server.onrender.com';
+    })();
 
     // ── Redirect if already logged in ────────────────────
     (function checkSession() {
@@ -401,8 +407,10 @@
     function validatePhone() {
       const v = phoneEl.value.trim();
       if (!v) { setFieldError(phoneEl, phoneErr, '請輸入手機號碼'); return false; }
-      if (!/^[0-9]{8,11}$/.test(v.replace(/\s|-/g, ''))) {
-        setFieldError(phoneEl, phoneErr, '請輸入有效的手機號碼（至少8位數字）'); return false;
+      // 支援香港（8位）、台灣（10位）及其他格式（7-20位數字）
+      const digits = v.replace(/[\s\-\+]/g, '');
+      if (!/^[0-9]{7,20}$/.test(digits)) {
+        setFieldError(phoneEl, phoneErr, '請輸入有效手機號碼（7-20位數字）'); return false;
       }
       clearFieldError(phoneEl, phoneErr); return true;
     }
@@ -417,82 +425,64 @@
     phoneEl.addEventListener('input', () => resetField(phoneEl, phoneErr));
     passwordEl.addEventListener('input', () => resetField(passwordEl, passwordErr));
 
-    // ── Loading state ─────────────────────────────────────
-    function setLoading(on) {
-      submitBtn.disabled = on;
-      submitBtn.innerHTML = on
-        ? '<span class="spinner"></span>登入中…'
-        : '登入';
-    }
-
-    // ── Forgot password handler ───────────────────────────
-    forgotLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      showAlert('如需重設密碼，請聯繫沙龍工作人員或來電辦理。', 'warn');
-    });
-
-    // ── Main submit ───────────────────────────────────────
+    // ── Form submission ───────────────────────────────────
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       hideAlert();
 
-      const okPhone    = validatePhone();
-      const okPassword = validatePassword();
-      if (!okPhone || !okPassword) return;
+      const isPhoneOk = validatePhone();
+      const isPwOk    = validatePassword();
+      if (!isPhoneOk || !isPwOk) return;
 
-      const phone    = phoneEl.value.trim().replace(/\s|-/g, '');
-      const password = passwordEl.value;
-
-      setLoading(true);
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> 登入中...';
 
       try {
         const res = await fetch(`${API}/api/member/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, password })
+          body: JSON.stringify({
+            phone: phoneEl.value.trim(),
+            password: passwordEl.value
+          })
         });
 
         const data = await res.json();
 
-        if (!res.ok) {
-          // Handle specific errors
-          if (res.status === 403) {
-            showAlert('⛔ 您的帳號已被停用，請聯繫沙龍工作人員。', 'error');
-          } else if (res.status === 429) {
-            showAlert('⚠️ 嘗試次數過多，請稍後再試。', 'warn');
-          } else if (res.status === 401) {
-            showAlert('❌ 手機號碼或密碼錯誤，請重新輸入。', 'error');
-            passwordEl.value = '';
-            resetField(passwordEl, passwordErr);
-            passwordEl.focus();
+        if (res.ok) {
+          showAlert('登入成功！正在跳轉...', 'success');
+          
+          // Save session
+          localStorage.setItem('akb_member_token', data.token);
+          localStorage.setItem('akb_member', JSON.stringify(data.member));
+          
+          // Remember phone
+          if (rememberMe.checked) {
+            localStorage.setItem('akb_remember_phone', phoneEl.value.trim());
           } else {
-            showAlert(data.error || '登入失敗，請稍後再試。', 'error');
+            localStorage.removeItem('akb_remember_phone');
           }
-          setLoading(false);
-          return;
-        }
 
-        // Success — save session
-        localStorage.setItem('akb_member_token', data.token);
-        localStorage.setItem('akb_member', JSON.stringify(data.member));
-
-        // Remember phone if checkbox checked
-        if (rememberMe.checked) {
-          localStorage.setItem('akb_remember_phone', phone);
+          setTimeout(() => {
+            window.location.href = './index.html';
+          }, 1000);
         } else {
-          localStorage.removeItem('akb_remember_phone');
+          showAlert(data.error || '登入失敗，請檢查手機號碼與密碼');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '登入';
         }
-
-        showAlert('✅ 登入成功！正在跳轉…', 'success');
-
-        setTimeout(() => {
-          window.location.href = './index.html';
-        }, 800);
-
       } catch (err) {
-        showAlert('網路連線失敗，請檢查網路後重試。', 'error');
-        setLoading(false);
+        console.error('Login error:', err);
+        showAlert('伺服器連線失敗，請稍後再試');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '登入';
       }
+    });
+
+    // ── Forgot password ───────────────────────────────────
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showAlert('請聯繫門市人員或撥打客服電話重設密碼', 'warn');
     });
   </script>
 </body>

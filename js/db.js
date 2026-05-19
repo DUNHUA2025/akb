@@ -8,14 +8,14 @@
 // 本地開發: 'http://localhost:3001'
 // 生產環境: 換成你的 Railway / Render / VPS 地址
 const API_BASE = (() => {
-  // 若 window.AKB_API_URL 有設定（可在各 HTML 頁面頂部覆蓋），優先使用
   if (typeof window !== 'undefined' && window.AKB_API_URL) return window.AKB_API_URL;
-  // 其次嘗試同域 /api（適合 nginx 反代場景）
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    // GitHub Pages 靜態站：嘗試環境變數配置的後端
-    return window.AKB_API_URL || null;
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:3000';
+    }
+    return window.location.origin;
   }
-  return 'http://localhost:3001';
+  return 'http://localhost:3000';
 })();
 
 const WS_BASE = (() => {
