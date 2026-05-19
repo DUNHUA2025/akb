@@ -18,6 +18,10 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Map --text-muted to themes.css --text2 */
+    :root, [data-theme] { --text-muted: var(--text2); }
+    .light { --text-muted: var(--text3); }
+
     body {
       font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
       background: var(--bg);
@@ -283,7 +287,7 @@
       <div class="form-group">
         <label for="phone">手機號碼 <span class="required">*</span></label>
         <div class="input-wrap">
-          <input type="tel" id="phone" placeholder="09XXXXXXXX"
+          <input type="tel" id="phone" placeholder="例：91234567 或 09XXXXXXXX"
                  autocomplete="username" maxlength="20"/>
         </div>
         <div class="field-err" id="phoneErr">請輸入有效的手機號碼</div>
@@ -338,9 +342,11 @@
 
   <script>
     // ── API base ──────────────────────────────────────────
-    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:3000'
-      : '';
+    const API = (function(){
+      const h = location.hostname;
+      if (h === 'localhost' || h === '127.0.0.1') return 'http://' + h + ':3001';
+      return window.AKB_API_URL || 'https://akb-salon-server.onrender.com';
+    })();
 
     // ── Redirect if already logged in ────────────────────
     (function checkSession() {
@@ -401,8 +407,10 @@
     function validatePhone() {
       const v = phoneEl.value.trim();
       if (!v) { setFieldError(phoneEl, phoneErr, '請輸入手機號碼'); return false; }
-      if (!/^09\d{8}$/.test(v.replace(/\s|-/g, ''))) {
-        setFieldError(phoneEl, phoneErr, '請輸入有效的台灣手機號碼（09XXXXXXXX）'); return false;
+      // 支援香港（8位）、台灣（10位）及其他格式（7-20位數字）
+      const digits = v.replace(/[\s\-\+]/g, '');
+      if (!/^[0-9]{7,20}$/.test(digits)) {
+        setFieldError(phoneEl, phoneErr, '請輸入有效手機號碼（7-20位數字）'); return false;
       }
       clearFieldError(phoneEl, phoneErr); return true;
     }
@@ -440,7 +448,7 @@
       const okPassword = validatePassword();
       if (!okPhone || !okPassword) return;
 
-      const phone    = phoneEl.value.trim().replace(/\s|-/g, '');
+      const phone    = phoneEl.value.trim().replace(/[\s\-\+]/g, '');
       const password = passwordEl.value;
 
       setLoading(true);

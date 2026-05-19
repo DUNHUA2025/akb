@@ -25,6 +25,9 @@
       min-height: 100vh;
     }
 
+    /* Map --text-muted to themes.css --text2 */
+    :root, [data-theme] { --text-muted: var(--text2); }
+
     /* ── Top nav ── */
     .topnav {
       background: var(--surface);
@@ -495,9 +498,11 @@
 
   <script>
     // ── Config ────────────────────────────────────────────
-    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:3000'
-      : '';
+    const API = (function(){
+      const h = location.hostname;
+      if (h === 'localhost' || h === '127.0.0.1') return 'http://' + h + ':3001';
+      return window.AKB_API_URL || 'https://akb-salon-server.onrender.com';
+    })();
 
     // ── Auth check ────────────────────────────────────────
     const token  = localStorage.getItem('akb_member_token');
@@ -812,11 +817,11 @@
         return `<div class="booking-item">
           <div class="booking-icon">💅</div>
           <div class="booking-details">
-            <div class="booking-service">${escHtml(b.service || '—')}</div>
+            <div class="booking-service">${escHtml(b.serviceName || b.service || '—')}</div>
             <div class="booking-meta">
               <span>📅 ${escHtml(b.date || '—')}</span>
               <span>🕐 ${escHtml(b.time || '—')}</span>
-              <span>✂️ ${escHtml(b.designer || '—')}</span>
+              <span>✂️ ${escHtml(b.designerName || b.designer || '—')}</span>
             </div>
             <span class="booking-status ${sc}">${sl}</span>
           </div>
