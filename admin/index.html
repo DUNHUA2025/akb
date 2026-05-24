@@ -417,6 +417,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                     <button v-if="b.status==='pending'"   class="btn btn-gold text-xs px-2 py-1"    @click="updateStatus(b.id,'confirmed')">確認</button>
                     <button v-if="b.status==='confirmed'" class="btn btn-primary text-xs px-2 py-1" @click="updateStatus(b.id,'done')">完成</button>
                     <button v-if="b.status==='pending'||b.status==='confirmed'" class="btn btn-danger text-xs px-2 py-1" @click="updateStatus(b.id,'cancelled')">取消</button>
+                    <button class="btn text-xs px-2 py-1" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);color:#a5b4fc;" @click="openBookingEdit(b)">✏️ 編輯</button>
                   </div>
                 </td>
               </tr>
@@ -513,26 +514,49 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
         <!-- Loading -->
         <div v-if="membersLoading" class="text-center text-muted py-12">載入會員資料中…</div>
 
+        <!-- Member Stats Quick Bar -->
+        <div v-if="!membersLoading && members.length > 0" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold" style="color:var(--jade2);">{{members.length}}</div>
+            <div class="text-xs text-muted mt-0.5">總會員數</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold" style="color:var(--amber);">{{members.filter(m=>m.status!=='banned').length}}</div>
+            <div class="text-xs text-muted mt-0.5">正常帳號</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold" style="color:var(--rose);">{{members.filter(m=>m.status==='banned').length}}</div>
+            <div class="text-xs text-muted mt-0.5">已停用</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold" style="color:#a78bfa;">{{members.filter(m=>m.tier==='gold'||m.tier==='diamond').length}}</div>
+            <div class="text-xs text-muted mt-0.5">金牌/鑽石</div>
+          </div>
+        </div>
+
         <!-- Table -->
-        <div v-else class="card overflow-x-auto">
+        <div v-if="!membersLoading" class="card overflow-x-auto">
           <table>
             <thead>
               <tr>
                 <th>姓名</th>
                 <th>手機</th>
+                <th>Email</th>
                 <th>等級</th>
                 <th>積分</th>
                 <th>累計消費</th>
                 <th>到訪</th>
                 <th>狀態</th>
                 <th>加入日期</th>
+                <th>最後登入</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="m in filteredMembers" :key="m.phone">
                 <td class="font-semibold">{{m.name||'—'}}</td>
-                <td class="text-muted">{{m.phone}}</td>
+                <td class="text-muted text-xs">{{m.phone}}</td>
+                <td class="text-muted text-xs">{{m.email||'—'}}</td>
                 <td><span :style="{'color': m.tier==='diamond'?'#a78bfa':m.tier==='gold'?'#f59e0b':m.tier==='silver'?'#94a3b8':'#6ee7b7'}">{{memberTierLabel(m.tier)}}</span></td>
                 <td class="text-gold font-bold">{{m.points||0}}</td>
                 <td class="font-semibold text-green-400">HK${{(m.totalSpent||0).toLocaleString()}}</td>
@@ -542,12 +566,13 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                   <span v-else style="color:#34d399;font-size:0.8rem;font-weight:700;">✅ 正常</span>
                 </td>
                 <td class="text-muted text-xs">{{(m.createdAt||'').slice(0,10)||'—'}}</td>
+                <td class="text-muted text-xs">{{m.lastLoginAt?(new Date(m.lastLoginAt).toLocaleString('zh-HK',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})):'—'}}</td>
                 <td>
                   <button @click="openMemberEdit(m)" class="btn text-xs" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);color:#a5b4fc;padding:4px 10px;">✏️ 編輯</button>
                 </td>
               </tr>
               <tr v-if="filteredMembers.length===0">
-                <td colspan="9" class="text-center text-muted py-10">
+                <td colspan="11" class="text-center text-muted py-10">
                   <div v-if="members.length===0" style="padding:1rem 0;">
                     <div style="font-size:2.5rem;margin-bottom:0.75rem;">👥</div>
                     <div style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">尚無會員資料</div>
@@ -566,16 +591,33 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
 
         <!-- Edit Modal -->
         <div v-if="memberEditModal" class="modal-bg" @click.self="memberEditModal=false" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;">
-          <div class="modal-box" style="width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);border-radius:1.25rem;padding:1.75rem;">
+          <div class="modal-box" style="width:100%;max-width:480px;background:var(--surface);border:1px solid var(--border);border-radius:1.25rem;padding:1.75rem;max-height:90vh;overflow-y:auto;">
             <div class="flex justify-between items-center mb-5">
               <h3 class="text-lg font-bold">✏️ 編輯會員 — {{memberEditData.phone}}</h3>
               <button @click="memberEditModal=false" style="background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;">✕</button>
             </div>
-            <div class="space-y-4">
+
+            <!-- Read-only info row -->
+            <div class="grid grid-cols-2 gap-3 mb-4 p-3 rounded-xl" style="background:rgba(255,255,255,.04);border:1px solid var(--border);">
               <div>
-                <label class="block text-xs text-muted mb-1.5">姓名（僅顯示）</label>
-                <input :value="memberEditData.name" readonly style="width:100%;padding:8px 12px;background:color-mix(in srgb,var(--surface) 60%,var(--bg));border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:0.95rem;opacity:.7;"/>
+                <div class="text-xs text-muted mb-0.5">姓名</div>
+                <div class="font-semibold text-sm">{{memberEditData.name||'—'}}</div>
               </div>
+              <div>
+                <div class="text-xs text-muted mb-0.5">Email</div>
+                <div class="text-sm" style="word-break:break-all;">{{memberEditData.email||'—'}}</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted mb-0.5">生日</div>
+                <div class="text-sm">{{memberEditData.birthday||'—'}}</div>
+              </div>
+              <div>
+                <div class="text-xs text-muted mb-0.5">最後登入</div>
+                <div class="text-sm text-muted">{{memberEditData.lastLoginAt?(new Date(memberEditData.lastLoginAt).toLocaleString('zh-HK')):'—'}}</div>
+              </div>
+            </div>
+
+            <div class="space-y-4">
               <div>
                 <label class="block text-xs text-muted mb-1.5">帳號狀態</label>
                 <select v-model="memberEditData.status" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.95rem;outline:none;">
@@ -597,6 +639,17 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
                 </select>
               </div>
             </div>
+
+            <!-- Reset Password Section -->
+            <div class="mt-4 p-3 rounded-xl" style="background:rgba(251,113,133,.06);border:1px solid rgba(251,113,133,.2);">
+              <div class="text-xs font-semibold mb-2" style="color:var(--rose);">🔑 重設會員密碼</div>
+              <div class="flex gap-2">
+                <input v-model="memberResetPwd" type="password" placeholder="輸入新密碼（至少6位）" style="flex:1;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.87rem;outline:none;"/>
+                <button @click="resetMemberPassword()" :disabled="memberResetLoading" class="btn btn-danger text-xs px-3 py-1.5" style="white-space:nowrap;">{{memberResetLoading?'重設中…':'確認重設'}}</button>
+              </div>
+              <div v-if="memberResetMsg" class="text-xs mt-1.5" :style="memberResetMsg.startsWith('✅')?'color:#34d399':'color:#f87171'">{{memberResetMsg}}</div>
+            </div>
+
             <div v-if="memberEditMsg" :style="{marginTop:'0.75rem',padding:'0.5rem 0.75rem',borderRadius:'6px',fontSize:'0.85rem',background:memberEditMsg.startsWith('✅')?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)',border:memberEditMsg.startsWith('✅')?'1px solid #34d399':'1px solid #f87171',color:memberEditMsg.startsWith('✅')?'#34d399':'#f87171'}">{{memberEditMsg}}</div>
             <div class="flex gap-2 mt-5 justify-end">
               <button @click="memberEditModal=false" class="btn" style="background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:8px 18px;">取消</button>
@@ -893,6 +946,88 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
     </div>
   </div>
 
+  <!-- Booking Edit Modal -->
+  <div v-if="bookingEditModal" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="bookingEditModal=false">
+    <div class="card p-7 w-full max-w-lg fade" style="max-height:90vh;overflow-y:auto;">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-xl font-bold serif">✏️ 編輯預約</h3>
+        <button class="btn btn-ghost px-3 py-2" @click="bookingEditModal=false">✕</button>
+      </div>
+      <div class="space-y-4">
+        <!-- Customer info (read-only display) -->
+        <div class="grid grid-cols-2 gap-3 p-3 rounded-xl" style="background:rgba(255,255,255,.04);border:1px solid var(--border);">
+          <div>
+            <div class="text-xs text-muted mb-0.5">顧客姓名</div>
+            <input v-model="bookingEditData.customerName" style="width:100%;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.9rem;outline:none;"/>
+          </div>
+          <div>
+            <div class="text-xs text-muted mb-0.5">顧客電話</div>
+            <input v-model="bookingEditData.customerPhone" style="width:100%;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.9rem;outline:none;"/>
+          </div>
+        </div>
+
+        <!-- Designer & Service -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-muted mb-1.5">設計師名稱</label>
+            <select v-model="bookingEditData.designerName" style="width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;outline:none;">
+              <option v-for="d in designers.filter(x=>x.status!=='resigned')" :key="d.id" :value="d.name">{{d.name}}</option>
+              <option value="">— 待分配 —</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1.5">服務項目</label>
+            <select v-model="bookingEditData.serviceName" @change="onBookingServiceChange" style="width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;outline:none;">
+              <option v-for="s in services" :key="s.id" :value="s.name">{{s.name}} (HK${{s.price}})</option>
+              <option value="">— 自定義 —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Date & Time & Price -->
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-muted mb-1.5">日期</label>
+            <input type="date" v-model="bookingEditData.date" style="width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;outline:none;"/>
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1.5">時間</label>
+            <input type="time" v-model="bookingEditData.time" style="width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;outline:none;"/>
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1.5">金額 (HK$)</label>
+            <input type="number" v-model.number="bookingEditData.price" min="0" style="width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;outline:none;"/>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div>
+          <label class="block text-xs text-muted mb-1.5">預約狀態</label>
+          <select v-model="bookingEditData.status" style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.95rem;outline:none;">
+            <option value="pending">⏳ 待確認</option>
+            <option value="confirmed">✅ 已確認</option>
+            <option value="done">🏁 已完成</option>
+            <option value="cancelled">❌ 已取消</option>
+          </select>
+        </div>
+
+        <!-- Note -->
+        <div>
+          <label class="block text-xs text-muted mb-1.5">備註</label>
+          <textarea v-model="bookingEditData.note" rows="2" placeholder="顧客備註..." style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;outline:none;resize:vertical;"></textarea>
+        </div>
+      </div>
+
+      <div v-if="bookingEditMsg" :style="{marginTop:'0.75rem',padding:'0.5rem 0.75rem',borderRadius:'6px',fontSize:'0.85rem',background:bookingEditMsg.startsWith('✅')?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)',border:bookingEditMsg.startsWith('✅')?'1px solid #34d399':'1px solid #f87171',color:bookingEditMsg.startsWith('✅')?'#34d399':'#f87171'}">{{bookingEditMsg}}</div>
+      <div class="flex gap-3 mt-6">
+        <button class="btn btn-ghost flex-1" @click="bookingEditModal=false">取消</button>
+        <button class="btn btn-gold flex-1" @click="saveBookingEdit()" :disabled="bookingEditSaving">
+          {{bookingEditSaving?'儲存中…':'💾 儲存變更'}}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Data Security Confirmation Modal -->
   <div v-if="showDataModal" class="fixed inset-0 bg-black/70 backdrop-blur z-50 flex items-center justify-center p-5" @click.self="closeDataModal()">
     <div class="card p-7 w-full max-w-md fade">
@@ -921,6 +1056,9 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
           </div>
           <div class="flex items-center justify-between p-3 rounded-xl" style="background:var(--surface2);">
             <span class="text-sm">服務項目</span><strong>{{services.length}} 項</strong>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl" style="background:var(--surface2);">
+            <span class="text-sm">會員資料</span><strong>{{members.length}} 位</strong>
           </div>
         </div>
         <div class="flex gap-3 mt-6">
@@ -1072,9 +1210,18 @@ createApp({
     const membersLoading  = ref(false);
     const membersSearch   = ref('');
     const memberEditModal = ref(false);
-    const memberEditData  = reactive({ phone:'', name:'', status:'active', points:0, tier:'', note:'' });
+    const memberEditData  = reactive({ phone:'', name:'', email:'', birthday:'', lastLoginAt:null, status:'active', points:0, tier:'', note:'' });
     const memberEditSaving = ref(false);
     const memberEditMsg    = ref('');
+    const memberResetPwd   = ref('');
+    const memberResetLoading = ref(false);
+    const memberResetMsg   = ref('');
+
+    // Booking edit modal
+    const bookingEditModal  = ref(false);
+    const bookingEditData   = reactive({ id:'', customerName:'', customerPhone:'', designerName:'', serviceName:'', date:'', time:'', price:0, note:'', status:'pending' });
+    const bookingEditSaving = ref(false);
+    const bookingEditMsg    = ref('');
     const search    = ref('');
     const bookingStatusFilter = ref('all');
     const bookingRandomFilter = ref('all');
@@ -1268,6 +1415,65 @@ createApp({
       if (b) b.status = status;
       showToast(`已更新為「${statusText[status]}」`);
       try { await DB.updateBookingStatus(id, status); } catch(e) { console.warn('updateStatus:', e); }
+    }
+
+    function openBookingEdit(b) {
+      Object.assign(bookingEditData, {
+        id:            b.id,
+        customerName:  b.customerName  || '',
+        customerPhone: b.customerPhone || '',
+        designerName:  b.designerName  || '',
+        serviceName:   b.serviceName   || '',
+        date:          b.date          || '',
+        time:          b.time          || '',
+        price:         b.price         || 0,
+        note:          b.note          || '',
+        status:        b.status        || 'pending',
+      });
+      bookingEditMsg.value   = '';
+      bookingEditModal.value = true;
+    }
+
+    function onBookingServiceChange() {
+      const svc = services.value.find(s => s.name === bookingEditData.serviceName);
+      if (svc) bookingEditData.price = svc.price || 0;
+    }
+
+    async function saveBookingEdit() {
+      bookingEditSaving.value = true;
+      bookingEditMsg.value    = '';
+      try {
+        const res = await fetch(`${ADMIN_API}/api/bookings/${bookingEditData.id}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            customerName:  bookingEditData.customerName,
+            customerPhone: bookingEditData.customerPhone,
+            designerName:  bookingEditData.designerName,
+            serviceName:   bookingEditData.serviceName,
+            date:          bookingEditData.date,
+            time:          bookingEditData.time,
+            price:         Number(bookingEditData.price) || 0,
+            note:          bookingEditData.note,
+            status:        bookingEditData.status,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // Update local list
+          const idx = bookings.value.findIndex(b => b.id === bookingEditData.id);
+          if (idx > -1) bookings.value[idx] = { ...bookings.value[idx], ...data };
+          calcStats();
+          bookingEditMsg.value = '✅ 預約已更新';
+          setTimeout(() => { bookingEditModal.value = false; }, 700);
+        } else {
+          bookingEditMsg.value = '❌ ' + (data.error || '更新失敗');
+        }
+      } catch(e) {
+        bookingEditMsg.value = '❌ 網路錯誤：' + e.message;
+      } finally {
+        bookingEditSaving.value = false;
+      }
     }
 
     async function refreshCustomers(toast = true) {
@@ -1511,7 +1717,18 @@ createApp({
     }
 
     function doExport() {
-      const data = { exportedAt: new Date().toISOString(), bookings: bookings.value, designers: designers.value, services: services.value };
+      // 匯出含會員資料（密碼雜湊已移除以保護安全）
+      const safeMembers = members.value.map(m => {
+        const { passwordHash, ...rest } = m;
+        return rest;
+      });
+      const data = {
+        exportedAt: new Date().toISOString(),
+        bookings:   bookings.value,
+        designers:  designers.value,
+        services:   services.value,
+        members:    safeMembers,
+      };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1519,7 +1736,7 @@ createApp({
       a.click();
       URL.revokeObjectURL(a.href);
       secLog.value.unshift({ time: new Date().toLocaleString('zh-TW'), action:'匯出備份', type:'export', count: bookings.value.length, user: session.name||'管理員' });
-      showToast('✅ 備份已匯出');
+      showToast('✅ 備份已匯出（含會員資料）');
       closeDataModal();
     }
 
@@ -1656,7 +1873,7 @@ createApp({
       const s = services.value;
       if (!d.length || !s.length) return [];
       const names  = ['陳小明','林美玲','張大偉','王小芳','李志豪','劉佩瑩','吳俊宏','黃雅婷','蔡宗翰','許淑芬'];
-      const phones = ['0911-111-001','0922-222-002','0933-333-003','0944-444-004','0955-555-005','0966-666-006','0977-777-007','0988-888-008','0999-999-009','0912-345-678'];
+      const phones = ['91110001','92220002','93330003','94440004','95550005','96660006','97770007','98880008','99990009','61234567'];
       const statuses = ['pending','pending','confirmed','confirmed','confirmed','done','done','done','cancelled','pending'];
       const offsets  = [-2,-1,0,0,1,1,2,3,-3,-1];
       return names.map((name, i) => {
@@ -1709,14 +1926,19 @@ createApp({
 
     function openMemberEdit(m) {
       Object.assign(memberEditData, {
-        phone:  m.phone,
-        name:   m.name   || '',
-        status: m.status || 'active',
-        points: m.points || 0,
-        tier:   m.tier   || 'regular',
-        note:   m.note   || '',
+        phone:       m.phone,
+        name:        m.name        || '',
+        email:       m.email       || '',
+        birthday:    m.birthday    || '',
+        lastLoginAt: m.lastLoginAt || null,
+        status:      m.status      || 'active',
+        points:      m.points      || 0,
+        tier:        m.tier        || 'regular',
+        note:        m.note        || '',
       });
-      memberEditMsg.value = '';
+      memberEditMsg.value   = '';
+      memberResetPwd.value  = '';
+      memberResetMsg.value  = '';
       memberEditModal.value = true;
     }
 
@@ -1748,6 +1970,32 @@ createApp({
       finally { memberEditSaving.value = false; }
     }
 
+    async function resetMemberPassword() {
+      memberResetMsg.value = '';
+      const pwd = memberResetPwd.value.trim();
+      if (!pwd || pwd.length < 6) { memberResetMsg.value = '❌ 密碼至少 6 位'; return; }
+      memberResetLoading.value = true;
+      try {
+        const phone = encodeURIComponent(memberEditData.phone);
+        const res = await fetch(`${ADMIN_API}/api/admin/members/${phone}/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newPassword: pwd }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          memberResetMsg.value = '✅ 密碼已重設成功';
+          memberResetPwd.value = '';
+        } else {
+          memberResetMsg.value = '❌ ' + (data.error || '重設失敗');
+        }
+      } catch(e) {
+        memberResetMsg.value = '❌ 網路錯誤';
+      } finally {
+        memberResetLoading.value = false;
+      }
+    }
+
     function memberTierLabel(tier) {
       return { diamond:'💎 鑽石', gold:'🥇 金牌', silver:'🥈 銀牌', regular:'🌱 普通' }[tier] || '🌱 普通';
     }
@@ -1769,7 +2017,11 @@ createApp({
       // Members
       members, membersLoading, membersSearch, filteredMembers,
       memberEditModal, memberEditData, memberEditSaving, memberEditMsg,
-      loadMembers, openMemberEdit, saveMemberEdit, memberTierLabel,
+      memberResetPwd, memberResetLoading, memberResetMsg,
+      loadMembers, openMemberEdit, saveMemberEdit, resetMemberPassword, memberTierLabel,
+      // Booking edit
+      bookingEditModal, bookingEditData, bookingEditSaving, bookingEditMsg,
+      openBookingEdit, saveBookingEdit, onBookingServiceChange,
     };
   }
 }).mount('#app');
