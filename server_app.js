@@ -853,6 +853,30 @@ app.delete('/api/bookings/:id', async (req, res) => {
   res.json(deleted);
 });
 
+// ── 批量刪除預約（數據安全清除功能）──────────────────────────
+// DELETE /api/bookings  body: { ids: [...] } 或 { status: 'cancelled' } 清除特定狀態
+app.delete('/api/bookings', async (req, res) => {
+  const { ids, status } = req.body || {};
+  let toDelete = [];
+  if (Array.isArray(ids) && ids.length) {
+    toDelete = bookings.filter(b => ids.includes(b.id));
+  } else if (status) {
+    toDelete = bookings.filter(b => b.status === status);
+  } else {
+    // 清除全部
+    toDelete = [...bookings];
+  }
+  const deletedIds = toDelete.map(b => b.id);
+  bookings = bookings.filter(b => !deletedIds.includes(b.id));
+  await DB.saveBookings();
+  // Supabase 逐筆刪除
+  for (const id of deletedIds) {
+    await DB.deleteBooking(id);
+    broadcast('DELETE_BOOKING', { id });
+  }
+  res.json({ deleted: deletedIds.length, ids: deletedIds });
+});
+
 // ─── 設計師 ───────────────────────────────────────────
 app.get('/api/designers', (req, res) => {
   const { available, status } = req.query;
@@ -1549,7 +1573,7 @@ async function autoEnableRLS() {
 }
 
 // ─── 啟動（先初始化資料庫再監聽）─────────────────────
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 DB.init().then(async () => {
   // 在 Supabase 模式下嘗試自動啟用 RLS

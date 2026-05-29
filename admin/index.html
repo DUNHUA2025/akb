@@ -2,10 +2,14 @@
 <html lang="zh-TW">
 <head>
 <script>
-  window.AKB_API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000'
-    : window.location.origin;
-  window.AKB_WS_URL = window.AKB_API_URL.replace('http', 'ws');
+  (function(){
+    var h = window.location.hostname;
+    var api = (h === 'localhost' || h === '127.0.0.1')
+      ? 'http://' + h + ':3001'
+      : 'https://akb-salon-server.onrender.com';
+    window.AKB_API_URL = api;
+    window.AKB_WS_URL  = api.replace(/^http/, 'ws');
+  })();
 </script>
 <meta charset="UTF-8"/>
 <link rel="icon" href="../favicon.ico" type="image/x-icon"/>
@@ -236,7 +240,7 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
       <div :class="['sidebar-item',tab==='designers'?'active':'']" @click="tab='designers'">👥 設計師管理</div>
       <div :class="['sidebar-item',tab==='customers'?'active':'']" @click="tab='customers'">👤 顧客資料</div>
       <div :class="['sidebar-item',tab==='services'?'active':'']" @click="tab='services'">⭐ 服務項目</div>
-      <div :class="['sidebar-item',tab==='hours'?'active':'']" @click="tab='hours'">🕐 營業時間</div>
+      <div :class="['sidebar-item',tab==='hours'?'active':'']" @click="tab='hours'">🕐 預約時間</div>
       <div :class="['sidebar-item',tab==='members'?'active':'']" @click="tab='members'; loadMembers()">👥 會員管理</div>
       <div :class="['sidebar-item',tab==='datasec'?'active':'']" @click="tab='datasec'" style="color:var(--rose)!important">🛡️ 數據安全</div>
     </nav>
@@ -781,11 +785,11 @@ table tr:hover td{background:rgba(128,180,220,.04)!important;}
       </div>
 
       <!-- Services -->
-      <!-- ── 營業時間 ──────────────────────────────────────── -->
+      <!-- ── 預約時間 ──────────────────────────────────────── -->
       <div v-else-if="tab==='hours'" class="fade">
         <div class="flex items-center justify-between mb-5">
           <div>
-            <h2 class="text-2xl font-bold serif">營業時間設定</h2>
+            <h2 class="text-2xl font-bold serif">預約時間設定</h2>
             <p class="text-muted text-sm mt-1">設定每週各天的開放預約時段</p>
           </div>
           <button class="btn btn-gold" @click="saveHours" :disabled="hoursSaving">
@@ -1198,7 +1202,7 @@ const monthPfx = todayStr.slice(0, 7);
 createApp({
   setup() {
     const tab     = ref('dashboard');
-    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'members',l:'👥會員'},{k:'services',l:'服務'},{k:'hours',l:'🕐時間'},{k:'datasec',l:'🛡️安全'}];
+    const tabs    = [{k:'dashboard',l:'總覽'},{k:'bookings',l:'預約'},{k:'designers',l:'設計師'},{k:'customers',l:'顧客'},{k:'members',l:'👥會員'},{k:'services',l:'服務'},{k:'hours',l:'🕐預約時間'},{k:'datasec',l:'🛡️安全'}];
     const loading = ref(true);
 
     const bookings  = ref([]);
@@ -1766,8 +1770,16 @@ createApp({
       try {
         if (dataOp.value === 'clear-all') {
           const count = bookings.value.length;
-          // Delete all via DB.deleteBooking
-          await Promise.all(bookings.value.map(b => DB.deleteBooking(b.id)));
+          // 使用批量刪除 endpoint（一次請求，原子操作，不受數量限制）
+          const res = await fetch(`${ADMIN_API}/api/bookings`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}), // 空 body = 清除全部
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `伺服器錯誤 ${res.status}`);
+          }
           bookings.value = [];
           calcStats();
           secLog.value.unshift({ time: new Date().toLocaleString('zh-TW'), action:'清除全部預約', type:'clear', count, user: session.name||'管理員' });
@@ -1775,7 +1787,16 @@ createApp({
         } else if (dataOp.value === 'clear-cancelled') {
           const toDelete = bookings.value.filter(b => b.status === 'cancelled');
           const count = toDelete.length;
-          await Promise.all(toDelete.map(b => DB.deleteBooking(b.id)));
+          // 批量刪除已取消預約
+          const res = await fetch(`${ADMIN_API}/api/bookings`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'cancelled' }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `伺服器錯誤 ${res.status}`);
+          }
           bookings.value = bookings.value.filter(b => b.status !== 'cancelled');
           calcStats();
           secLog.value.unshift({ time: new Date().toLocaleString('zh-TW'), action:'清除已取消預約', type:'clear', count, user: session.name||'管理員' });
@@ -1910,7 +1931,7 @@ createApp({
 
     const ADMIN_API = (function(){
       const h = location.hostname;
-      if (h === 'localhost' || h === '127.0.0.1') return 'http://' + h + ':3000';
+      if (h === 'localhost' || h === '127.0.0.1') return 'http://' + h + ':3001';
       return window.AKB_API_URL || 'https://akb-salon-server.onrender.com';
     })();
 
