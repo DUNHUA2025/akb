@@ -800,13 +800,15 @@ app.post('/api/bookings', async (req, res) => {
     return res.status(400).json({ error: '輸入資料過長' });
   }
   // 🔒 明確白名單欄位，防止任意屬性注入
+  // 注意：designerId 可能是數字或 'random'（前端已在提交前轉換為真實 ID，此處保留向後兼容）
+  const parsedDesignerId = designerId === 'random' ? null : (Number(designerId) || null);
   const booking = {
     id: 'BK' + Date.now().toString().slice(-6),
     customerName: String(customerName).trim().slice(0, 100),
     customerPhone: String(customerPhone).trim().slice(0, 30),
     date: String(date).slice(0, 10),
     time: String(time).slice(0, 5),
-    designerId: Number(designerId) || null,
+    designerId: parsedDesignerId,
     designerName: String(designerName || '').trim().slice(0, 100),
     serviceName: String(serviceName).trim().slice(0, 100),
     serviceId: Number(serviceId) || null,
@@ -849,6 +851,30 @@ app.delete('/api/bookings/:id', async (req, res) => {
   await DB.deleteBooking(req.params.id);
   broadcast('DELETE_BOOKING', { id: req.params.id });
   res.json(deleted);
+});
+
+// ── 批量刪除預約（數據安全清除功能）──────────────────────────
+// DELETE /api/bookings  body: { ids: [...] } 或 { status: 'cancelled' } 清除特定狀態
+app.delete('/api/bookings', async (req, res) => {
+  const { ids, status } = req.body || {};
+  let toDelete = [];
+  if (Array.isArray(ids) && ids.length) {
+    toDelete = bookings.filter(b => ids.includes(b.id));
+  } else if (status) {
+    toDelete = bookings.filter(b => b.status === status);
+  } else {
+    // 清除全部
+    toDelete = [...bookings];
+  }
+  const deletedIds = toDelete.map(b => b.id);
+  bookings = bookings.filter(b => !deletedIds.includes(b.id));
+  await DB.saveBookings();
+  // Supabase 逐筆刪除
+  for (const id of deletedIds) {
+    await DB.deleteBooking(id);
+    broadcast('DELETE_BOOKING', { id });
+  }
+  res.json({ deleted: deletedIds.length, ids: deletedIds });
 });
 
 // ─── 設計師 ───────────────────────────────────────────
@@ -1394,7 +1420,8 @@ app.get('/api/member/stats', requireMemberAuth, (req, res) => {
   }
   res.json({
     totalBookings: myBookings.length,
-    completedVisits: visits,
+    completedVisits: visits,  // 向後兼容
+    visits,                   // member/index.html 使用 s.visits
     totalSpent,
     points: member.points,
     pending: myBookings.filter(b => b.status === 'pending').length,
@@ -1430,6 +1457,22 @@ app.get('/api/admin/members', (req, res) => {
     return { ...rest, ...tierInfo };
   }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   res.json(safe);
+});
+
+// ── 管理員：重設會員密碼
+app.post('/api/admin/members/:phone/reset-password', async (req, res) => {
+  const phone = decodeURIComponent(req.params.phone);
+  if (!members[phone]) return res.status(404).json({ error: '會員不存在' });
+  const { newPassword } = req.body;
+  if (!newPassword || String(newPassword).length < 6) {
+    return res.status(400).json({ error: '新密碼至少 6 位' });
+  }
+  if (String(newPassword).length > 200) return res.status(400).json({ error: '密碼過長' });
+  members[phone].passwordHash = await bcrypt.hash(String(newPassword), 10);
+  members[phone].updatedAt = Date.now();
+  await DB.saveMembers();
+  await DB.upsertMember(phone, members[phone]);
+  res.json({ success: true, message: '密碼已重設' });
 });
 
 // ── 管理員：更新會員狀態（啟用/停用）
@@ -1530,7 +1573,7 @@ async function autoEnableRLS() {
 }
 
 // ─── 啟動（先初始化資料庫再監聽）─────────────────────
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 DB.init().then(async () => {
   // 在 Supabase 模式下嘗試自動啟用 RLS

@@ -6,16 +6,18 @@
 
 // ── 後端伺服器地址（部署時修改此處）────────────────────────
 // 本地開發: 'http://localhost:3001'
-// 生產環境: 換成你的 Railway / Render / VPS 地址
+// 生產環境: Render 後端
 const API_BASE = (() => {
   if (typeof window !== 'undefined' && window.AKB_API_URL) return window.AKB_API_URL;
   if (typeof window !== 'undefined') {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:3000';
+    const h = window.location.hostname;
+    if (h === 'localhost' || h === '127.0.0.1') {
+      return 'http://' + h + ':3001';
     }
-    return window.location.origin;
+    // GitHub Pages / Cloudflare Pages → 使用 Render 後端
+    return 'https://akb-salon-server.onrender.com';
   }
-  return 'http://localhost:3000';
+  return 'https://akb-salon-server.onrender.com';
 })();
 
 const WS_BASE = (() => {
@@ -138,8 +140,11 @@ const WS = {
     // 局部更新快取
     if (type === 'NEW_BOOKING') {
       const list = CACHE.get(CACHE.BOOKINGS) || [];
-      list.unshift(data);
-      CACHE.set(CACHE.BOOKINGS, list); CACHE.set(CACHE.BOOKINGS2, list);
+      // 防重複：相同 id 已存在則跳過（WS 可能重連後再推送）
+      if (!list.find(x => String(x.id) === String(data.id))) {
+        list.unshift(data);
+        CACHE.set(CACHE.BOOKINGS, list); CACHE.set(CACHE.BOOKINGS2, list);
+      }
       EventBus.emit('NEW_BOOKING', data);
     } else if (type === 'UPDATE_BOOKING') {
       _patchCacheBooking(data);
@@ -574,23 +579,16 @@ const DB = {
   subscribeBookings(onChange) {
     const types = ['NEW_BOOKING', 'UPDATE_BOOKING', 'DELETE_BOOKING'];
 
-    // 若 WebSocket 已連，等 INIT 後的推送會自動觸發；也訂閱 EventBus 本地事件
+    // 只透過 EventBus 訂閱（WS._handleMessage 已將事件 emit 到 EventBus）
+    // 避免同時訂閱 EventBus + WS.subscribe 造成每個事件觸發兩次（重複預約 bug）
     const handlers = types.map(type => {
       const fn = (data) => onChange({ eventType: type, booking: data });
       EventBus.on(type, fn);
       return { type, fn };
     });
 
-    // 同時訂閱 WS 原始事件（確保即使 EventBus 未觸發也能收到）
-    const unsub = WS.subscribe('*', ({ eventType, data }) => {
-      if (types.includes(eventType)) {
-        onChange({ eventType, booking: data });
-      }
-    });
-
     return () => {
       handlers.forEach(({ type, fn }) => EventBus.off(type, fn));
-      unsub();
     };
   },
 
@@ -602,21 +600,15 @@ const DB = {
   subscribeDesigners(onChange) {
     const types = ['NEW_DESIGNER', 'UPDATE_DESIGNER'];
 
+    // 只透過 EventBus 訂閱，避免雙重觸發
     const handlers = types.map(type => {
       const fn = (data) => onChange({ eventType: type, designer: data });
       EventBus.on(type, fn);
       return { type, fn };
     });
 
-    const unsub = WS.subscribe('*', ({ eventType, data }) => {
-      if (types.includes(eventType)) {
-        onChange({ eventType, designer: data });
-      }
-    });
-
     return () => {
       handlers.forEach(({ type, fn }) => EventBus.off(type, fn));
-      unsub();
     };
   },
 

@@ -229,7 +229,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-d
 // ── API ──────────────────────────────────────────────────────
 const API_BASE = (function(){
   const h = location.hostname;
-  if(h==='localhost'||h==='127.0.0.1') return 'http://'+h+':3000';
+  if(h==='localhost'||h==='127.0.0.1') return 'http://'+h+':3001';
   return window.AKB_API_URL || 'https://akb-salon-server.onrender.com';
 })();
 
